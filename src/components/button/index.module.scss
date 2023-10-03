@@ -1,0 +1,31 @@
+@import 'styles/variables';
+
+.buttonAccent {
+    text-decoration: none;
+
+    button {
+        width: fit-content;
+        @include flexbox(flex, row, center, center);
+        background: none;
+        border: 1px solid $c-text;
+        font-family: $f-regular;
+        font-size: $s-16;
+        font-weight: $medium;
+        color: $c-text;
+        padding: 1rem 2rem;
+        border-radius: 2rem;
+        cursor: pointer;
+        text-transform: uppercase;
+        transition: all ease-out $transition_fast;
+
+        @media only screen and (max-width: 992px) {
+            font-size: $s-14;
+            padding: 0.8rem 1.8rem;
+        }
+
+        &:hover {
+            background: $c-text;
+            color: $c-background;
+        }
+    }
+}

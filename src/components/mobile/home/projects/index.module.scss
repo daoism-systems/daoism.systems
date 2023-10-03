@@ -1,0 +1,24 @@
+@import "styles/variables";
+
+.projects {
+    @include flexbox(flex, column, center, center);
+    width: 100%;
+
+    .subtitle {
+        font-size: $s-20;
+        font-weight: $light;
+        margin: 1rem 0 0;
+        text-align: center;
+    }
+
+    .description {
+        color: $c-second;
+        font-size: $s-16;
+        font-weight: $light;
+        margin: 1rem 0 2rem;
+        max-width: 30.5rem;
+        text-align: center;
+        padding: 0 1.5rem;
+    }
+
+}

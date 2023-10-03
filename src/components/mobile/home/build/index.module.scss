@@ -1,0 +1,61 @@
+@import "styles/variables";
+
+.build {
+    position: relative;
+    flex: 1;
+    padding: 6rem 2rem;
+    @include flexbox(flex, column, flex-start, center);
+
+    .buildLeft {
+        .description {
+            font-size: $s-16;
+            margin: 0.5rem 0 0;
+            font-weight: $light;
+        }
+    }
+
+    .buildRight {
+        h2 {
+            font-size: $s-16;
+            font-weight: $light;
+        }
+
+        ul {
+            list-style: none;
+            margin: 0 0 3rem;
+
+            li {
+                margin: 2rem 0;
+
+                h3 {
+                    font-size: $s-16;
+                    font-weight: normal;
+                }
+
+                span {
+                    display: block;
+                    font-size: $s-14;
+                    font-weight: $light;
+                    color: $c-second;
+                    margin: 0.3rem 0 0;
+                    line-height: 1.6;
+                }
+            }
+        }
+    }
+}
+
+.video {
+    position: absolute;
+    padding: 5rem;
+    top: 50%;
+    left: 25%;
+    z-index: -1;
+    display: block;
+    width: 100%;
+    margin: 0 auto;
+    transition: all ease-out $transition_slow 0.5s;
+    pointer-events: none;
+    transform: scale(0);
+    opacity: 0.3;
+}

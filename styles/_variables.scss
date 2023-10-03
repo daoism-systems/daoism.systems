@@ -1,0 +1,76 @@
+/* fonts weight
+/––––––––––––––––––––––––*/
+$thin: 100;
+$extralight: 200;
+$light: 300;
+$regular: 400;
+$medium: 500;
+$semibold: 600;
+$bold: 700;
+$black: 900;
+
+/* colors
+/––––––––––––––––––––––––*/
+$c-accent: var(--c-accent);
+$c-second: var(--c-second);
+$c-text: var(--c-text);
+$c-link: var(--c-link);
+$c-title: var(--c-title);
+$c-background: var(--c-background);
+$c-background-header: var(--c-background-header);
+$c-background-footer: var(--c-background-footer);
+$c-accent-gradient: var(--c-accent-gradient);
+
+/* fonts
+/––––––––––––––––––––––––*/
+$f-regular: "Inter", sans-serif;
+$f-regular-size: 0.9vw;
+$f-title: "Aeonik", sans-serif;
+
+$s-8: 0.5rem;
+$s-10: 0.625rem;
+$s-11: 0.688rem;
+$s-12: 0.75rem;
+$s-14: 0.875rem;
+$s-16: 1rem;
+$s-18: 1.125rem;
+$s-20: 1.25rem;
+$s-21: 1.313rem;
+$s-22: 1.375rem;
+$s-24: 1.5rem;
+$s-26: 1.625rem;
+$s-28: 1.75rem;
+$s-30: 1.875rem;
+$s-32: 2rem;
+$s-34: 2.125rem;
+$s-36: 2.25rem;
+$s-40: 2.5rem;
+$s-44: 2.75rem;
+$s-48: 3rem;
+$s-64: 4rem;
+$s-70: 4.375rem;
+
+/* transitions
+/––––––––––––––––––––––––*/
+$transition_fast: 0.4s;
+$transition_slow: 0.7s;
+
+/* radius
+/––––––––––––––––––––––––*/
+$r-radius: 10px;
+$r-radius-big: 40px;
+
+/* flex center
+/––––––––––––––––––––––––*/
+@mixin flexbox($d, $dr, $ai, $js) {
+    display: flex;
+    flex-direction: $dr;
+    align-items: $ai;
+    justify-content: $js;
+}
+
+@mixin img-fit($of) {
+    width: 100%;
+    height: 100%;
+    object-fit: $of;
+}

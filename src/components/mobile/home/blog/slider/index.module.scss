@@ -1,0 +1,55 @@
+@import "styles/variables";
+
+.sliderBox {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    margin: 1rem 0 0;
+}
+
+.slider {
+    :global {
+        .swiper-slide {
+            opacity: 0.25;
+            max-width: 80%;
+            transition: opacity ease-out $transition_slow;
+        }
+
+        .swiper-slide-active,
+        .swiper-slide-prev,
+        .swiper-slide-next {
+            opacity: 1;
+
+            &:hover {
+                img {
+                    transform: scale(1.08);
+                }
+            }
+        }
+    }
+}
+
+.categoryList {
+    margin: 1rem 0;
+
+    ul {
+        list-style: none;
+        @include flexbox(flex, row, center, center);
+
+        button {
+            background: transparent;
+            color: $c-second;
+            border: none;
+            font-size: $s-16;
+            color: $c-second;
+            cursor: pointer;
+            font-family: $f-regular;
+            margin: 0 0.5rem;
+            transition: all ease-out $transition_fast;
+
+            &:hover {
+                color: $c-text;
+            }
+        }
+    }
+}

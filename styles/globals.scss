@@ -1,0 +1,249 @@
+:root {
+  --c-accent: #ffdf37;
+  --c-second: #cacaca;
+  --c-text: #fff;
+  --c-link: #000;
+  --c-title: #fff;
+  --c-background: #040404;
+  --c-background-header: #1a1b37;
+  --c-background-footer: #020220;
+  --c-accent-gradient: linear-gradient(93.88deg, #de3ede 5.18%, #3935bc 100%);
+
+  --alias-easeOut: cubic-bezier(0.43, 0.195, 0.02, 1);
+  --alias-easeOut2: cubic-bezier(0.77, 0, 0.175, 1);
+  --alias-easeOut3: cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+@import "styles/variables";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  background-repeat: no-repeat;
+  background-position: 50% 50%;
+  background-size: contain;
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px black inset !important;
+  -webkit-text-fill-color: white !important;
+}
+
+@font-face {
+  font-family: 'Aeonik';
+  src: url('/public/fonts/Aeonik-MediumItalic.woff2') format('woff2'),
+      url('/public/fonts/Aeonik-MediumItalic.woff') format('woff');
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+}
+
+html {
+  margin: 0;
+  padding: 0;
+  height: -webkit-fill-available;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: $f-regular;
+  font-size: $f-regular-size;
+
+  @media only screen and (max-width: 992px) {
+    font-size: 100%;
+  }
+
+  @media only screen and (max-width: 378px) {
+    font-size: 80%;
+  }
+}
+
+body {
+  display: block;
+  background: $c-background;
+  color: $c-text;
+  cursor: default;
+  height: -webkit-fill-available;
+  -webkit-overflow-scrolling: auto;
+  transition: background ease-out $transition_fast, color ease-out $transition_fast;
+}
+
+h1 {
+  font-family: 'Russo One', sans-serif;
+}
+
+.canvas {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100% !important;
+  height: 100% !important;
+
+  canvas {
+    width: 100% !important;
+    height: 100% !important;
+  }
+}
+
+.canvasIntro {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 999;
+  // opacity: 0;
+  // pointer-events: none;
+}
+
+.section {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.95);
+  visibility: hidden;
+  transition: opacity ease-out 0.4s, transform ease-out 0.8s, visibility ease-out 0.4s;
+
+  &.active {
+    transform: scale(1);
+    pointer-events: all;
+    opacity: 1;
+    visibility: visible;
+    overflow: hidden;
+  }
+}
+
+.letter,
+.word {
+  display: inline-block;
+}
+
+.section.active .letter {
+  opacity: 0;
+  animation: 0.3s var(--alias-easeOut) 0.28s forwards blink !important;
+
+  &:nth-child(2) {
+    animation: 0.3s var(--alias-easeOut2) 0.06s forwards blink !important;
+  }
+
+  &:nth-child(3) {
+    animation: 0.3s var(--alias-easeOut3) 0.25s forwards blink !important;
+  }
+  &:nth-child(4) {
+    animation: 0.3s var(--alias-easeOut2) 0.14s forwards blink !important;
+  }
+  &:nth-child(5) {
+    animation: 0.3s var(--alias-easeOut) 0.18s forwards blink !important;
+  }
+  &:nth-child(6) {
+    animation: 0.3s var(--alias-easeOut3) 0.22s forwards blink !important;
+  }
+  &:nth-child(7) {
+    animation: 0.3s var(--alias-easeOut2) 0.04s forwards blink !important;
+  }
+}
+
+@keyframes blink {
+  0% {
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  40% {
+    opacity: 1;
+  }
+  60% {
+    opacity: 0;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.references {
+  .referencesTop {
+    > div {
+      opacity: 0;
+      transition: all ease-out $transition_slow 1s;
+    }
+
+    &::before {
+      opacity: 0;
+      transition: all ease-out $transition_slow;
+      transform: translate(-50%, -100%);
+    }
+  }
+
+  .referencesBottom {
+    > div {
+      opacity: 0;
+      transition: all ease-out $transition_slow 1s;
+    }
+
+    &::before {
+      opacity: 0;
+      transition: all ease-out $transition_slow;
+      transform: translate(-50%, 15%);
+    }
+  }
+
+  &.active {
+    .referencesTop {
+      > div {
+        opacity: 1;
+      }
+
+      &::before {
+        opacity: 1;
+        transform: translate(-50%, -80%);
+      }
+    }
+
+    .referencesBottom {
+      > div {
+        opacity: 1;
+      }
+
+      &::before {
+        opacity: 1;
+        transform: translate(-50%, 5%);
+      }
+    }
+  }
+}
+
+.build {
+  &.active {
+    video {
+      @media only screen and (max-width: 992px) {
+        transform: scale(1);
+      }
+
+      transform: scale(1);
+    }
+  }
+}
+
+h1,h2 {
+  text-transform: none !important;
+}

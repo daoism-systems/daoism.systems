@@ -1,0 +1,28 @@
+@import 'styles/variables';
+
+.about {
+    width: 100%;
+    padding: 0 2rem;
+    
+    h2 {
+        font-size: $s-26;
+        font-weight: normal;
+        font-family: $f-title;
+        line-height: 1.4;
+        text-transform: uppercase;
+    
+        @media only screen and (max-width: 378px) {
+            font-size: $s-20;
+        }
+    }
+
+    .description {
+        font-size: $s-16;
+        margin: 0.5rem 0 2rem;
+        line-height: 1.6;
+    }
+
+    p {
+        margin: 1rem 0;
+    }
+}

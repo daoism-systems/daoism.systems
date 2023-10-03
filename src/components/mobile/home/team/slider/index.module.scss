@@ -1,0 +1,15 @@
+@import "styles/variables";
+
+.slider {
+    position: relative;
+    width: 80vw;
+    height: 60vh;
+    max-height: 25rem;
+    @include flexbox(flex, row, center, center);
+
+    :global {
+        .swiper-slide {
+            @include flexbox(flex, row, center, flex-start);
+        }
+    }
+}

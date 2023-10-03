@@ -1,0 +1,33 @@
+@import "styles/variables";
+
+.logo {
+    pointer-events: all;
+
+    &:global {
+        &.relative {
+            display: block;
+            width: fit-content;
+            position: relative;
+            margin: 2rem auto;
+        }
+
+        &.absolute {
+            position: absolute;
+            top: 2rem;
+            left: 50%;
+            transform: translate(-50%, 0);
+        }
+
+        &.fixed {
+            position: fixed;
+            top: 2rem;
+            left: 50%;
+            transform: translate(-50%, 0);
+        }
+    }
+
+    svg {
+        width: 8.125rem;
+        height: auto;
+    }
+}

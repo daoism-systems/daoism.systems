@@ -1,0 +1,186 @@
+@import "styles/variables";
+
+.contact {
+    max-width: 42vw;
+    width: 100%;
+    @include flexbox(flex, column, center, center);
+
+    .description {
+        margin: 1rem 0;
+        font-weight: $light;
+    }
+}
+
+.form {
+    width: 100%;
+
+    fieldset {
+        border: none;
+    }
+}
+
+.inputBox {
+    position: relative;
+    margin: 1.2rem 0;
+
+    &:focus-within {
+        > legend {
+            transform: translate(0, -70%);
+        }
+
+        > input {
+            border-color: $c-text;
+        }
+    }
+
+    input {
+        width: 100%;
+        background: transparent;
+        border: none;
+        padding: 1rem 0;
+        font-family: $f-regular;
+        font-size: $s-20;
+        border-bottom: 1px solid #848484;
+        color: $c-text;
+        transition: all ease-out $transition_fast;
+
+        &:focus {
+            outline: none;
+        }
+
+        &:not(:placeholder-shown) ~ .legend {
+            transform: translate(0, -70%);
+        }
+
+        &::placeholder {
+            opacity: 0;
+        }
+    }
+
+    legend {
+        position: absolute;
+        top: 0;
+        left: 0;
+        padding: 1.2rem 0 0;
+        font-family: $f-regular;
+        color: #848484;
+        pointer-events: none;
+        transition: all ease-out $transition_fast;
+    }
+}
+
+.textareaBox {
+    legend {
+        padding: 1rem 0 0.5rem;
+        font-family: $f-regular;
+        color: #848484;
+        transition: all ease-out $transition_fast;
+    }
+
+    textarea {
+        background: transparent;
+        width: 100%;
+        font-family: $f-regular;
+        font-size: $s-20;
+        border: 1px solid #848484;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        resize: none;
+        color: $c-text;
+        transition: all ease-out $transition_fast;
+
+        &:focus {
+            outline: none;
+            border-color: $c-text;
+        }
+    }
+}
+
+.formFooter {
+    @include flexbox(flex, row, center, space-between);
+    margin: 1rem 0 0;
+
+    .location {
+        @include flexbox(flex, row, center, center);
+        font-size: $s-16;
+        font-weight: $light;
+
+        svg {
+            display: block;
+            width: 2rem;
+            height: auto;
+            margin: 0 0.5rem 0 0;
+        }
+    }
+}
+
+.buttonSubmit {
+    @include flexbox(flex, row, center, center);
+    width: fit-content;
+    margin: 1rem 0;
+    font-family: $f-regular;
+    font-size: $s-20;
+    color: $c-text;
+    background: transparent;
+    border: 1px solid $c-text;
+    padding: 0.8rem 2rem;
+    border-radius: 3rem;
+    cursor: pointer;
+    transition: all ease-out $transition_fast;
+
+    &:hover {
+        background: $c-text;
+        color: #353535;
+    }
+}
+
+.info {
+    position: fixed;
+    bottom: 4rem;
+    right: 4rem;
+    width: fit-content;
+    background: #111;
+    border-radius: 0.5rem;
+    padding: 1rem 2rem;
+    z-index: 99;
+    @include flexbox(flex, row, center, space-between);
+    min-width: 20rem;
+    max-width: 30rem;
+    transition: all ease-out $transition_fast;
+
+    &.hidden {
+        opacity: 0;
+        transform: translate(0, 2rem);
+        visibility: hidden;
+        pointer-events: none;
+    }
+
+    &.success {
+        background: #000;
+        border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    &.error {
+        background: #000;
+        border: 1px solid darkred;
+    }
+
+    button {
+        background: transparent;
+        border: none;
+        padding: 0.5rem;
+        cursor: pointer;
+
+        &:hover {
+            svg {
+                transform: rotate(90deg);
+            }
+        }
+
+        svg {
+            width: 1rem;
+            height: auto;
+            transition: all ease-out $transition_fast;
+        }
+    }
+}

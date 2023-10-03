@@ -1,0 +1,25 @@
+@import 'styles/variables';
+
+.about {
+    max-width: 30rem;
+    align-self: flex-end;
+    margin: 0 13rem 0 0;
+
+    h2 {
+        font-size: $s-44;
+        font-weight: normal;
+        font-family: $f-title;
+        line-height: 1.4;
+        text-transform: uppercase;
+    }
+
+    .description {
+        font-size: $s-16;
+        margin: 1rem 0 2rem;
+        line-height: 1.6;
+
+        p {
+            margin: 1rem 0;
+        }
+    }
+}

@@ -1,0 +1,43 @@
+{
+  "name": "daoism",
+  "version": "0.1.0",
+  "private": false,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@react-spring/three": "^9.5.2",
+    "@react-three/drei": "^9.22.7",
+    "@react-three/fiber": "^8.3.1",
+    "@react-three/postprocessing": "^2.6.1",
+    "@sendgrid/mail": "^7.7.0",
+    "@types/three": "0.143.1",
+    "antd": "^4.23.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.2",
+    "lamina": "1.1.23",
+    "leva": "^0.9.30",
+    "lottie-react": "^2.3.1",
+    "next": "^12.2.5",
+    "next-seo": "^5.5.0",
+    "nextjs-google-analytics": "^2.1.0",
+    "nextjs-progressbar": "^0.0.14",
+    "postprocessing": "^6.28.5",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-media": "^1.10.0",
+    "react-scripts": "5.0.1",
+    "react-step-wizard": "^5.3.11",
+    "swiper": "^8.3.2",
+    "three": "^0.143.0"
+  },
+  "devDependencies": {
+    "address": "^1.2.0",
+    "eslint": "8.22.0",
+    "eslint-config-next": "12.2.5",
+    "sass": "^1.54.4"
+  }
+}

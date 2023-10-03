@@ -1,0 +1,221 @@
+@import "styles/variables";
+
+.references {
+    @include flexbox(flex, column, center, center);
+    position: relative;
+    width: 100%;
+    height: 100%;
+    padding: 8rem 0;
+    overflow: hidden;
+}
+
+.referencesTabs {
+    @include flexbox(flex, row, center, center);
+    margin: 1rem 0 2rem;
+
+    button {
+        position: relative;
+        background: transparent;
+        border: none;
+        font-family: $f-regular;
+        color: $c-text;
+        font-size: $s-18;
+        color: rgba(255, 255, 255, 0.5);
+        cursor: pointer;
+        padding: 0.5rem 0;
+        margin: 0 1rem;
+        transition: all ease-out $transition_fast;
+
+        &::before {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: radial-gradient(50% 50% at 50% 50%, #ffffff 0%, rgba(255, 255, 255, 0) 100%);
+            opacity: 0;
+            transform: scaleX(0);
+            transition: all ease-out $transition_fast;
+        }
+
+        &.active {
+            color: rgba(255, 255, 255, 1);
+            &::before {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+    }
+}
+
+.referencesList {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+    max-width: 70rem;
+    min-width: max-content;
+    min-height: 35vh;
+
+    .topItem {
+        margin: 2rem 8rem;
+        text-decoration: none;
+        @include flexbox(flex, column, center, center);
+
+        .icon {
+            position: relative;
+            width: 6.25rem;
+            height: 6.25rem;
+            @include flexbox(flex, column, center, center);
+            z-index: 1;
+            transition: all ease-out $transition_fast;
+
+            &::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                border-radius: 50%;
+                background: #000;
+                box-shadow: 0px 0px 59px rgba(145, 141, 124, 0.4);
+                z-index: -1;
+                transition: all ease-out $transition_fast;
+                animation: animation_pulse 3s infinite;
+            }
+
+            @keyframes animation_pulse {
+                0% {
+                    transform: scale(1);
+                }
+                50% {
+                    transform: scale(1.2);
+                }
+                100% {
+                    transform: scale(1);
+                }
+            }
+
+            svg,
+            img {
+                width: 100%;
+                max-width: 55%;
+                height: auto;
+
+                path,
+                circle {
+                    transition: all ease-out $transition_fast;
+                }
+            }
+        }
+
+        svg {
+            max-width: 48%;
+        }
+
+        .icon {
+            &::before {
+                animation-delay: 1s;
+            }
+        }
+
+        &:hover {
+            .icon {
+                &::before {
+                    background: $c-text;
+                }
+
+                svg {
+                    path {
+                        fill: #000;
+                    }
+                }
+            }
+        }
+
+        .text {
+            text-align: center;
+            margin: 1rem 0 0;
+            font-size: $s-18;
+            color: rgba(255, 255, 255, 0.25);
+            transition: all ease-out $transition_fast;
+        }
+
+        &:hover {
+            .icon {
+                transform: scale(1.1);
+            }
+
+            .text {
+                opacity: 1;
+                color: rgba(255, 255, 255, 1);
+                transform: translate(0, 1rem);
+            }
+        }
+    }
+}
+
+.referencesAnimation {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+
+    svg {
+        will-change: transform;
+    }
+
+    .circleOne {
+        position: absolute;
+        top: 0;
+        left: 0;
+        transform: translate(-35%, -80%);
+
+        svg {
+            width: 180rem;
+            height: 180rem;
+            animation: rotate infinite 30s linear;
+        }
+    }
+
+    .circleTwo {
+        position: absolute;
+        top: 0;
+        right: 0;
+        transform: translate(35%, -80%);
+
+        svg {
+            width: 180rem;
+            height: 180rem;
+            animation: rotate infinite 30s linear;
+        }
+    }
+
+    .circleThree {
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translate(-50%, 88%);
+
+        svg {
+            width: 90rem;
+            height: 90rem;
+            animation: rotate infinite 30s linear;
+        }
+    }
+}
+
+@keyframes rotate {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}

@@ -1,0 +1,72 @@
+@import "styles/variables";
+
+.sliderBox {
+    position: relative;
+    width: 100%;
+
+    :global {
+        .swiper {
+            overflow: unset;
+        }
+    }
+}
+
+.slider {
+    width: 100vw;
+    padding: 0 0 2rem;
+
+    :global {
+        .swiper-pagination-bullet-active {
+            --swiper-theme-color: white;
+        }
+
+        .swiper-pagination-bullet {
+            --swiper-pagination-bullet-inactive-color: white;
+            transition: all ease-out $transition_slow;
+        }
+
+        .swiper-slide {
+            width: 70% !important;
+            filter: blur(7px);
+        }
+
+        // .swiper-slide-prev {
+        //     opacity: 0.7;
+        //     transform: matrix(1, 0.17, 0, 0.99, 0, 0) translate(0, -12%);
+        // }
+
+        // .swiper-slide-next {
+        //     opacity: 0.7;
+        //     transform: matrix(1, -0.19, 0.01, 0.98, 0, 0) translate(0, -12%);
+        // }
+
+        .swiper-slide-active {
+            filter: blur(0);
+        }
+    }
+}
+
+.categoryList {
+    margin: 1.5rem 0 0;
+
+    ul {
+        list-style: none;
+        @include flexbox(flex, row, center, center);
+
+        button {
+            background: transparent;
+            color: $c-second;
+            border: none;
+            font-size: $s-16;
+            color: $c-second;
+            cursor: pointer;
+            font-family: $f-regular;
+            margin: 0 0.5rem;
+            transition: all ease-out $transition_fast;
+
+            &:hover {
+                color: $c-text;
+            }
+        }
+    }
+}

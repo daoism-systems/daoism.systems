@@ -1,0 +1,36 @@
+@import "styles/variables";
+
+.work {
+    width: 100%;
+    padding: 0 2rem;
+
+    .description {
+        color: $c-second;
+        font-weight: $light;
+        line-height: 1.6;
+        font-size: $s-16;
+    }
+
+    .workList {
+        list-style: none;
+        margin: 2rem 0 2.5rem;
+
+        li {
+            margin: 0.8rem 0;
+            @include flexbox(flex, row, center, flex-start);
+
+            span {
+                font-size: $s-16;
+                color: $c-second;
+                font-weight: $light;
+                margin: 0 0.8rem 0 0;
+            }
+
+            h4 {
+                font-size: $s-20;
+                font-family: $f-title;
+                font-weight: normal;
+            }
+        }
+    }
+}

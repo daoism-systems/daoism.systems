@@ -1,0 +1,71 @@
+@import "styles/variables";
+
+.sliderBox {
+    position: relative;
+    width: 100%;
+}
+
+.slider {
+    width: 80vw;
+    overflow: unset !important;
+    padding: 0 0 1rem;
+
+    :global {
+        .swiper-pagination-bullet-active {
+            --swiper-theme-color: white;
+        }
+
+        .swiper-pagination-bullet {
+            --swiper-pagination-bullet-inactive-color: white;
+            transition: all ease-out $transition_slow;
+        }
+
+        .swiper-wrapper {
+            height: 100% !important;
+        }
+
+        .swiper-slide {
+            filter: blur(7px);
+
+            > div,
+            > a {
+                pointer-events: none;
+            }
+        }
+
+        .swiper-slide-active {
+            > div,
+            > a {
+                pointer-events: auto;
+            }
+
+            filter: blur(0);
+            // transform: translate(0, 12%);
+        }
+    }
+}
+
+.categoryList {
+    margin: 1.5rem 0 0;
+
+    ul {
+        list-style: none;
+        @include flexbox(flex, row, center, center);
+
+        button {
+            background: transparent;
+            color: $c-second;
+            border: none;
+            font-size: $s-16;
+            color: $c-second;
+            cursor: pointer;
+            font-family: $f-regular;
+            margin: 0 0.5rem;
+            transition: all ease-out $transition_fast;
+
+            &:hover {
+                color: $c-text;
+            }
+        }
+    }
+}

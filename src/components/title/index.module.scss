@@ -1,0 +1,17 @@
+@import "styles/variables";
+
+.title {
+    font-size: $s-44;
+    font-weight: normal;
+    font-family: $f-title;
+    line-height: 1.4;
+    text-transform: uppercase;
+
+    @media only screen and (max-width: 992px) {
+        font-size: $s-26;
+    }
+
+    @media only screen and (max-width: 378px) {
+        font-size: $s-20;
+    }
+}

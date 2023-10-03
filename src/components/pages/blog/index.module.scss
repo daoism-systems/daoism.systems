@@ -1,0 +1,32 @@
+@import "styles/variables";
+
+.return {
+    position: sticky;
+    top: 2rem;
+    padding: 0 0 0 4vw;
+    margin: 0 0 -1.4rem;
+
+    button {
+        @include flexbox(flex, row, center, center);
+        background: transparent;
+        border: none;
+        color: $c-text;
+        font-family: $f-regular;
+        font-size: $s-16;
+        cursor: pointer;
+
+        &:hover {
+            svg {
+                transform: translate(-0.5rem, 0);
+            }
+        }
+
+        svg {
+            display: block;
+            width: 0.8rem;
+            height: auto;
+            margin: 0 1.2rem;
+            transition: all ease-out $transition_fast;
+        }
+    }
+}

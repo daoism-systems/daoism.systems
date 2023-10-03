@@ -1,0 +1,43 @@
+@import "styles/variables";
+
+.menuSocial {
+    ul {
+        @include flexbox(flex, row, center, center);
+        list-style: none;
+        margin: 2rem 0 0;
+    }
+
+    li {
+        margin: 0 1rem;
+
+        a {
+            width: 3.125rem;
+            height: 3.125rem;
+            @include flexbox(flex, row, center, center);
+            background: #010101;
+            box-shadow: 0px 10px 59px #444;
+            border-radius: 50%;
+            transition: all ease-out $transition_fast;
+
+            svg {
+                display: block;
+                width: 1.25rem;
+                height: auto;
+
+                path {
+                    transition: all ease-out $transition_fast;
+                }
+            }
+
+            &:hover {
+                background: $c-text;
+
+                svg {
+                    path {
+                        fill: #010101;
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,162 @@
+@import "styles/variables";
+
+.menu {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 100;
+    background: #000;
+    @include flexbox(flex, row, center, center);
+    pointer-events: none;
+    z-index: 100;
+
+    opacity: 0;
+    transition: opacity ease-out $transition_slow;
+
+    overflow: hidden;
+
+    &.active {
+        opacity: 1;
+        pointer-events: all;
+    }
+}
+
+.menubg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    @include flexbox(flex, row, center, center);
+
+    video {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+}
+
+.menuList {
+    position: relative;
+    
+    &.active {
+        ul {
+            li {
+                button {
+                    transform: scale(1);
+                    opacity: 1;
+                }
+            }
+        }
+    }
+
+    ul {
+        list-style: none;
+        @include flexbox(flex, column, center, center);
+
+        li {
+            width: 100vw;
+            margin: 0.7rem 0;
+            @include flexbox(flex, row, center, center);
+
+            button {
+                background: transparent;
+                border: none;
+                color: $c-text;
+                font-family: $f-regular;
+                font-size: $s-16;
+                font-weight: $semibold;
+                text-transform: uppercase;
+                text-align: center;
+                cursor: pointer;
+                transition: all ease-out $transition_slow;
+                opacity: 0;
+                transform: scale(0.8);
+
+                &:hover {
+                    transform: scale(1.1);
+                }
+            }
+        }
+    }
+}
+
+.menuSocial {
+    position: absolute;
+    bottom: 3rem;
+    width: 100%;
+}
+
+.menuButton {
+    pointer-events: all;
+    background: transparent;
+    border: none;
+    width: 3.25rem;
+    height: auto;
+    cursor: pointer;
+    z-index: 109;
+    @include flexbox(flex, column, center, center);
+
+    &.fixed {
+        position: fixed;
+        bottom: 0;
+    }
+
+    &:hover {
+        .lineDouble {
+            transform: scaleX(1.5);
+        }
+    }
+
+    &.active {
+        .lineDouble {
+            opacity: 0;
+            transform: scaleX(0);
+        }
+
+        .line {
+            &:nth-child(1) {
+                transform: rotate(45deg);
+            }
+
+            &:nth-child(3) {
+                transform: rotate(-45deg);
+            }
+        }
+    }
+
+    .line {
+        width: 100%;
+        height: 1.5px;
+        background: $c-text;
+        margin: 0.75rem 0;
+        transition: all ease-out $transition_slow;
+
+        &:nth-child(1) {
+            transform-origin: 0.5rem 0.2rem;
+        }
+
+        &:nth-child(3) {
+            transform-origin: 0.5rem -0.2rem;
+        }
+    }
+
+    .lineDouble {
+        width: 100%;
+        @include flexbox(flex, row, center, space-between);
+        transition: all ease-out $transition_slow;
+
+        .doub {
+            width: 100%;
+            height: 1px;
+            background: $c-text;
+
+            &:nth-child(1) {
+                margin: 0 0.5rem 0 0;
+            }
+        }
+    }
+}
