@@ -27,14 +27,14 @@ const sliders = [
     twitter: "https://twitter.com/isolomonovs",
     tab: "management",
   },
-  {
-    imageUrl: "/team/10.jpg",
-    name: "Benjamin",
-    position: "CTO",
-    twitter: "https://twitter.com/bxmmm",
-    github: "https://github.com/bxmmm1",
-    tab: "development",
-  },
+  // {
+  //   imageUrl: "/team/10.jpg",
+  //   name: "Benjamin",
+  //   position: "CTO",
+  //   twitter: "https://twitter.com/bxmmm",
+  //   github: "https://github.com/bxmmm1",
+  //   tab: "development",
+  // },
   {
     imageUrl: "/team/2.jpg",
     name: "Aleksandra",

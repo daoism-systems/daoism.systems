@@ -72,7 +72,7 @@ function ContentDesktop() {
       pipe.current.children[6].classList.toggle(styles.active, r7);
       pipe.current.children[7].classList.toggle(styles.active, r8);
       pipe.current.children[8].classList.toggle(styles.active, r9);
-      pipe.current.children[9].classList.toggle(styles.active, r10);
+      // pipe.current.children[9].classList.toggle(styles.active, r10);
 
       sectionsRef.current.children[0].classList.toggle("active", r1);
       sectionsRef.current.children[1].classList.toggle("active", r2);
@@ -83,7 +83,7 @@ function ContentDesktop() {
       sectionsRef.current.children[6].classList.toggle("active", r7);
       sectionsRef.current.children[7].classList.toggle("active", r8);
       sectionsRef.current.children[8].classList.toggle("active", r9);
-      sectionsRef.current.children[9].classList.toggle("active", r10);
+      // sectionsRef.current.children[9].classList.toggle("active", r10);
     }
   });
 
@@ -112,9 +112,9 @@ function ContentDesktop() {
         <References />
       </div>
 
-      <div className={`${styles.section} section`}>
+      {/* <div className={`${styles.section} section`}>
         <Team />
-      </div>
+      </div> */}
 
       <div className={`${styles.section} section build`}>
         <Build />
@@ -203,14 +203,14 @@ function ContentDesktop() {
           >
             9
           </button>
-          <button
+          {/* <button
             type={"button"}
             onClick={() =>
               (scroll.el.scrollTop = 0.93 * scroll.el.scrollHeight)
             }
           >
             10
-          </button>
+          </button> */}
         </div>
       </div>
       <Effects />
