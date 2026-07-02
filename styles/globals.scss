@@ -25,7 +25,6 @@
   background-repeat: no-repeat;
   background-position: 50% 50%;
   background-size: contain;
-  overscroll-behavior-y: none;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -50,6 +49,8 @@ html {
   margin: 0;
   padding: 0;
   height: -webkit-fill-available;
+  // on `*` this blocks scroll chaining out of overflow:hidden boxes and kills wheel scrolling entirely
+  overscroll-behavior-y: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-family: $f-regular;
@@ -70,6 +71,7 @@ body {
   color: $c-text;
   cursor: default;
   height: -webkit-fill-available;
+  overscroll-behavior-y: none;
   -webkit-overflow-scrolling: auto;
   transition: background ease-out $transition_fast, color ease-out $transition_fast;
 }
