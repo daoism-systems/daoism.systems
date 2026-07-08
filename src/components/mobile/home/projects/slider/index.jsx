@@ -13,22 +13,14 @@ import styles from "./index.module.scss";
 import { Autoplay, Mousewheel, Pagination, EffectCoverflow } from "swiper";
 
 const sliders = [
-   {
-     id: 1,
-     // title: "SupremeDAO",
-     date: "10. 05.2023",
-     image: "/supremeDAO.jpeg",
-     link: "https://twitter.com/supreme_dao",
-     // type: "Project",
-   },
   {
     id: 1,
-    // title: "Nindao",
-    date: "25. 04. 2021",
-    image: "/nindao.jpg",
-    link: "https://nindao.xyz/",
+    // title: "Everstrat",
+    date: "03. 07. 2026",
+    image: "/everstrat.png",
+    link: "https://www.everstrat.xyz",
     // type: "Project",
-  }
+  },
 ];
 
 const Slider = ({ scroll }) => {
