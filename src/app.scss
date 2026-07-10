@@ -1,0 +1,776 @@
+@use '$lib/styles/variables' as *;
+
+@font-face {
+	font-family: 'IBM Plex Mono';
+	src: url('/fonts/IBMPlexMono-Bold.eot');
+	src:
+		url('/fonts/IBMPlexMono-Bold.eot?#iefix') format('embedded-opentype'),
+		url('/fonts/IBMPlexMono-Bold.woff2') format('woff2'),
+		url('/fonts/IBMPlexMono-Bold.woff') format('woff'),
+		url('/fonts/IBMPlexMono-Bold.ttf') format('truetype');
+	font-weight: bold;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'IBM Plex Mono';
+	src: url('/fonts/IBMPlexMono-ExtraLight.eot');
+	src:
+		url('/fonts/IBMPlexMono-ExtraLight.eot?#iefix') format('embedded-opentype'),
+		url('/fonts/IBMPlexMono-ExtraLight.woff2') format('woff2'),
+		url('/fonts/IBMPlexMono-ExtraLight.woff') format('woff'),
+		url('/fonts/IBMPlexMono-ExtraLight.ttf') format('truetype');
+	font-weight: 200;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'IBM Plex Mono';
+	src: url('/fonts/IBMPlexMono-BoldItalic.eot');
+	src:
+		url('/fonts/IBMPlexMono-BoldItalic.eot?#iefix') format('embedded-opentype'),
+		url('/fonts/IBMPlexMono-BoldItalic.woff2') format('woff2'),
+		url('/fonts/IBMPlexMono-BoldItalic.woff') format('woff'),
+		url('/fonts/IBMPlexMono-BoldItalic.ttf') format('truetype');
+	font-weight: bold;
+	font-style: italic;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'IBM Plex Mono';
+	src: url('/fonts/IBMPlexMono-ExtraLightItalic.eot');
+	src:
+		url('/fonts/IBMPlexMono-ExtraLightItalic.eot?#iefix') format('embedded-opentype'),
+		url('/fonts/IBMPlexMono-ExtraLightItalic.woff2') format('woff2'),
+		url('/fonts/IBMPlexMono-ExtraLightItalic.woff') format('woff'),
+		url('/fonts/IBMPlexMono-ExtraLightItalic.ttf') format('truetype');
+	font-weight: 200;
+	font-style: italic;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'IBM Plex Mono';
+	src: url('/fonts/IBMPlexMono-Italic.eot');
+	src:
+		url('/fonts/IBMPlexMono-Italic.eot?#iefix') format('embedded-opentype'),
+		url('/fonts/IBMPlexMono-Italic.woff2') format('woff2'),
+		url('/fonts/IBMPlexMono-Italic.woff') format('woff'),
+		url('/fonts/IBMPlexMono-Italic.ttf') format('truetype');
+	font-weight: normal;
+	font-style: italic;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'IBM Plex Mono';
+	src: url('/fonts/IBMPlexMono-LightItalic.eot');
+	src:
+		url('/fonts/IBMPlexMono-LightItalic.eot?#iefix') format('embedded-opentype'),
+		url('/fonts/IBMPlexMono-LightItalic.woff2') format('woff2'),
+		url('/fonts/IBMPlexMono-LightItalic.woff') format('woff'),
+		url('/fonts/IBMPlexMono-LightItalic.ttf') format('truetype');
+	font-weight: 300;
+	font-style: italic;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'IBM Plex Mono';
+	src: url('/fonts/IBMPlexMono-Light.eot');
+	src:
+		url('/fonts/IBMPlexMono-Light.eot?#iefix') format('embedded-opentype'),
+		url('/fonts/IBMPlexMono-Light.woff2') format('woff2'),
+		url('/fonts/IBMPlexMono-Light.woff') format('woff'),
+		url('/fonts/IBMPlexMono-Light.ttf') format('truetype');
+	font-weight: 300;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'IBM Plex Mono';
+	src: url('/fonts/IBMPlexMono-Medium.eot');
+	src:
+		url('/fonts/IBMPlexMono-Medium.eot?#iefix') format('embedded-opentype'),
+		url('/fonts/IBMPlexMono-Medium.woff2') format('woff2'),
+		url('/fonts/IBMPlexMono-Medium.woff') format('woff'),
+		url('/fonts/IBMPlexMono-Medium.ttf') format('truetype');
+	font-weight: 500;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'IBM Plex Mono';
+	src: url('/fonts/IBMPlexMono-MediumItalic.eot');
+	src:
+		url('/fonts/IBMPlexMono-MediumItalic.eot?#iefix') format('embedded-opentype'),
+		url('/fonts/IBMPlexMono-MediumItalic.woff2') format('woff2'),
+		url('/fonts/IBMPlexMono-MediumItalic.woff') format('woff'),
+		url('/fonts/IBMPlexMono-MediumItalic.ttf') format('truetype');
+	font-weight: 500;
+	font-style: italic;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'IBM Plex Mono';
+	src: url('/fonts/IBMPlexMono-Regular.eot');
+	src:
+		url('/fonts/IBMPlexMono-Regular.eot?#iefix') format('embedded-opentype'),
+		url('/fonts/IBMPlexMono-Regular.woff2') format('woff2'),
+		url('/fonts/IBMPlexMono-Regular.woff') format('woff'),
+		url('/fonts/IBMPlexMono-Regular.ttf') format('truetype');
+	font-weight: normal;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'IBM Plex Mono';
+	src: url('/fonts/IBMPlexMono-SemiBold.eot');
+	src:
+		url('/fonts/IBMPlexMono-SemiBold.eot?#iefix') format('embedded-opentype'),
+		url('/fonts/IBMPlexMono-SemiBold.woff2') format('woff2'),
+		url('/fonts/IBMPlexMono-SemiBold.woff') format('woff'),
+		url('/fonts/IBMPlexMono-SemiBold.ttf') format('truetype');
+	font-weight: 600;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'IBM Plex Mono';
+	src: url('/fonts/IBMPlexMono-Thin.eot');
+	src:
+		url('/fonts/IBMPlexMono-Thin.eot?#iefix') format('embedded-opentype'),
+		url('/fonts/IBMPlexMono-Thin.woff2') format('woff2'),
+		url('/fonts/IBMPlexMono-Thin.woff') format('woff'),
+		url('/fonts/IBMPlexMono-Thin.ttf') format('truetype');
+	font-weight: 100;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'IBM Plex Mono';
+	src: url('/fonts/IBMPlexMono-SemiBoldItalic.eot');
+	src:
+		url('/fonts/IBMPlexMono-SemiBoldItalic.eot?#iefix') format('embedded-opentype'),
+		url('/fonts/IBMPlexMono-SemiBoldItalic.woff2') format('woff2'),
+		url('/fonts/IBMPlexMono-SemiBoldItalic.woff') format('woff'),
+		url('/fonts/IBMPlexMono-SemiBoldItalic.ttf') format('truetype');
+	font-weight: 600;
+	font-style: italic;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'IBM Plex Mono';
+	src: url('/fonts/IBMPlexMono-ThinItalic.eot');
+	src:
+		url('/fonts/IBMPlexMono-ThinItalic.eot?#iefix') format('embedded-opentype'),
+		url('/fonts/IBMPlexMono-ThinItalic.woff2') format('woff2'),
+		url('/fonts/IBMPlexMono-ThinItalic.woff') format('woff'),
+		url('/fonts/IBMPlexMono-ThinItalic.ttf') format('truetype');
+	font-weight: 100;
+	font-style: italic;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'KH Interference TRIAL';
+	src: url('/fonts/KHInterferenceTRIAL-Regular.woff2') format('woff2');
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+
+:root {
+	--bg-primary: #20242d;
+	--accent-primary: #e64749;
+	--motion-ease-reveal: cubic-bezier(0.19, 1, 0.22, 1);
+	--motion-ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+	--motion-duration-fast: 0.35s;
+	--motion-duration-base: 0.5s;
+	--motion-duration-reveal: 0.75s;
+}
+
+@media (max-width: 1024px), (hover: none), (pointer: coarse) {
+	:root {
+		--motion-duration-fast: 0.44s;
+		--motion-duration-base: 0.62s;
+		--motion-duration-reveal: 0.95s;
+		--motion-ease-standard: cubic-bezier(0.26, 1, 0.34, 1);
+	}
+}
+
+html,
+body {
+	overscroll-behavior: none;
+	background-color: var(--bg-primary);
+	font-family: $font-main;
+	font-weight: 400;
+	line-height: 120%;
+	word-spacing: $word-spacing;
+	overflow: auto;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+	user-select: none;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	overscroll-behavior: none;
+	overflow-x: hidden;
+}
+
+h1,
+h2,
+h3 {
+	text-transform: uppercase;
+	font-family: $font-secondary;
+	word-spacing: $word-spacing;
+}
+
+.section {
+	position: absolute;
+	inset: 0;
+	padding: $offset-x;
+	color: #fff;
+
+	@include breakpoint(not-desktop) {
+		padding: $offset-x-phone $offset-x-phone $offset-y-phone;
+		overflow: hidden;
+
+		&:last-of-type {
+			padding-bottom: 0.6rem;
+		}
+	}
+
+	&__wrap {
+		width: 100%;
+
+		@media (min-width: 1600px) {
+			// max-width: $container-maxwidth;
+			//margin: 0 auto;
+		}
+
+		@media (min-width: 2245px) {
+			max-width: 90vw;
+		}
+	}
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+	width: 0px;
+	height: 0px;
+}
+
+// breakpoints classes
+.desktop-hide {
+	@include breakpoint(desktop) {
+		display: none;
+	}
+}
+
+.desktop-only {
+	@include breakpoint(not-desktop) {
+		display: none;
+	}
+}
+
+.section-reveal-paragraph {
+	font-size: var(--text-lg);
+	line-height: var(--tw-leading, var(--text-lg--line-height));
+	// 1ch = 0.6 × font-size in IBM Plex Mono, so the measure tracks the font steps below.
+	max-width: 44ch;
+	text-wrap: pretty;
+	// Declared here (not inherited from body) so the -0.35em recomputes at each font step.
+	word-spacing: $word-spacing;
+
+	@media (max-width: 1435px) {
+		font-size: 15px;
+		line-height: var(--tw-leading, var(--text-base--line-height));
+	}
+
+	@media (min-width: 2245px) {
+		font-size: var(--text-3xl);
+		line-height: var(--tw-leading, var(--text-3xl--line-height));
+	}
+}
+
+// Split-text spans (see splitText.ts). One shared GPU hint for reveal transforms.
+.char,
+.word {
+	display: inline-block;
+	transform: translate3d(0, 0, 0);
+	backface-visibility: hidden;
+}
+
+// animations
+
+@keyframes scale-rotate {
+	0% {
+		transform: scale(1) rotate(0deg);
+	}
+
+	80% {
+		transform: scale(1) rotate(0deg);
+	}
+
+	90% {
+		transform: scale(0.8) rotate(45deg);
+	}
+
+	100% {
+		transform: scale(1) rotate(90deg);
+	}
+}
+
+.hotspots {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	z-index: 2;
+}
+
+.hotspot {
+	position: relative;
+	background: none;
+	border: none;
+	outline: none;
+	padding: 0;
+	margin: 0;
+	//cursor: pointer;
+	z-index: 3;
+	width: fit-content;
+	display: flex;
+	pointer-events: all;
+	touch-action: manipulation;
+
+	@media (max-width: 1023px) {
+		display: none;
+	}
+
+	&--left {
+		text-align: right;
+	}
+
+	&__btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 3.3rem;
+		height: 3.3rem;
+		min-width: 3.3rem;
+		border-radius: 50%;
+		background: rgba(255, 255, 255, 0.05);
+		backdrop-filter: blur(20px);
+		-webkit-backdrop-filter: blur(20px);
+		/* Per design: faint outer rim, bright ring floating inset from the edge */
+		border: 1px solid rgba(255, 255, 255, 0.25);
+		position: relative;
+		transform: translateZ(0);
+		opacity: 1;
+		transition: all 0.25s ease;
+
+		&::before {
+			content: '';
+			position: absolute;
+			inset: 0.2rem;
+			border-radius: 50%;
+			border: 1px solid rgba(255, 255, 255, 0.9);
+			transform: scale(1);
+			transition: transform 0.3s cubic-bezier(0.37, 0, 0.63, 1);
+		}
+
+		@media (max-width: 1439px) {
+			backdrop-filter: blur(10px);
+			-webkit-backdrop-filter: blur(10px);
+			background: rgba(255, 255, 255, 0.12);
+			width: 42px;
+			height: 42px;
+			min-width: unset;
+		}
+
+		&:after {
+			content: '';
+			display: block;
+			width: 20%;
+			aspect-ratio: 1;
+			background: #fff;
+			border-radius: 50%;
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			transition: transform 0.25s;
+		}
+
+		svg {
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%) rotate(45deg) scale(0);
+			opacity: 0;
+			color: #fff;
+			width: 1.25rem;
+			height: 1.25rem;
+			transition:
+				transform 0.3s cubic-bezier(0.37, 0, 0.63, 1),
+				opacity 0.25s cubic-bezier(0.37, 0, 0.63, 1);
+		}
+
+		@media (hover: hover) and (pointer: fine) {
+			&:hover {
+				&::after {
+					transform: translate(-50%, -50%) scale(0.5);
+				}
+			}
+		}
+	}
+
+	&--active {
+		.hotspot__btn {
+			background: rgba(255, 255, 255, 0.12);
+			box-shadow: 0 0 20px rgba(255, 255, 255, 0.18);
+
+			/* Open state shows only the X — the dot tucks away and must not
+			   come back on hover/hover-out while open */
+			&::after,
+			&:hover::after {
+				transform: translate(-50%, -50%) scale(0);
+			}
+
+			/* The inset ring breathes out toward the rim as the X grows */
+			&::before {
+				transform: scale(1.08);
+			}
+
+			/* Per the reference: the X grows out of the center dot at a constant
+			   diagonal — no spin */
+			svg {
+				transform: translate(-50%, -50%) rotate(45deg) scale(1);
+				opacity: 1;
+			}
+		}
+	}
+
+	&__desc {
+		color: #fff;
+		position: absolute;
+		pointer-events: none;
+		left: 4.3rem;
+		top: 50%;
+		opacity: 1;
+		display: grid;
+		grid-template-rows: auto 1fr;
+		row-gap: 0.75rem;
+		width: max-content;
+		min-width: 25rem;
+		max-width: 27rem;
+		padding: 0.75rem 0.75rem 1.25rem 0.75rem;
+		border-radius: 0.75rem;
+		background: transparent;
+		transition: background 0.3s cubic-bezier(0.37, 0, 0.63, 1);
+		transform: translateY(-1.35rem) translateX(var(--hotspot-magnet-x, 0px))
+			translateX(var(--hotspot-shift-x, 0px));
+		-webkit-text-stroke: 0.5px rgba(255, 255, 255, 0.8);
+		text-shadow:
+			0 0 8px rgba(255, 255, 255, 0.6),
+			0 0 20px rgba(255, 255, 255, 0.4);
+
+		.hotspot--left & {
+			right: 4.3rem;
+			left: auto;
+
+			@media (max-width: 1439px) {
+				right: 3.2rem;
+			}
+		}
+
+		@media (max-width: 1439px) {
+			left: 50%;
+			right: auto;
+			top: calc(100% + 0.75rem);
+			transform: translateX(calc(-50% + var(--hotspot-magnet-x, 0px)));
+			min-width: 0;
+			text-align: left;
+			width: min(78vw, 19rem);
+			max-width: min(78vw, 19rem);
+			text-align: center;
+			pointer-events: auto;
+			cursor: pointer;
+			/* Mobile: idle card is visible, so here the description row does
+			   collapse and the card grows on open */
+			grid-template-rows: auto 0fr;
+			row-gap: 0;
+			/* Extra bottom padding reserves room for the absolutely-positioned
+			   "(Click to Read)" hint hanging below the title */
+			padding: 0.72rem 0.9rem calc(0.72rem + 1.4em);
+			border-radius: 0.95rem;
+			background: linear-gradient(165deg, rgba(28, 34, 46, 0.68) 0%, rgba(11, 15, 24, 0.52) 100%);
+			border: 1px solid rgba(255, 255, 255, 0.14);
+			box-shadow:
+				0 14px 32px rgba(3, 8, 18, 0.45),
+				inset 0 1px 0 rgba(255, 255, 255, 0.18),
+				inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+			backdrop-filter: blur(14px) saturate(130%);
+			-webkit-backdrop-filter: blur(14px) saturate(130%);
+			transition:
+				background 0.34s cubic-bezier(0.4, 0, 0.2, 1),
+				border-color 0.34s cubic-bezier(0.4, 0, 0.2, 1),
+				box-shadow 0.34s cubic-bezier(0.4, 0, 0.2, 1),
+				padding 0.34s cubic-bezier(0.4, 0, 0.2, 1),
+				grid-template-rows 0.4s cubic-bezier(0.37, 0, 0.63, 1),
+				row-gap 0.4s cubic-bezier(0.37, 0, 0.63, 1);
+			-webkit-text-stroke: 0;
+			text-shadow:
+				0 1px 1px rgba(4, 7, 12, 0.8),
+				0 6px 18px rgba(1, 3, 7, 0.35);
+
+			.hotspot--left & {
+				left: 50%;
+				right: auto;
+			}
+		}
+
+		h6 {
+			color: #fff;
+			position: relative;
+			font-feature-settings:
+				'liga' off,
+				'clig' off;
+			font-family: 'IBM Plex Mono';
+			font-size: 1rem;
+
+			letter-spacing: 0.01em;
+			text-wrap: balance;
+
+			@media (max-width: 1439px) {
+				font-size: 0.9rem;
+			}
+
+			span {
+				display: block;
+			}
+
+			.info {
+				color: rgba(255, 255, 255, 0.7);
+				font-weight: 400;
+
+				@media (max-width: 1439px) {
+					color: rgba(236, 242, 255, 0.82);
+				}
+			}
+		}
+
+		p {
+			color: rgba(255, 255, 255, 0.8);
+			/* Spacing below the title comes from the animated row-gap,
+			   not margin — margin would leak into the collapsed 0fr row */
+			margin: 0;
+			text-wrap: pretty;
+			line-height: 1.4;
+
+			@media (max-width: 1439px) {
+				color: rgba(246, 249, 255, 0.9);
+				font-size: 0.78rem;
+				line-height: 1.3;
+			}
+		}
+	}
+}
+
+.lil-gui {
+	--name-width: 6em;
+	--slider-knob-width: 0.5em;
+	--widget-padding: 0 0 0 0.5em;
+	--number-color: var(--accent-primary);
+	--widget-color: transparent;
+	--background-color: transparent;
+}
+
+.lil-gui > div {
+	background-color: transparent !important;
+}
+
+.lil-gui.root {
+	border-bottom-right-radius: 0.75rem;
+	margin: 0em;
+	padding: 0.05rem;
+	left: 0;
+	top: 0;
+	position: fixed;
+	background-color: rgba(32, 36, 45, 0.8);
+	backdrop-filter: blur(10px);
+	font-family: $font-main;
+	font-size: 18px;
+	line-height: 1.2;
+	width: 24rem;
+}
+
+.lil-gui .children {
+	padding-left: 0.5rem;
+	margin-top: 0.25rem;
+}
+
+.lil-gui input.top {
+	border-top-right-radius: 0.25em;
+}
+
+.lil-gui input.bottom,
+.lil-gui button.bottom {
+	border-bottom-right-radius: 1.5em;
+}
+
+.lil-gui .controller.option .widget div {
+	width: 9.15em;
+}
+
+.lil-gui .gap {
+	margin-bottom: 2em;
+}
+
+.lil-gui em {
+	color: Orange;
+	font-weight: bold;
+	font-style: normal;
+}
+
+.lil-gui big {
+	font-weight: bold;
+	text-transform: uppercase;
+}
+
+right {
+	color: $color-grey-100;
+	font-size: 100%;
+	float: right;
+}
+
+small {
+	display: block;
+	text-align: right;
+	text-decoration: none;
+	text-transform: uppercase;
+	padding-top: 0.5em;
+}
+
+a,
+.link {
+	font-weight: normal;
+	color: $color-grey-100;
+	padding: 0.25em;
+}
+
+a:visited,
+a:link,
+a:active,
+.link {
+	color: $color-grey-100;
+	text-decoration: none;
+	//cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	a:hover,
+	.link:hover {
+		text-decoration: none;
+		color: white;
+	}
+}
+
+.lil-gui .controller.string input {
+	font-family: Monospace;
+}
+
+/* --- Annotation Reveal Styles --- */
+
+.hotspot .info-mask {
+	position: absolute;
+	top: 100%;
+	left: 0;
+	right: 0;
+	height: 1.4em;
+	overflow: hidden;
+	pointer-events: none;
+}
+
+.hotspot .info {
+	display: block;
+	opacity: 1;
+	transform: translateY(0);
+	transition:
+		transform 0.3s cubic-bezier(0.37, 0, 0.63, 1),
+		opacity 0.25s cubic-bezier(0.37, 0, 0.63, 1);
+}
+
+.hotspot .desc {
+	word-spacing: normal;
+	opacity: 0;
+	min-height: 0;
+	overflow: hidden;
+	visibility: hidden;
+	font-size: 0.85rem;
+	pointer-events: none;
+	/* Delay visibility flip until the row has collapsed */
+	transition:
+		opacity 0.3s cubic-bezier(0.37, 0, 0.63, 1),
+		visibility 0s 0.4s;
+}
+
+.hotspot.hotspot--active .info {
+	opacity: 0;
+	transform: translateY(-120%);
+	transition:
+		transform 0.3s cubic-bezier(0.37, 0, 0.63, 1) 0.08s,
+		opacity 0.25s cubic-bezier(0.37, 0, 0.63, 1) 0.1s;
+}
+
+.hotspot.hotspot--active .desc {
+	opacity: 1;
+	visibility: visible;
+	pointer-events: auto;
+	transition:
+		opacity 0.3s cubic-bezier(0.37, 0, 0.63, 1),
+		visibility 0s 0s;
+}
+
+.hotspot.hotspot--active .hotspot__desc {
+	grid-template-rows: auto 1fr;
+	row-gap: 0.25rem;
+	border-color: rgba(255, 255, 255, 0.2);
+	padding-bottom: 0.72rem;
+	box-shadow:
+		0 16px 34px rgba(3, 8, 18, 0.5),
+		inset 0 1px 0 rgba(255, 255, 255, 0.24),
+		inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+
+	background: var(--colors-grey-grey-60060, rgba(43, 44, 48, 0.88));
+	backdrop-filter: blur(20px) saturate(135%);
+	-webkit-backdrop-filter: blur(20px) saturate(135%);
+	-webkit-text-stroke: 0;
+	text-shadow:
+		0 1px 2px rgba(4, 7, 12, 0.8),
+		0 6px 18px rgba(1, 3, 7, 0.35);
+}
+
+button {
+	cursor: pointer;
+}
+
+#profiler-toggle {
+	bottom: 1rem !important;
+	top: auto !important;
+}
+#profiler-mini-panel {
+	bottom: 3.5rem !important;
+	top: auto !important;
+}

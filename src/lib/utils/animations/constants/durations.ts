@@ -1,0 +1,3 @@
+export const DURATIONS = {
+	MOTION_REVEAL_DURATION: 750
+};
