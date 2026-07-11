@@ -38,6 +38,7 @@
 
 		if (!trimmedValue) {
 			if (field === 'message') return '';
+			if (field === 'name') return 'Alias is required';
 			return `${field[0].toUpperCase()}${field.slice(1)} is required`;
 		}
 
@@ -49,10 +50,10 @@
 		}
 
 		if (field === 'name') {
-			const namePattern = /^[A-Za-zÀ-ÖØ-öø-ÿ' -]+$/;
-			if (trimmedValue.length < 2) return 'Name must be at least 2 characters';
-			if (!namePattern.test(trimmedValue))
-				return 'Name can contain only letters, spaces, apostrophes, and hyphens';
+			const aliasPattern = /^[A-Za-zÀ-ÖØ-öø-ÿ0-9._' -]+$/;
+			if (trimmedValue.length < 2) return 'Alias must be at least 2 characters';
+			if (!aliasPattern.test(trimmedValue))
+				return 'Alias can contain only letters, numbers, dots, underscores, apostrophes, and hyphens';
 		}
 
 		return '';
@@ -132,7 +133,7 @@
 		<div class="contact-form__cell">
 			<InputField
 				type="text"
-				label="Name"
+				label="Alias"
 				placeholder="Satoshi Nakamoto"
 				hasError={Boolean(errors.name)}
 				bind:value={inputs.name}
@@ -178,7 +179,7 @@
 	{/if}
 	<Button
 		label={status.submitting ? 'Submitting...' : status.submitted ? 'Submitted' : 'Submit'}
-		data-cursor-text-label={status.submitting ? 'Please wait...' : status.submitted ? 'Done' : "Don't be scared"}
+		data-cursor-text-label={status.submitting ? 'Please wait...' : status.submitted ? 'Done' : 'Initializing handshake protocol'}
 		color="red"
 		type="submit"
 		{...status.submitting ? { disabled: true } : {}}
