@@ -179,7 +179,7 @@
 	{/if}
 	<Button
 		label={status.submitting ? 'Submitting...' : status.submitted ? 'Submitted' : 'Submit'}
-		data-cursor-text-label={status.submitting ? 'Please wait...' : status.submitted ? 'Done' : 'Initializing handshake protocol'}
+		data-cursor-text-label={status.submitting ? 'Please wait...' : status.submitted ? 'Done' : 'Initialize handshake protocol'}
 		color="red"
 		type="submit"
 		{...status.submitting ? { disabled: true } : {}}
