@@ -9,6 +9,7 @@
 	export let subtitle: string;
 	export let type: string;
 	export let index: number;
+	export let iconScale: number = 1;
 
 	let cardEl: HTMLDivElement;
 	let isHovering = false;
@@ -244,7 +245,7 @@
 		</div>
 		<div class="card__icon">
 			<div class="card__icon-inner">
-				<img src={icon} alt={`partner icon ${id}`} />
+				<img src={icon} alt={`partner icon ${id}`} style:transform={`scale(${iconScale})`} />
 			</div>
 		</div>
 	</div>

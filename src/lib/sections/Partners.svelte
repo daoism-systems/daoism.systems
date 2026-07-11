@@ -97,9 +97,8 @@
     { id: '01', title: 'Company Name', subtitle: 'DoinGud', type: 'Customer', icon: '/icons/iconPartner1.svg' },
     { id: '02', title: 'Company Name', subtitle: 'PrimeDAO', type: 'Customer', icon: '/icons/iconPartner2.svg' },
     { id: '03', title: 'Company Name', subtitle: 'Balancer', type: 'Customer', icon: '/icons/iconPartner3.svg' },
-    { id: '04', title: 'Company Name', subtitle: 'The DAOist', type: 'Customer', icon: '/daoist.gif' },
-    { id: '05', title: 'Company Name', subtitle: 'Ceramic Network', type: 'Customer', icon: '/icons/iconPartner4.png' },
-    { id: '06', title: 'Company Name', subtitle: 'Safe', type: 'Customer', icon: '/icons/iconPartnerSafe.svg' }
+    { id: '04', title: 'Company Name', subtitle: 'Ceramic Network', type: 'Customer', icon: '/icons/iconPartner4.png' },
+    { id: '05', title: 'Company Name', subtitle: 'Safe', type: 'Customer', icon: '/icons/iconPartnerSafe.svg', iconScale: 1.7 }
   ];
 </script>
 
@@ -139,6 +138,7 @@
       title={card.title}
       subtitle={card.subtitle}
       type={card.type}
+      iconScale={card.iconScale ?? 1}
       index={index}
     />
   {/each}
