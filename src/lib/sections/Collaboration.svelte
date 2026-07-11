@@ -86,7 +86,7 @@
 		use:headingReveal={subtitleRevealOptions}
 	>
 		<span class="text-line">
-		    Tell us about your <span class="highlight">project requirements</span>
+		    Tell us about your <span class="highlight">project</span>
 		</span>
 	</div>
 
