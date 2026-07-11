@@ -41,11 +41,11 @@
 
   <div class="about__desc section-reveal-paragraph">
     <p use:textReveal={paragraphRevealOptions}>
-        We design and build coordination systems for network economies.
+        Coordination is the hardest problem on the internet. We design and build the systems that solve it for network economies.
     </p>
 
     <p use:textReveal={paragraphRevealOptions}>
-        We deliver work on DeFi, DAOs, open-source AI tooling and protocols.
+        DeFi, DAOs, open-source AI tooling and protocols — engineered end to end.
     </p>
   </div>
 
