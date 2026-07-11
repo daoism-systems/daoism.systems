@@ -1,6 +1,0 @@
-@import "styles/variables";
-
-.blog {
-    @include flexbox(flex, column, center, center);
-    width: 100%;
-}

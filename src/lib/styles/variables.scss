@@ -1,0 +1,168 @@
+@use 'sass:map';
+
+// colors
+$color-red: #e64749;
+$color-dark: #121214;
+
+$color-grey-100: #606372;
+$color-grey-200: rgba(#5d5f73, 0.4);
+$color-grey-300: #a8aebc;
+$color-grey-400: #29292e;
+$color-grey-500: #a8aebc;
+$color-grey-600: rgba(#2b2c30, 0.6);
+$color-grey-bg: #20242d;
+
+$color-text: #8a909f;
+
+// fonts-family
+$font-main: 'IBM Plex Mono', monospace;
+$font-secondary: 'KH Interference TRIAL';
+
+// mixins
+
+// wave
+
+// @mixin gradient-text {
+// 	background: linear-gradient(
+// 		45deg,
+// 		#c1cade 0%,
+// 		#111420 25%,
+// 		#c1cade 50%,
+// 		#111420 75%,
+// 		#c1cade 100%
+// 	);
+// 	background-size: 200% auto;
+// 	background-position: 0% center;
+// 	-webkit-background-clip: text;
+// 	-webkit-text-fill-color: transparent;
+// 	background-clip: text;
+// 	color: transparent;
+// 	animation: gradientWave 5s linear infinite;
+// }
+
+// @keyframes gradientWave {
+// 	0% {
+// 		background-position: 200% center;
+// 	}
+// 	100% {
+// 		background-position: 0% center;
+// 	}
+// }
+
+@mixin gradient-text {
+	background-image: linear-gradient(125deg, #c1cade 0%, #111420 95%);
+
+	background-repeat: no-repeat;
+	background-position: bottom right;
+
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+	color: transparent;
+
+	animation: gradientGrow 4s ease-out infinite;
+}
+
+@mixin gradient-text-updated {
+	//background-image: linear-gradient(125deg, rgba(193, 202, 222, 0.95), rgba(41, 50, 84, 0.98) 95%);
+	background-image: linear-gradient(
+		95deg,
+		rgba(193, 202, 222, 0.95) 47%,
+		rgba(41, 50, 84, 0.98) 97%
+	);
+	background-clip: text; /* Clip the background to the text shape */
+	-webkit-background-clip: text; /* Essential for Chrome/Safari */
+	color: transparent; /* Make the text transparent so the background shows through */
+	-webkit-text-stroke: 1px #293254;
+
+	&::before {
+		content: attr(data-text);
+		position: absolute;
+		left: 5px;
+		top: 0;
+		z-index: -1;
+		color: rgba(41, 50, 84, 0.75);
+		pointer-events: none;
+
+		// ALT
+		//left: 0;
+		//-webkit-text-stroke: 5px rgba(41, 50, 84, 0.75);
+		//text-stroke: 5px rgba(41, 50, 84, 0.75);
+	}
+}
+
+@keyframes gradientGrow {
+	0%,
+	100% {
+		background-size: 100% auto;
+	}
+	50% {
+		background-size: 200% auto;
+	}
+}
+
+// breakpoints
+$breakpoints: (
+	small-phone: (
+		value: 390px,
+		type: max
+	),
+	phone: (
+		value: 767px,
+		type: max
+	),
+	tablet: (
+		min: 767px,
+		max: 1024px
+	),
+	not-phone: (
+		value: 767px,
+		type: min
+	),
+	not-desktop: (
+		value: 1024px,
+		type: max
+	),
+	desktop: (
+		value: 1024px,
+		type: min
+	),
+	hd: (
+		value: 1920px,
+		type: min
+	)
+);
+
+@mixin breakpoint($breakpoint) {
+	$breakpoint-data: map.get($breakpoints, $breakpoint);
+
+	@if map.has-key($breakpoint-data, min) and map.has-key($breakpoint-data, max) {
+		$min: map.get($breakpoint-data, min);
+		$max: map.get($breakpoint-data, max);
+		@media (min-width: #{$min}) and (max-width: #{$max}) {
+			@content;
+		}
+	} @else if map.has-key($breakpoint-data, value) and map.has-key($breakpoint-data, type) {
+		$value: map.get($breakpoint-data, value);
+		$type: map.get($breakpoint-data, type);
+		@media (#{$type}-width: #{$value}) {
+			@content;
+		}
+	} @else {
+		@warn "Breakpoint `#{$breakpoint}` is not defined correctly.";
+	}
+}
+
+// offsets
+$offset-x: 1.2rem;
+$offset-x-phone: 0.625rem;
+
+$offset-y-phone: 5rem;
+
+$offset-content: 50%;
+$offset-content-top: 4.6rem;
+$word-spacing: -0.35em;
+
+$container-maxwidth: 1500px;
+
+$clip: polygon(0 0, 100% 0, 100% calc(100% - 1rem), calc(100% - 1rem) 100%, 0 100%);
