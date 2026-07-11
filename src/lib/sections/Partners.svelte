@@ -118,7 +118,7 @@
       style:transform={`translate3d(0, ${paragraphOffsetY}px, 0)`}
       use:textReveal={paragraphRevealOptions}
     >
-        We're proud to have built alongside these teams shaping web3 — and we'd be glad to see you among them.
+        We work through interdependence — our goals became our requirements.
     </p>
     <div
       class="partners__divider"
