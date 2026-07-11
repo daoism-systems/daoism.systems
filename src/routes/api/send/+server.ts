@@ -19,7 +19,8 @@ function getRequiredConfig() {
 
 function getSendgridMessage(error: unknown): string {
 	if (typeof error === 'object' && error && 'response' in error) {
-		const response = (error as { response?: { body?: { errors?: Array<{ message?: string }> } } }).response;
+		const response = (error as { response?: { body?: { errors?: Array<{ message?: string }> } } })
+			.response;
 		const message = response?.body?.errors?.[0]?.message;
 		if (message) {
 			return message;
@@ -42,15 +43,14 @@ export const POST: RequestHandler = async ({ request }) => {
 	sgMail.setApiKey(SG_API_KEY as string);
 
 	try {
-		const { name, email, message, phone } = (await request.json()) as {
+		const { name, email, message } = (await request.json()) as {
 			name?: string;
 			email?: string;
 			message?: string;
-			phone?: string;
 		};
 
-		if (!name || !email || !phone) {
-			return new Response('Name, email, and phone are required.', { status: 400 });
+		if (!name || !email) {
+			return new Response('Name and email are required.', { status: 400 });
 		}
 
 		await sgMail.send({
@@ -60,7 +60,6 @@ export const POST: RequestHandler = async ({ request }) => {
 			subject: 'Contact',
 			html: `<p><strong>name: </strong>${name}</p>
 				<p><strong>email: </strong>${email}</p>
-				<p><strong>phone: </strong>${phone}</p>
 				<p><strong>message: </strong>${message ?? ''}</p>`
 		});
 

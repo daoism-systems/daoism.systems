@@ -8,13 +8,25 @@
 	const SERVICES_CARDS = [
 		{
 			id: 1,
-			title: 'On-Chain Solutions',
-			description: 'Custom design and implementation of on-chain systems: smart contracts, DAOs, and DeFi protocols engineered end to end across web3.'
+			title: 'We Develop',
+			items: [
+				'Smart Contracts',
+				'User Interfaces',
+				'Interoperability Solutions',
+				'AI agents tooling',
+				'AI agents workflows'
+			]
 		},
 		{
 			id: 2,
-			title: 'Consultancy',
-			description: 'Advisory, architecture, and maintenance for precise system requirements, from protocol design reviews to ongoing on-chain support.'
+			title: 'We Design',
+			items: [
+				'Tokenomics',
+				'Governance systems',
+				'Treasury management solutions',
+				'Liquidity allocation strategies',
+				'Protocol architectures'
+			]
 		}
 	];
 
@@ -59,7 +71,11 @@
 				style:transform={`translate3d(0, ${(1 - cardProgress) * 56}px, 0)`}
 			>
 				<b class="services-card__title">{card.title}</b>
-				<p class="services-card__desc">{card.description}</p>
+				<ul class="services-card__list">
+					{#each card.items as item (item)}
+						<li>{item}</li>
+					{/each}
+				</ul>
 			</div>
 		{/each}
 	</div>
@@ -135,11 +151,14 @@
 				word-spacing: $word-spacing;
 			}
 
-			&__desc {
+			&__list {
 				font-size: 12px;
-				line-height: 1.2;
+				line-height: 1.5;
 				color: $color-grey-500;
 				word-spacing: $word-spacing;
+				list-style: none;
+				margin: 0;
+				padding: 0;
 			}
 		}
 	}

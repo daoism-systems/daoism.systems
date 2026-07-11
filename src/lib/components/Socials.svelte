@@ -28,10 +28,10 @@
 	<a
 		use:hoverSound
 		use:directionalFill
-		href="https://x.com/i/flow/login?redirect_after_login=%2Fdaoism_systems"
+		href="https://x.com/daoism_systems"
 		class="social-item"
 		target="_blank"
-		aria-label="X (Twitter)"
+		aria-label="X"
 		onmouseenter={handleSocialHoverStart}
 		onmouseleave={handleSocialHoverEnd}
 		onfocus={handleSocialHoverStart}
@@ -42,9 +42,9 @@
 			<span class="social-item__circle"></span>
 		</span>
 		<div class="social-icon-group">
-			<svg viewBox="0 0 24 20" fill="none" xmlns="http://www.w3.org/2000/svg"
+			<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
 				><path
-					d="M23.3588 2.95521C22.5232 3.32575 21.6243 3.57637 20.6816 3.68829C21.6441 3.11163 22.3827 2.19919 22.7314 1.11017C21.8307 1.64443 20.8328 2.032 19.7716 2.2409C18.9214 1.33542 17.71 0.769531 16.3686 0.769531C13.795 0.769531 11.7077 2.85684 11.7077 5.43044C11.7077 5.79576 11.7491 6.15135 11.829 6.49269C7.95543 6.29839 4.52083 4.44292 2.22184 1.62218C1.82071 2.31042 1.5906 3.11163 1.5906 3.96567C1.5906 5.58234 2.41406 7.00957 3.66401 7.84519C2.90034 7.8212 2.18117 7.6116 1.55306 7.26158C1.55272 7.28139 1.55272 7.3012 1.55272 7.32067C1.55272 9.57899 3.16 11.4626 5.2918 11.8905C4.9011 11.9976 4.48851 12.0542 4.06409 12.0542C3.76308 12.0542 3.47144 12.0254 3.18711 11.9711C3.78011 13.8224 5.50105 15.1701 7.54109 15.208C5.94563 16.4583 3.93618 17.2032 1.75189 17.2032C1.37648 17.2032 1.00456 17.1813 0.640625 17.1378C2.70221 18.4608 5.15276 19.2321 7.78476 19.2321C16.3579 19.2321 21.0462 12.13 21.0462 5.97026C21.0462 5.7683 21.0417 5.56705 21.0327 5.36753C21.9441 4.71057 22.7341 3.8899 23.3588 2.95521Z"
+					d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.45-6.231Zm-1.161 17.52h1.833L7.084 4.126H5.117l11.966 15.644Z"
 					fill="currentColor"
 				/></svg>
 		</div>
@@ -78,10 +78,10 @@
 	<a
 		use:hoverSound
 		use:directionalFill
-		href="https://mirror.xyz/"
+		href="https://paragraph.com/@0013700"
 		class="social-item"
 		target="_blank"
-		aria-label="Mirror"
+		aria-label="Paragraph"
 		onmouseenter={handleSocialHoverStart}
 		onmouseleave={handleSocialHoverEnd}
 		onfocus={handleSocialHoverStart}
@@ -92,10 +92,13 @@
 			<span class="social-item__circle"></span>
 		</span>
 		<div class="social-icon-group">
-			<svg viewBox="0 0 16 20" fill="none" xmlns="http://www.w3.org/2000/svg"
+			<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
 				><path
-					d="M0.5 7.5C0.5 3.35786 3.85786 0 8 0C12.1421 0 15.5 3.35786 15.5 7.5V20H0.5V7.5Z"
-					fill="currentColor"
+					d="M13 4v16m4-16v16M19 4H9.5a4.5 4.5 0 0 0 0 9H13"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
 				/></svg>
 		</div>
 	</a>

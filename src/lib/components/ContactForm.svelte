@@ -6,7 +6,6 @@
 	let inputs = {
 		name: '',
 		email: '',
-		phone: '',
 		message: ''
 	};
 
@@ -15,7 +14,6 @@
 	let errors: Record<FieldName, string> = {
 		name: '',
 		email: '',
-		phone: '',
 		message: ''
 	};
 
@@ -40,7 +38,6 @@
 
 		if (!trimmedValue) {
 			if (field === 'message') return '';
-			if (field === 'phone') return 'Phone number is required';
 			return `${field[0].toUpperCase()}${field.slice(1)} is required`;
 		}
 
@@ -58,11 +55,6 @@
 				return 'Name can contain only letters, spaces, apostrophes, and hyphens';
 		}
 
-		if (field === 'phone') {
-			const phonePattern = /^[+]?[\d\s\-()]{7,}$/;
-			if (!phonePattern.test(trimmedValue)) return 'Enter a valid phone number';
-		}
-
 		return '';
 	}
 
@@ -70,7 +62,6 @@
 		const nextErrors: Record<FieldName, string> = {
 			name: validateField('name', inputs.name),
 			email: validateField('email', inputs.email),
-			phone: validateField('phone', inputs.phone),
 			message: validateField('message', inputs.message)
 		};
 
@@ -124,8 +115,8 @@
 				submitting: false,
 				info: { error: false, msg }
 			};
-			inputs = { name: '', email: '', phone: '', message: '' };
-			errors = { name: '', email: '', phone: '', message: '' };
+			inputs = { name: '', email: '', message: '' };
+			errors = { name: '', email: '', message: '' };
 		} else {
 			status = {
 				...status,
@@ -168,22 +159,6 @@
 			/>
 			{#if errors.email}
 				<p class="field-error">{errors.email}</p>
-			{/if}
-		</div>
-		<div class="contact-form__cell">
-			<InputField
-				type="tel"
-				label="Number"
-				placeholder="+32 470 12 34 56"
-				hasError={Boolean(errors.phone)}
-				bind:value={inputs.phone}
-				id="phone"
-				name="phone"
-				required={true}
-				oninput={() => handleOnChange('phone')}
-			/>
-			{#if errors.phone}
-				<p class="field-error">{errors.phone}</p>
 			{/if}
 		</div>
 	</div>
@@ -257,23 +232,19 @@
 		}
 
 		&__cell {
-			width: calc((100% - 2rem) / 3);
+			width: calc((100% - 1rem) / 2);
 			display: flex;
 			flex-direction: column;
 			gap: 0.25rem;
 			min-width: 0;
 
 			@media (min-width: 2245px) {
-				width: calc((100% - 3rem) / 3);
+				width: calc((100% - 1.5rem) / 2);
 				gap: 0.4rem;
 			}
 
 			@include breakpoint(tablet) {
 				width: calc(50% - 0.5rem);
-
-				&:last-of-type {
-					width: 100%;
-				}
 			}
 
 			@include breakpoint(phone) {

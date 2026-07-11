@@ -28,7 +28,7 @@
 
   // Row slices (clock-space), top → bottom. Same row → same onset.
   let headingSlice = $derived(sliceOf(clock, 0.0, 0.42)); // row 1 (left)
-  let fieldsSlice = $derived(sliceOf(clock, 0.05, 0.55)); // row 1 (right): name / email / number
+  let fieldsSlice = $derived(sliceOf(clock, 0.05, 0.55)); // row 1 (right): name / email
   let leadSlice = $derived(sliceOf(clock, 0.15, 0.62)); // row 2 (left)
   let messageSlice = $derived(sliceOf(clock, 0.15, 0.62)); // row 2 (right): message — staggers with the lead
   let lynksenSlice = $derived(sliceOf(clock, 0.28, 0.74)); // row 3 (left)
@@ -524,7 +524,7 @@
   }
 
   /* Form reveals in row beats driven from Contact.svelte (default 1 keeps it visible without JS). */
-  /* Row 1 — the Name / Email / Number row. */
+  /* Row 1 — the Name / Email row. */
   :global(.contact .contact-form__row) {
     opacity: var(--contact-fields-progress, 1);
     transform: translate3d(0, calc((1 - var(--contact-fields-progress, 1)) * 24px), 0);

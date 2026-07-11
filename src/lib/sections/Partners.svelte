@@ -105,7 +105,7 @@
 <div class="partners">
   <Heading
     className="partners"
-    text={['Previous', 'collaborations']}
+    text={['Teams we previously', 'worked with']}
     sup="5"
     position="bottom"
     progress={sectionProgress}

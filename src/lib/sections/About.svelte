@@ -41,11 +41,11 @@
 
   <div class="about__desc section-reveal-paragraph">
     <p use:textReveal={paragraphRevealOptions}>
-        Daoism Systems is a web3 tech studio that designs and builds DAOs, DeFi protocols, and on-chain tooling for user-empowered futures.
+        We design and build coordination systems for network economies.
     </p>
 
     <p use:textReveal={paragraphRevealOptions}>
-        Our distributed, international team has been building in web3 since 2017 — bringing deep protocol engineering and governance expertise to every project we take on.
+        We deliver work on DeFi, DAOs, open-source AI tooling and protocols.
     </p>
   </div>
 

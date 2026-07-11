@@ -73,8 +73,8 @@ const SECTION_TEMPLATES: SectionTemplate[] = [
 		revealCompleteAt: DEFAULT_UI_REVEAL_END
 	},
 	{
-		label: 'Insights',
-		indicatorLabel: 'Insights',
+		label: 'Blog',
+		indicatorLabel: 'Blog',
 		duration: 0.52,
 		stretchWithSlides: true,
 		revealCompleteAt: VENTURES_UI_WINDOW.revealEnd

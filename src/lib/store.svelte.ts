@@ -68,10 +68,10 @@ type Vacancy = {
 
 export const vacancies: Vacancy[] = [
 	{
-		title: 'Discovery',
+		title: 'Listen',
 		textPosition: 'left',
 		description:
-			'We map your goals, technical constraints, and system requirements to define the right on-chain architecture.',
+			'We begin by listening — mapping your goals, constraints, and trust assumptions until the right architecture emerges.',
 		top: '50%',
 		left: '20%'
 	},
@@ -79,7 +79,7 @@ export const vacancies: Vacancy[] = [
 		title: 'Build',
 		textPosition: 'left',
 		description:
-			'We design and implement your DAO, DeFi protocol, or tooling with production-grade smart contract engineering.',
+			'We build with restraint: minimal surface area, production-grade engineering, nothing on-chain that has not earned its place.',
 		top: '60%',
 		left: '29%'
 	},
@@ -87,7 +87,7 @@ export const vacancies: Vacancy[] = [
 		title: 'Sustain',
 		textPosition: 'right',
 		description:
-			'We provide ongoing advisory, audits support, and maintenance so your system stays secure and evolves with web3.',
+			'We do not ship and vanish — we stay with the system, auditing, maintaining, and evolving it as the space around it changes.',
 		top: '50%',
 		left: '60%'
 	}
