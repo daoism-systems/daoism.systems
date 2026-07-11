@@ -465,37 +465,14 @@
     margin-top: -0.02em;
   }
 
-  :global(.contact .contact__heading .char) {
-    background-image: var(--contact-heading-gradient);
-    background-repeat: no-repeat;
-    background-size: 175% 175%, 155% 155%, 145% 145%;
-    background-position:
-      calc(50% + var(--contact-heading-drift-x) * 0.8)
-        calc(50% + var(--contact-heading-drift-y) * 0.8),
-      calc(50% + var(--contact-heading-drift-x)) calc(50% + var(--contact-heading-drift-y)),
-      calc(50% - var(--contact-heading-drift-x) * 0.55)
-        calc(50% - var(--contact-heading-drift-y) * 0.35);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    color: transparent;
-    -webkit-text-stroke: 0.35px rgba(221, 229, 246, 0.22);
-  }
-
+  /* Solid fill instead of `background-clip: text`. The gradient here is a single
+     flat color (rgb(210 215 225)), so a clipped fill is visually identical — but
+     `-webkit-background-clip: text` under the promoted (will-change/transform)
+     panel + heading layers triggers a Chromium raster bug that corrupts the glyph
+     at the layer origin, rendering the heading's first letter as a solid box. */
+  :global(.contact .contact__heading .char),
   :global(.contact .contact__heading) {
-    background-image: var(--contact-heading-gradient);
-    background-repeat: no-repeat;
-    background-size: 175% 175%, 155% 155%, 145% 145%;
-    background-position:
-      calc(50% + var(--contact-heading-drift-x) * 0.8)
-        calc(50% + var(--contact-heading-drift-y) * 0.8),
-      calc(50% + var(--contact-heading-drift-x)) calc(50% + var(--contact-heading-drift-y)),
-      calc(50% - var(--contact-heading-drift-x) * 0.55)
-        calc(50% - var(--contact-heading-drift-y) * 0.35);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    color: transparent;
+    color: rgb(210 215 225);
     -webkit-text-stroke: 0.35px rgba(221, 229, 246, 0.22);
   }
 
