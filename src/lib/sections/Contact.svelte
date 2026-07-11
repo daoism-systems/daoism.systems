@@ -218,7 +218,7 @@
             style:opacity={leadShow}
             style:transform={`translate3d(0, ${introCopyOffsetY}px, 0)`}
           >
-            Great things start with a conversation. Let’s take your idea from a spark to a digital reality.
+            A few sentences is enough — we’ll take it from there.
           </p>
         </div>
 
