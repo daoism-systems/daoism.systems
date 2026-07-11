@@ -118,7 +118,7 @@
       style:transform={`translate3d(0, ${paragraphOffsetY}px, 0)`}
       use:textReveal={paragraphRevealOptions}
     >
-        We work through interdependence — our goals became our requirements.
+        We work through interdependence — your goals become our requirements.
     </p>
     <div
       class="partners__divider"
