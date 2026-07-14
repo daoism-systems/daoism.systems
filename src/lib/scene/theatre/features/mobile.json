@@ -1523,7 +1523,7 @@
                       0
                     ],
                     "type": "bezier",
-                    "value": 1
+                    "value": 0.5
                   },
                   {
                     "id": "rgbs2kf0003",
@@ -1536,7 +1536,7 @@
                       0.496
                     ],
                     "type": "bezier",
-                    "value": 1
+                    "value": 0.2
                   },
                   {
                     "id": "rgbs3kf0004",
@@ -1549,7 +1549,7 @@
                       0
                     ],
                     "type": "bezier",
-                    "value": 1
+                    "value": 0.2
                   },
                   {
                     "id": "rgbs4kf0005",
@@ -1962,7 +1962,7 @@
                       0.46
                     ],
                     "type": "bezier",
-                    "value": 1
+                    "value": 0.8
                   },
                   {
                     "id": "fk4ee56729",
@@ -1975,7 +1975,7 @@
                       1
                     ],
                     "type": "bezier",
-                    "value": 1
+                    "value": 0.3
                   },
                   {
                     "id": "fk5ff6784b",
@@ -2294,7 +2294,33 @@
                       0
                     ],
                     "type": "bezier",
-                    "value": 4
+                    "value": 1
+                  },
+                  {
+                    "id": "tzxXipMTpP",
+                    "position": 14.167,
+                    "connectedRight": true,
+                    "handles": [
+                      0.5,
+                      1,
+                      0.5,
+                      0
+                    ],
+                    "type": "bezier",
+                    "value": 1
+                  },
+                  {
+                    "id": "IX8y7S6xOU",
+                    "position": 15.7,
+                    "connectedRight": true,
+                    "handles": [
+                      0.5,
+                      1,
+                      0.5,
+                      0
+                    ],
+                    "type": "bezier",
+                    "value": 0.5
                   }
                 ]
               },
@@ -4026,6 +4052,7 @@
   },
   "definitionVersion": "0.4.0",
   "revisionHistory": [
+    "n99uQf1T0adg3IcS",
     "DE0wo2kK9rTtjcTd",
     "uHXHBvGdVDSULnEc",
     "cicZ9_FrYKV8WZ6I",
@@ -4074,7 +4101,6 @@
     "AwcczL522EjPRxiU",
     "xafIXcSfnaaPD1p9",
     "gAkQHXxVgJCyP_Tq",
-    "moV5d9tN9AE4j3Zd",
-    "TjGFlmnsiLVudeDE"
+    "moV5d9tN9AE4j3Zd"
   ]
 }
