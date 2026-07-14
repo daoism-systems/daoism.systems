@@ -53,6 +53,7 @@ import {
 	type ActiveAxes,
 	type PatternEntry
 } from './voidHero.progression';
+import { chartSalienceGate, getChartForTrack, type TrackChart } from './voidHero.charts';
 
 export type {
 	RunHudState,
@@ -106,6 +107,7 @@ export class VoidHeroGame {
 	private padCoreHandles: GameMaterialHandle[] = [];
 	private padMeshes: THREE.Mesh[] = [];
 	private padCoreMeshes: THREE.Mesh[] = [];
+	private rimFlameMeshes: THREE.Mesh[] = [];
 	private padWorldPositions: THREE.Vector3[] = [];
 	private padProjScratch = new THREE.Vector3();
 	private padScreenX = new Array(LANE_COUNT).fill(0);
@@ -200,6 +202,18 @@ export class VoidHeroGame {
 	// arrive at the hit line. null until first music sync — see updateMusicSpawn.
 	private nextSpawnTime: number | null = null;
 
+	// Music-derived chart playback. When the current track has a generated
+	// chart, notes spawn from it (gated by stage densityBias via salience) and
+	// the beat clock above only paces stage progression. Null → pattern bank.
+	private currentChart: TrackChart | null = null;
+	private chartCursor = 0;
+	// The audio loops, so both clocks live on a virtual timeline of whole
+	// passes. The two counters are distinct: the cursor wraps the note list
+	// ~travel-time BEFORE the audio wraps (notes spawn ahead of arrival).
+	private chartAudioPass = 0;
+	private chartNotePass = 0;
+	private chartLastArrival: number | null = null;
+
 	private audioCtx: AudioContext | null = null;
 	private masterGain: GainNode | null = null;
 	private muted = false;
@@ -226,6 +240,7 @@ export class VoidHeroGame {
 		this.root.visible = false;
 		this.muted = this.readMutePreference();
 		this.currentTrack = this.resolveTrack(this.readStoredTrackId());
+		this.currentChart = getChartForTrack(this.currentTrack.id);
 		this.musicVolume = this.readStoredVolume();
 		this.bestScore = this.readStoredBestScore();
 		this.bestStageSteps = this.readStoredBestStageSteps();
@@ -250,6 +265,11 @@ export class VoidHeroGame {
 
 	get active(): boolean {
 		return this.playing;
+	}
+
+	/** True whenever `root` is live on screen — a run OR the mobile preview. */
+	get running(): boolean {
+		return this.playing || this.previewing;
 	}
 
 	getCameraView(aspect: number, out: GameCameraView): GameCameraView {
@@ -382,8 +402,34 @@ export class VoidHeroGame {
 	 * Seeds one instance per pool with sub-pixel opacity so the InstancedMesh draw actually
 	 * runs through the bloom/CA/fluid passes during warmup.
 	 */
-	setPrewarmVisible(visible: boolean): void {
+	/**
+	 * Expose every hidden game mesh (root, warmup group, FX pools) to a
+	 * compileAsync render-list capture. Both the expose and restore call MUST
+	 * happen within one synchronous block — no frame may present in between
+	 * (see NotFoundRenderer.precompileExposedAsync).
+	 */
+	setCompileVisible(visible: boolean): void {
 		this.root.visible = visible;
+		if (this.warmupGroup) this.warmupGroup.visible = visible;
+		for (const pool of [
+			this.hitRingPool,
+			this.hitBeamPool,
+			this.comboBoltPool,
+			this.comboImpactPool
+		]) {
+			if (pool) pool.mesh.visible = visible;
+		}
+	}
+
+	setPrewarmVisible(visible: boolean): void {
+		// Never hide a live run: the deferred post-reveal prewarm may race a real
+		// start(), and un-showing root / zeroing pool slot 0 would kill live FX.
+		if (!visible && this.running) return;
+		this.root.visible = visible;
+		// Rim flames have no opacity gate (pure noise alpha, additive) — they would
+		// visibly flash during on-screen prewarm frames. Their pipelines still
+		// compile via the setCompileVisible capture.
+		for (const mesh of this.rimFlameMeshes) mesh.visible = !visible;
 		const pools = [this.hitRingPool, this.hitBeamPool, this.comboBoltPool, this.comboImpactPool];
 		for (const pool of pools) {
 			if (!pool) continue;
@@ -447,6 +493,9 @@ export class VoidHeroGame {
 	private resetRunState(): void {
 		this.gameOver = false;
 		this.root.visible = true;
+		// A run may begin mid-prewarm, where the guarded setPrewarmVisible(false)
+		// never runs — make sure the flames are back for the live run.
+		for (const mesh of this.rimFlameMeshes) mesh.visible = true;
 		this.elapsed = 0;
 		this.introProgress = 0;
 		this.score = 0;
@@ -920,6 +969,7 @@ export class VoidHeroGame {
 			mesh.frustumCulled = false;
 			mesh.castShadow = false;
 			mesh.receiveShadow = false;
+			this.rimFlameMeshes.push(mesh);
 			this.root.add(mesh);
 		}
 	}
@@ -1063,7 +1113,7 @@ export class VoidHeroGame {
 		}
 	}
 
-	private advanceAndSpawnStep(): void {
+	private advanceProgressionStep(): void {
 		this.totalSteps++;
 		const axes = getActiveAxes(this.totalSteps);
 		const stageChanged = axes.stageName !== this.currentStageName;
@@ -1072,6 +1122,12 @@ export class VoidHeroGame {
 			this.currentStageName = axes.stageName;
 		}
 		this.currentAxes = axes;
+		// Pull HUD updates so the stage progress bar advances without needing a hit.
+		this.publishRunHud();
+	}
+
+	private advanceAndSpawnStep(): void {
+		this.advanceProgressionStep();
 
 		if (
 			this.currentPattern === null ||
@@ -1093,9 +1149,6 @@ export class VoidHeroGame {
 				}
 			}
 		}
-
-		// Pull HUD updates so the stage progress bar advances without needing a hit.
-		this.publishRunHud();
 	}
 
 	private pickNextProgressionPattern(): void {
@@ -1959,6 +2012,10 @@ export class VoidHeroGame {
 		}
 
 		this.nextSpawnTime = null;
+		this.chartCursor = 0;
+		this.chartAudioPass = 0;
+		this.chartNotePass = 0;
+		this.chartLastArrival = null;
 		const playPromise = audio.play();
 		if (playPromise && typeof playPromise.catch === 'function') {
 			playPromise.catch(() => {
@@ -1991,24 +2048,104 @@ export class VoidHeroGame {
 	private updateMusicSpawn(): void {
 		if (!this.musicAudio || this.currentTrack.bpm <= 0) return;
 		const secPerBeat = 60 / this.currentTrack.bpm;
-		const baseStepBeats = Math.max(0.25, this.currentTrack.beatsPerStep);
+		// Chart mode: the beat clock only paces stage progression (1 step = 1 beat);
+		// notes spawn from the chart cursor below.
+		const baseStepBeats = this.currentChart ? 1 : Math.max(0.25, this.currentTrack.beatsPerStep);
 		const trackTime = this.musicAudio.currentTime - this.currentTrack.beatOffsetSec;
 		const travelTime = (this.frame.farT - this.frame.hitT) / this.getNoteSpeed();
 		const arrivalTime = trackTime + travelTime;
+		const baseStepSec = secPerBeat * baseStepBeats;
 
 		// First sync — anchor next-spawn arrival to the nearest aligned step boundary at or
 		// before now, so the very next tick fires immediately and subsequent steps land on-beat.
-		if (this.nextSpawnTime === null) {
-			const baseStepSec = secPerBeat * baseStepBeats;
+		// Also re-anchor when the looping audio wraps (currentTime snaps back to 0); without
+		// this the spawn clock would stall for a full pass after every loop.
+		if (this.nextSpawnTime === null || arrivalTime < this.nextSpawnTime - baseStepSec * 2) {
 			this.nextSpawnTime = Math.floor(arrivalTime / baseStepSec) * baseStepSec;
 		}
 
 		// Bounded loop: a frame stall could otherwise drown us in catch-up spawns.
 		let safety = 32;
 		while (safety-- > 0 && arrivalTime >= this.nextSpawnTime) {
-			this.advanceAndSpawnStep();
-			const patternBeats = this.currentPattern?.beatsPerStep ?? baseStepBeats;
-			this.nextSpawnTime += secPerBeat * Math.max(0.25, patternBeats);
+			if (this.currentChart) {
+				this.advanceProgressionStep();
+				this.nextSpawnTime += baseStepSec;
+			} else {
+				this.advanceAndSpawnStep();
+				const patternBeats = this.currentPattern?.beatsPerStep ?? baseStepBeats;
+				this.nextSpawnTime += secPerBeat * Math.max(0.25, patternBeats);
+			}
+		}
+
+		if (this.currentChart) this.updateChartSpawn(this.currentChart);
+	}
+
+	/**
+	 * Spawn notes from the music-derived chart. Chart times are absolute seconds
+	 * into the audio file; a note spawns when its arrival time (file time at
+	 * which it must reach the hit line) crosses the current arrival horizon.
+	 * The audio element loops, so a pass counter keeps the cursor's virtual
+	 * timeline monotonic across wraps.
+	 */
+	private updateChartSpawn(chart: TrackChart): void {
+		if (!this.musicAudio || chart.notes.length === 0) return;
+		const travelTime = (this.frame.farT - this.frame.hitT) / this.getNoteSpeed();
+		const arrival = this.musicAudio.currentTime + travelTime;
+
+		if (this.chartLastArrival === null) {
+			// First sync: skip notes already inside the arrival horizon — they would
+			// spawn mid-lane. The chart picks up cleanly from here on.
+			this.chartCursor = chart.notes.findIndex((n) => n.time >= arrival);
+			if (this.chartCursor < 0) {
+				this.chartCursor = 0;
+				this.chartNotePass = 1;
+			}
+		} else if (arrival < this.chartLastArrival - chart.durationSec * 0.5) {
+			// Audio looped.
+			this.chartAudioPass++;
+		}
+		this.chartLastArrival = arrival;
+
+		const virtualArrival = arrival + this.chartAudioPass * chart.durationSec;
+		const stage = getStageForStep(this.totalSteps);
+		// Run warm-up mirrors the pattern picker: stay sparse while hands find the keys.
+		const density = this.totalSteps < 16 ? Math.min(stage.densityBias, 0.12) : stage.densityBias;
+		const gate = chartSalienceGate(chart, density);
+		// Chords unlock with the stage, like the pattern bank — before that a
+		// chart chord collapses to its strongest note.
+		const allowChords = stage.allowedKinds.includes('chord');
+
+		let safety = 64;
+		while (safety-- > 0) {
+			const note = chart.notes[this.chartCursor];
+			if (!note) break;
+			if (note.time + this.chartNotePass * chart.durationSec > virtualArrival) break;
+
+			// Consume the whole chord cluster (same chart time, adjacent by construction).
+			let clusterEnd = this.chartCursor + 1;
+			while (clusterEnd < chart.notes.length && chart.notes[clusterEnd].time === note.time) {
+				clusterEnd++;
+			}
+			let best: (typeof chart.notes)[number] | null = null;
+			let second: (typeof chart.notes)[number] | null = null;
+			for (let i = this.chartCursor; i < clusterEnd; i++) {
+				const candidate = chart.notes[i];
+				if (candidate.salience < gate) continue;
+				if (!best || candidate.salience > best.salience) {
+					second = best;
+					best = candidate;
+				} else if (!second || candidate.salience > second.salience) {
+					second = candidate;
+				}
+			}
+			if (best) this.spawnNote(best.lane, best.holdSec);
+			if (second && allowChords) this.spawnNote(second.lane, second.holdSec);
+
+			this.chartCursor = clusterEnd;
+			if (this.chartCursor >= chart.notes.length) {
+				this.chartCursor = 0;
+				this.chartNotePass++;
+			}
 		}
 	}
 
@@ -2033,6 +2170,7 @@ export class VoidHeroGame {
 		const next = this.resolveTrack(id);
 		if (next.id === this.currentTrack.id && this.musicAudio) return;
 		this.currentTrack = next;
+		this.currentChart = getChartForTrack(next.id);
 		try {
 			localStorage.setItem(TRACK_STORAGE_KEY, next.id);
 		} catch {

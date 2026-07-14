@@ -51,12 +51,13 @@ import {
 import { SpriteNodeMaterial } from 'three/webgpu';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
-import { TGALoader } from 'three/addons/loaders/TGALoader.js';
 import { gaussianBlur } from 'three/addons/tsl/display/GaussianBlurNode.js';
 import { bloom } from 'three/examples/jsm/tsl/display/BloomNode.js';
 import { bayer16 } from 'three/addons/tsl/math/Bayer.js';
 import { ImprovedNoise } from 'three/addons/math/ImprovedNoise.js';
-import { Inspector } from 'three/addons/inspector/Inspector.js';
+// Debug-only GUI — loaded via dynamic import in init() so it stays out of the
+// production chunk. Only the type is imported here (erased at compile time).
+import type { Inspector } from 'three/addons/inspector/Inspector.js';
 import { fxaa } from 'three/examples/jsm/tsl/display/FXAANode.js';
 import { chromaticAberration } from '$lib/scene/postprocessing/CANode.js';
 import { fluidDistortion } from '$lib/scene/postprocessing/FluidDistortionNode';
@@ -69,9 +70,7 @@ import {
 	type PopupTier
 } from '../lib/voidhero/voidHero';
 import { SceneEventBus } from '../lib/voidhero/events';
-
 export type { PadLabel, PopupTier };
-export { SceneEventBus } from '../lib/voidhero/events';
 
 const LAYER_VOLUMETRIC_LIGHTING = 10;
 const isMobile = detectMob();
@@ -88,7 +87,11 @@ const NOT_FOUND_SCENE_SETTINGS = {
 	volumetricPassResolutionScale: 0.44,
 	fogScatterResolutionScale: 0.44,
 	sparkleCount: 520,
-	floorReflectorResolutionScale: isMobile ? 0 : 0.8
+	floorReflectorResolutionScale: isMobile ? 0 : 0.8,
+	// Post-compile warmup renders: frame 1 pays render-target allocation/first
+	// clears, frame 2 the steady-state path; the rest is margin. Each frame costs
+	// a full rAF wait, so this directly extends the loader.
+	warmupFrames: isMobile ? 2 : 3
 } as const;
 
 function closeInspectorGroup(group: unknown): void {
@@ -312,6 +315,50 @@ class NotFoundRenderer {
 		}
 	}
 
+	/**
+	 * Compile pipelines for a subtree that is hidden during normal rendering,
+	 * WITHOUT pausing presentation. `expose` is only active during compileAsync's
+	 * synchronous render-list capture — three restores all renderer state before
+	 * its first await and each work item snapshots its render context — so the
+	 * live animate loop never presents the exposed objects. Pipeline creation
+	 * then proceeds asynchronously (three yields between objects).
+	 */
+	async precompileExposedAsync(
+		scene: THREE.Scene,
+		camera: THREE.Camera,
+		expose: (visible: boolean) => void
+	): Promise<void> {
+		const promises: Promise<unknown>[] = [];
+
+		// Default-target pipeline variants (mirrors precompileAsync's first step).
+		expose(true);
+		try {
+			promises.push(this.renderer.compileAsync(scene, camera));
+		} finally {
+			expose(false);
+		}
+
+		// Scene-pass (MRT) variants — the context the subtree actually renders
+		// through. Same setRenderTarget/setMRT dance as PassNode.compileAsync, but
+		// restored synchronously: the captured work items keep their own context.
+		if (this.scenePass) {
+			const prevTarget = this.renderer.getRenderTarget();
+			const prevMRT = this.renderer.getMRT();
+			this.renderer.setRenderTarget(this.scenePass.renderTarget);
+			this.renderer.setMRT(this.scenePass.getMRT());
+			expose(true);
+			try {
+				promises.push(this.renderer.compileAsync(scene, camera));
+			} finally {
+				expose(false);
+				this.renderer.setRenderTarget(prevTarget);
+				this.renderer.setMRT(prevMRT);
+			}
+		}
+
+		await Promise.all(promises);
+	}
+
 	dispose(): void {
 		(this.postProcessing as any)?.dispose?.();
 		if (this.renderer) {
@@ -331,10 +378,19 @@ class NotFoundSketch {
 	private readonly debugEnabled =
 		typeof window !== 'undefined' &&
 		new URL(window.location.href).searchParams.get('debug') === 'true';
+	// Separate from ?debug=true: debug loads the Inspector mid-init, which would
+	// corrupt the phase timings this reports.
+	private readonly perfEnabled =
+		typeof window !== 'undefined' &&
+		new URL(window.location.href).searchParams.get('perf') === '1';
+	private perfLastMark: string | null = null;
 	private clock = new THREE.Clock();
 	private game: VoidHeroGame | null = null;
 	private pendingGameStart = false;
 	private pendingGamePreview = false;
+	// Deferred game prewarm (runs when the pre-start screen opens; see prewarmGame)
+	private gamePrewarmStarted = false;
+	private gamePrewarmFramesLeft = 0;
 
 	// Model
 	private gltfScene: THREE.Group | null = null;
@@ -511,13 +567,32 @@ class NotFoundSketch {
 		if (this.debugEnabled) console.warn(...args);
 	}
 
+	/** Marks the end of the named init phase; chained marks become measures. */
+	private perfMark(phase: string): void {
+		const mark = `404:${phase}`;
+		performance.mark(mark);
+		if (this.perfLastMark) performance.measure(mark, this.perfLastMark, mark);
+		this.perfLastMark = mark;
+	}
+
+	private perfReport(): void {
+		if (!this.perfEnabled) return;
+		const rows = performance
+			.getEntriesByType('measure')
+			.filter((entry) => entry.name.startsWith('404:'))
+			.map((entry) => ({ phase: entry.name.slice(4), ms: +entry.duration.toFixed(1) }));
+		console.table(rows);
+	}
+
 	private async init(): Promise<void> {
+		this.perfMark('init');
 		this.nfRenderer = new NotFoundRenderer();
 		await this.nfRenderer.init();
 		if (this.destroyed) {
 			this.nfRenderer.dispose();
 			return;
 		}
+		this.perfMark('rendererInit');
 
 		this.scene = new THREE.Scene();
 		this.scene.backgroundNode = color('#000');
@@ -583,6 +658,7 @@ class NotFoundSketch {
 		await this.loadModel();
 		if (this.destroyed) return;
 		this.modelReady = true;
+		this.perfMark('loadModel');
 
 		// Initialize fluid simulation (desktop only)
 		if (!isMobile) {
@@ -617,20 +693,31 @@ class NotFoundSketch {
 			volumetricPassResolutionScale: NOT_FOUND_SCENE_SETTINGS.volumetricPassResolutionScale,
 			fogScatterResolutionScale: NOT_FOUND_SCENE_SETTINGS.fogScatterResolutionScale
 		});
+		this.perfMark('postSetup');
 
 		if (this.debugEnabled) {
+			const { Inspector } = await import('three/addons/inspector/Inspector.js');
+			if (this.destroyed) return;
 			this.inspector = new Inspector();
 			this.nfRenderer.renderer.inspector = this.inspector;
 			document.body.appendChild(this.inspector.domElement);
 			this.setupInspector();
+			this.perfMark('inspector');
 		}
 		const url = new URL(window.location.href);
 		if (url.searchParams.get('fluidDebug') === '1') {
 			this.fluidDebug.value = 1;
 		}
 
-		this.ensureGame();
-		this.game?.prewarmForCompile();
+		if (this.pendingGameStart || this.pendingGamePreview) {
+			// Player asked to play while still loading — keep the full pre-reveal
+			// prewarm. Everyone else gets the game built + compiled when they open
+			// the pre-start screen (prewarmGame), so the loader only waits on the
+			// idle scene and the idle scene never stutters.
+			this.ensureGame().prewarmForCompile();
+			this.gamePrewarmStarted = true;
+			this.perfMark('gamePrewarmBuild');
+		}
 
 		// Precompile + warm the post-processing pipelines and their render targets
 		// BEFORE presenting. On this WebGPU pipeline, showing the scene before this
@@ -649,6 +736,9 @@ class NotFoundSketch {
 		this.addEventListeners();
 		this.animate();
 		this.options.events.emit({ kind: 'ready' });
+		this.perfMark('ready');
+		performance.measure('404:totalToReady', '404:init', '404:ready');
+		this.perfReport();
 	}
 
 	private startReveal(): void {
@@ -666,10 +756,10 @@ class NotFoundSketch {
 		const gltfLoader = new GLTFLoader();
 		gltfLoader.setDRACOLoader(dracoLoader);
 
-		// Kick off the heavy basecolor PNG (1.3MB) up front so its download overlaps the
+		// Kick off the basecolor texture up front so its download overlaps the
 		// GLB download/Draco decode instead of serializing after it. Consumed below.
 		const basecolorPromise = new THREE.TextureLoader().loadAsync(
-			'/textures/Concrete_basecolor.png'
+			'/textures/Concrete_basecolor.webp'
 		);
 		// Don't let it surface as an unhandled rejection if the scene is destroyed first.
 		basecolorPromise.catch(() => {});
@@ -718,12 +808,14 @@ class NotFoundSketch {
 		this.basecolorTexture.wrapS = THREE.RepeatWrapping;
 		this.basecolorTexture.wrapT = THREE.RepeatWrapping;
 
-		// Combo lightning VFX masks — grayscale, sampled linearly (.r) as additive masks
-		const tgaLoader = new TGALoader();
+		// Combo lightning VFX masks — grayscale, sampled linearly (.r) as additive
+		// masks. Losslessly converted from the original TGAs to WebP (~6x smaller,
+		// native decode instead of TGALoader's main-thread parse).
+		const maskLoader = new THREE.TextureLoader();
 		const [comboBolt, comboBoltAlt, comboImpact] = await Promise.all([
-			tgaLoader.loadAsync('/textures/vfx/Lightning_00_0136.tga'),
-			tgaLoader.loadAsync('/textures/vfx/Lightning_00_0199.tga'),
-			tgaLoader.loadAsync('/textures/vfx/Hit_00_0178.tga')
+			maskLoader.loadAsync('/textures/vfx/Lightning_00_0136.webp'),
+			maskLoader.loadAsync('/textures/vfx/Lightning_00_0199.webp'),
+			maskLoader.loadAsync('/textures/vfx/Hit_00_0178.webp')
 		]);
 		if (this.destroyed) {
 			for (const tex of [comboBolt, comboBoltAlt, comboImpact]) tex.dispose();
@@ -1792,13 +1884,16 @@ class NotFoundSketch {
 
 	private async warmupScene(): Promise<void> {
 		this.fluidEffect?.warmup();
+		this.perfMark('fluidWarmup');
 		await this.nfRenderer.precompileAsync(this.scene, this.camera);
+		this.perfMark('precompile');
 
-		// Render the warmup frames with the game scene visible so its chrome + FX
-		// pipelines pay first-use cost here rather than on the first game-start frame.
+		// Render the warmup frames with the game scene visible (when it exists — only
+		// the pending-start path builds it this early) so its chrome + FX pipelines
+		// pay first-use cost here rather than on the first game-start frame.
 		this.game?.setPrewarmVisible(true);
 		try {
-			const frameCount = isMobile ? 5 : 10;
+			const frameCount = NOT_FOUND_SCENE_SETTINGS.warmupFrames;
 			for (let i = 0; i < frameCount; i++) {
 				if (this.destroyed) return;
 				const delta = 1 / 60;
@@ -1812,6 +1907,65 @@ class NotFoundSketch {
 		}
 
 		this.clock.getDelta();
+		this.perfMark('warmupFrames');
+	}
+
+	/**
+	 * Called from the Svelte component when the game pre-start screen opens
+	 * (phase 'ready'). The modal dwell time covers the pipeline-compile jank the
+	 * idle scene would otherwise show. Safe to call repeatedly.
+	 */
+	prewarmGame(): void {
+		// Too early — the scene isn't built yet. A play request during loading is
+		// covered by the pendingGameStart/pendingGamePreview path in init().
+		if (!this.scene || !this.camera || !this.modelReady) return;
+		this.prewarmGameDeferred().catch((err) => {
+			this.warn('[404] game prewarm failed', err);
+			// The UI shows a spinner while busy — never leave it stuck on a failure.
+			this.options.events.emit({ kind: 'prewarm', busy: false });
+		});
+	}
+
+	/**
+	 * On-demand counterpart of the init-time prewarm: builds the game (cheap ctor,
+	 * ~3ms measured), compiles its pipelines, then lets the normal animate loop
+	 * render a few frames with the (invisible-at-rest) prewarm state so first-use
+	 * costs are paid before the run starts. Presentation never pauses: the game
+	 * subtree is only exposed during compileAsync's synchronous render-list
+	 * capture, and three yields to the render loop while creating pipelines.
+	 */
+	private async prewarmGameDeferred(): Promise<void> {
+		if (this.gamePrewarmStarted || this.destroyed) return;
+		this.gamePrewarmStarted = true;
+		this.options.events.emit({ kind: 'prewarm', busy: true });
+
+		const game = this.ensureGame();
+		if (game.running) {
+			// Player beat us to it; start() compiled on demand.
+			this.options.events.emit({ kind: 'prewarm', busy: false });
+			return;
+		}
+		game.prewarmForCompile();
+		this.perfMark('gameConstruct');
+
+		// Calling the async fn runs it synchronously up to its first await — i.e.
+		// through both render-list captures — so this mark isolates the sync
+		// capture cost from the async pipeline-creation wait that follows.
+		const compiled = this.nfRenderer.precompileExposedAsync(this.scene, this.camera, (visible) =>
+			game.setCompileVisible(visible)
+		);
+		this.perfMark('gameCompileCapture');
+		await compiled;
+		this.perfMark('gamePrecompile');
+		if (this.destroyed) return;
+		if (game.running) {
+			// Started mid-compile — leave live state alone.
+			this.options.events.emit({ kind: 'prewarm', busy: false });
+			return;
+		}
+
+		game.setPrewarmVisible(true);
+		this.gamePrewarmFramesLeft = NOT_FOUND_SCENE_SETTINGS.warmupFrames;
 	}
 
 	private waitForNextFrame(): Promise<void> {
@@ -1856,6 +2010,8 @@ class NotFoundSketch {
 
 		this.pendingGameStart = false;
 		this.pendingGamePreview = false;
+		this.gamePrewarmFramesLeft = 0;
+		this.options.events.emit({ kind: 'prewarm', busy: false });
 		this.ctaHovered = false;
 		if (this.secretButtonGroup) this.secretButtonGroup.visible = false;
 
@@ -1880,6 +2036,8 @@ class NotFoundSketch {
 		}
 
 		this.pendingGamePreview = false;
+		this.gamePrewarmFramesLeft = 0;
+		this.options.events.emit({ kind: 'prewarm', busy: false });
 		this.ctaHovered = false;
 		if (this.secretButtonGroup) this.secretButtonGroup.visible = false;
 
@@ -2140,7 +2298,10 @@ class NotFoundSketch {
 			this.revealProgress = Math.min(1, this.revealProgress + delta / this.revealDuration);
 			const eased = 1 - Math.pow(1 - this.revealProgress, 3);
 			this.currentFov = Math.max(this.minRevealFov, this.baseFov * eased);
-			if (this.revealProgress >= 1) this.revealActive = false;
+			if (this.revealProgress >= 1) {
+				this.revealActive = false;
+				this.perfMark('reveal');
+			}
 		}
 
 		this.camera.fov = this.currentFov;
@@ -2148,6 +2309,17 @@ class NotFoundSketch {
 		this.updateSecretButton(delta);
 
 		this.nfRenderer.render();
+
+		if (this.gamePrewarmFramesLeft > 0) {
+			const frame = NOT_FOUND_SCENE_SETTINGS.warmupFrames - --this.gamePrewarmFramesLeft;
+			this.perfMark(`gameWarmFrame${frame}`);
+			if (this.gamePrewarmFramesLeft === 0) {
+				// Internally no-ops if a run started meanwhile (see setPrewarmVisible).
+				this.game?.setPrewarmVisible(false);
+				this.options.events.emit({ kind: 'prewarm', busy: false });
+				this.perfReport();
+			}
+		}
 
 		this.animationId = requestAnimationFrame(this.animate);
 	};

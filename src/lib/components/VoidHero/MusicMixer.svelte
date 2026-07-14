@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { MusicState } from '$lib/voidhero/voidHero.helpers';
+	import type { MusicState, MusicTrack } from '$lib/voidhero/voidHero.helpers';
 
 	type Props = {
 		music: MusicState;
@@ -26,6 +26,15 @@
 	);
 
 	const isMuted = $derived(music.currentTrackId === 'none' || music.muted);
+
+	// Patterns advance one step per beat (scaled by beatsPerStep), so the track's
+	// effective steps-per-minute is what actually sets gameplay difficulty.
+	function complexityOf(track: MusicTrack): { level: number; label: string } {
+		const stepsPerMin = track.bpm / Math.max(0.25, track.beatsPerStep);
+		if (stepsPerMin < 95) return { level: 1, label: 'Easy' };
+		if (stepsPerMin < 115) return { level: 2, label: 'Medium' };
+		return { level: 3, label: 'Hard' };
+	}
 </script>
 
 {#if music.tracks.length > 0}
@@ -44,15 +53,28 @@
 					<img src="/textures/voidhero/tracks/disabled.svg" alt="" />
 				</button>
 				{#each namedTracks as track (track.id)}
+					{@const complexity = complexityOf(track)}
 					<button
 						type="button"
 						class="mixer__tile"
 						class:active={!isMuted && music.currentTrackId === track.id}
-						aria-label={track.label}
+						aria-label={`${track.label} — ${complexity.label} tempo`}
 						aria-pressed={!isMuted && music.currentTrackId === track.id}
+						title={`${complexity.label} tempo`}
 						onclick={() => onTrackChange(track.id)}
 					>
 						<img src={TRACK_ART[track.id]} alt={track.label} />
+						<span class="mixer__badge" data-level={complexity.level} aria-hidden="true">
+							{#each [1, 2, 3] as bolt (bolt)}
+								<svg
+									class="mixer__badge-bolt"
+									class:lit={bolt <= complexity.level}
+									viewBox="0 0 8 12"
+								>
+									<path d="M5 0 L1 7 h2.2 L2.6 12 L7 5 H4.6 Z" />
+								</svg>
+							{/each}
+						</span>
 					</button>
 				{/each}
 			</div>
@@ -103,6 +125,7 @@
 	}
 
 	.mixer__tile {
+		position: relative;
 		flex: 1;
 		aspect-ratio: 1 / 1;
 		display: grid;
@@ -138,6 +161,40 @@
 		&.active {
 			border: 1.5px solid #ffffff;
 			padding: calc(0.45rem - 1px);
+		}
+	}
+
+	.mixer__badge {
+		position: absolute;
+		right: 0.28rem;
+		bottom: 0.28rem;
+		display: flex;
+		align-items: center;
+		gap: 1.5px;
+		padding: 3px 3.5px;
+		border-radius: 3px;
+		background: rgba(10, 14, 20, 0.6);
+		pointer-events: none;
+
+		// Lit-bolt color ramps with difficulty: green → cyan → hot pink.
+		--lit: #9fdcff;
+
+		&[data-level='1'] {
+			--lit: #7ef0b2;
+		}
+		&[data-level='3'] {
+			--lit: #ff8fb3;
+		}
+	}
+
+	.mixer__badge-bolt {
+		width: 4px;
+		height: 4px;
+		fill: rgba(238, 247, 255, 0.22);
+
+		&.lit {
+			fill: var(--lit);
+			filter: drop-shadow(0 0 2px var(--lit));
 		}
 	}
 

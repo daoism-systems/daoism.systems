@@ -44,6 +44,11 @@ export interface ActiveAxes {
 	readonly progressToNext: number;
 }
 
+// First steps of a run: the picker only serves sparse (density ≤ WARMUP_MAX_DENSITY)
+// patterns so a new player can find the keys before full-density lines arrive.
+const RUN_WARMUP_STEPS = 16;
+const WARMUP_MAX_DENSITY = 0.1;
+
 const VOID_SUBSTAGE_STEPS = 256;
 const VOID_AXIS_CAP = {
 	speedMul: 1.85,
@@ -68,7 +73,7 @@ export const STAGE_DEFS: ReadonlyArray<StageDef> = [
 	{
 		id: 1,
 		name: 'Pulse',
-		minStep: 32,
+		minStep: 56,
 		speedMul: 1.1,
 		hitWindowScale: 0.94,
 		scoreMul: 1.2,
@@ -80,7 +85,7 @@ export const STAGE_DEFS: ReadonlyArray<StageDef> = [
 	{
 		id: 2,
 		name: 'Surge',
-		minStep: 96,
+		minStep: 120,
 		speedMul: 1.22,
 		hitWindowScale: 0.85,
 		scoreMul: 1.5,
@@ -92,7 +97,7 @@ export const STAGE_DEFS: ReadonlyArray<StageDef> = [
 	{
 		id: 3,
 		name: 'Storm',
-		minStep: 192,
+		minStep: 216,
 		speedMul: 1.36,
 		hitWindowScale: 0.76,
 		scoreMul: 1.85,
@@ -104,7 +109,7 @@ export const STAGE_DEFS: ReadonlyArray<StageDef> = [
 	{
 		id: 4,
 		name: 'Void',
-		minStep: 320,
+		minStep: 344,
 		speedMul: 1.5,
 		hitWindowScale: 0.7,
 		scoreMul: 2.25,
@@ -215,6 +220,32 @@ const H_MID = 1.35;
 const H_LONG = 1.8;
 
 export const PATTERN_LIBRARY: ReadonlyArray<PatternEntry> = [
+	// Stage 0 — Drift warm-up: one note every other beat while the player finds the keys.
+	{
+		id: 'drift_intro_walk',
+		steps: [[0], [], [1], [], [2], [], [3], []],
+		kind: 'breather',
+		density: 0.06,
+		minStage: 0,
+		weight: 1.3
+	},
+	{
+		id: 'drift_intro_echo',
+		steps: [[1], [], [2], [], [0], [], [3], []],
+		kind: 'breather',
+		density: 0.06,
+		minStage: 0,
+		weight: 1.2
+	},
+	{
+		id: 'drift_intro_edges',
+		steps: [[0], [], [3], [], [0], [3], [], []],
+		kind: 'flow',
+		density: 0.08,
+		minStage: 0,
+		weight: 1.1
+	},
+
 	// Stage 0 — Drift: gentle single-lane intro.
 	{
 		id: 'drift_march',
@@ -501,13 +532,18 @@ export function pickNextPattern(ctx: PickContext): PatternEntry {
 	const stepsSinceBurst = currentStep - lastBurstStep;
 	const recovering = stepsSinceBurst < 8 && lastBurstStep >= 0;
 
-	const candidates = PATTERN_LIBRARY.filter((p) => {
+	let candidates = PATTERN_LIBRARY.filter((p) => {
 		if (p.minStage > stage.id) return false;
 		if (!stage.allowedKinds.includes(p.kind)) return false;
 		if (history.includes(p.id)) return false;
 		if (p.kind === 'burst' && (inSettle || burstOnCooldown)) return false;
 		return true;
 	});
+
+	if (currentStep < RUN_WARMUP_STEPS) {
+		const sparse = candidates.filter((p) => p.density <= WARMUP_MAX_DENSITY);
+		if (sparse.length > 0) candidates = sparse;
+	}
 
 	if (candidates.length === 0) {
 		return (
