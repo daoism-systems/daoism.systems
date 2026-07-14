@@ -2,10 +2,10 @@
 	import { onMount } from 'svelte';
 	import Socials from './Socials.svelte';
 	import { AnimationTimeline } from '$lib/utils/animations/helpers/animationTimeline';
+	import { EASINGS } from '$lib/utils/animations/constants/easings';
 	import { useScrollToSection } from '$lib/hooks/useScrollToSection';
 	import { hoverSound } from '$lib/utils/hoverSound';
 	import { directionalFill } from '$lib/utils/actions/directionalFill';
-	import AudioVisualiser from './AudioVisualiser.svelte';
 
 	let {
 		open = $bindable(false),
@@ -19,7 +19,6 @@
 		onSectionSelect?: (sectionIndex: number) => void | Promise<void>;
 	} = $props();
 
-	const EASE_EXPO_OUT = 'cubic-bezier(0.19, 1, 0.22, 1)';
 	const EASE_BORDER_DRAW = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)';
 	const CURSOR_VISIBILITY_EVENT = 'cursor:set-hidden';
 
@@ -38,11 +37,10 @@
 	let closeBtn: HTMLButtonElement;
 	let menuItems: (HTMLSpanElement | null)[] = [];
 	let socialsEl: HTMLDivElement;
-	let socialsBorderEl: HTMLDivElement;
 	let contactTextEl: HTMLDivElement;
 	let contactBorderEl: HTMLDivElement;
 	let contactCtaEl: HTMLButtonElement;
-	let AudioVisualiserEl: HTMLDivElement;
+	let prefersReducedMotion = $state(false);
 
 	let tl: AnimationTimeline | null = null;
 
@@ -92,106 +90,124 @@
 	}
 
 	onMount(() => {
+		prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 		tl = new AnimationTimeline({
 			onReverseComplete: () => onclosed?.()
 		});
 		tl.add(
 			menuEl,
-			[{ transform: 'translateY(-105%)' }, { transform: 'translateY(0%)' }],
-			{ duration: 720, easing: EASE_EXPO_OUT },
+			[
+				{ transform: 'translate3d(0, -104%, 0)' },
+				{ transform: 'translate3d(0, 0%, 0)' }
+			],
+			{
+				duration: 860,
+				easing: EASINGS.EASE_POWER2_OUT,
+				reverseEasing: EASINGS.EASE_POWER2_IN
+			},
 			0
 		);
 
-		// Background panels slide in
 		const panels = Array.from(menuEl.querySelectorAll<HTMLElement>('[data-sidenav-panel]'));
 		tl.add(
 			panels,
-			[{ transform: 'translateY(-101%)' }, { transform: 'translateY(0%)' }],
-			{ duration: 720, easing: EASE_EXPO_OUT },
+			[
+				{ transform: 'translate3d(0, -1.4rem, 0)' },
+				{ transform: 'translate3d(0, 0, 0)' }
+			],
+			{
+				duration: 680,
+				easing: EASINGS.EASE_POWER2_OUT,
+				reverseEasing: EASINGS.EASE_POWER2_IN
+			},
 			0,
-			70
+			36
 		);
 
-		// Close button
 		tl.add(
 			closeBtn,
-			[{ transform: 'translateY(-100%)' }, { transform: 'translateY(0%)' }],
-			{ duration: 580, easing: EASE_EXPO_OUT },
-			160
+			[
+				{ transform: 'translate3d(0, -1rem, 0) rotate(-45deg) scale(0.82)', opacity: '0' },
+				{ transform: 'translate3d(0, 0, 0) rotate(0deg) scale(1)', opacity: '1' }
+			],
+			{
+				duration: 560,
+				easing: EASINGS.EASE_POWER2_OUT,
+				reverseEasing: EASINGS.EASE_POWER2_IN
+			},
+			110
 		);
 
-		// Menu items with stagger
 		const validItems = menuItems.filter(Boolean) as HTMLElement[];
 		tl.add(
 			validItems,
 			[
-				{ transform: 'translateY(-100%)', opacity: '0.5' },
-				{ transform: 'translateY(0%)', opacity: '1' }
+				{ transform: 'translate3d(0, 115%, 0) rotate(2deg)', opacity: '0.2' },
+				{ transform: 'translate3d(0, 0%, 0) rotate(0deg)', opacity: '1' }
 			],
-			{ duration: 680, easing: EASE_EXPO_OUT },
-			240,
-			90
+			{
+				duration: 620,
+				easing: EASINGS.EASE_CUSTOM_REVEAL,
+				reverseEasing: EASINGS.EASE_POWER2_IN
+			},
+			150,
+			44
 		);
 
-		// Contact CTA button
 		tl.add(
 			contactCtaEl,
 			[
-				{ opacity: '0', transform: 'translateY(20px)' },
-				{ opacity: '1', transform: 'translateY(0)' }
+				{ opacity: '0', transform: 'translate3d(0, 1rem, 0) scale(0.985)' },
+				{ opacity: '1', transform: 'translate3d(0, 0, 0) scale(1)' }
 			],
-			{ duration: 620, easing: EASE_EXPO_OUT },
-			560
+			{
+				duration: 520,
+				easing: EASINGS.EASE_POWER2_OUT,
+				reverseEasing: EASINGS.EASE_POWER2_IN
+			},
+			390
 		);
 
-		// Contact text
 		tl.add(
 			contactBorderEl,
 			[{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }],
-			{ duration: 700, easing: EASE_BORDER_DRAW },
-			680
+			{
+				duration: 460,
+				easing: EASE_BORDER_DRAW,
+				reverseEasing: EASINGS.EASE_POWER2_IN
+			},
+			450
 		);
 
 		tl.add(
 			contactTextEl,
 			[
-				{ opacity: '0', transform: 'translateY(-18px)' },
-				{ opacity: '1', transform: 'translateY(0)' }
+				{ opacity: '0', transform: 'translate3d(0, 0.8rem, 0)' },
+				{ opacity: '1', transform: 'translate3d(0, 0, 0)' }
 			],
-			{ duration: 760, easing: EASE_EXPO_OUT },
-			760
+			{
+				duration: 480,
+				easing: EASINGS.EASE_POWER2_OUT,
+				reverseEasing: EASINGS.EASE_POWER2_IN
+			},
+			480
 		);
 
-		// Socials
 		const socialItems = Array.from(socialsEl.querySelectorAll<HTMLElement>('.social-item'));
 		tl.add(
 			socialItems,
 			[
-				{ opacity: '0', transform: 'translateY(-20px)' },
-				{ opacity: '1', transform: 'translateY(0)' }
+				{ opacity: '0', transform: 'translate3d(0, 0.7rem, 0) scale(0.94)' },
+				{ opacity: '1', transform: 'translate3d(0, 0, 0) scale(1)' }
 			],
-			{ duration: 650, easing: EASE_EXPO_OUT },
-			900,
-			80
+			{
+				duration: 420,
+				easing: EASINGS.EASE_POWER2_OUT,
+				reverseEasing: EASINGS.EASE_POWER2_IN
+			},
+			520,
+			28
 		);
-
-		//tl.add(
-		//	socialsBorderEl,
-		//	[{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }],
-		//	{ duration: 500, easing: EASE_BORDER_DRAW },
-		//	1120
-		//);
-
-		//// Audio visualiser
-		//tl.add(
-		//	AudioVisualiserEl,
-		//	[
-		//		{ opacity: '0', transform: 'translateY(-18px)' },
-		//		{ opacity: '1', transform: 'translateY(0)' }
-		//	],
-		//	{ duration: 900, easing: EASE_EXPO_OUT },
-		//	1240
-		//);
 
 		return () => {
 			tl?.destroy();
@@ -201,11 +217,16 @@
 
 	$effect(() => {
 		if (!tl) return;
+		if (prefersReducedMotion) {
+			tl.setProgress(open ? 1 : 0);
+			if (!open) onclosed?.();
+			return;
+		}
 		if (open) {
-			tl.timeScale = 1.3;
-			tl.play(true);
+			tl.timeScale = 1;
+			tl.play();
 		} else {
-			tl.timeScale = 1.15;
+			tl.timeScale = 1.25;
 			tl.reverse();
 		}
 	});
@@ -342,9 +363,11 @@
 		right: 0;
 		z-index: 12;
 		width: 23.4rem;
-		//background: #fff;
 		pointer-events: all;
-		transform: translateY(-105%);
+		isolation: isolate;
+		overflow: hidden;
+		transform: translate3d(0, -104%, 0);
+		will-change: transform;
 
 		&__wrap {
 			padding: 1.2rem;
@@ -447,6 +470,7 @@
 		justify-content: center;
 		z-index: 10;
 		line-height: 0;
+		will-change: transform, opacity;
 
 		@include breakpoint(phone) {
 			top: 0.5rem;
@@ -552,6 +576,7 @@
 
 		&__inner {
 			display: inline-block;
+			transform-origin: left bottom;
 			will-change: transform, opacity;
 		}
 
@@ -805,6 +830,7 @@
 		background-color: white;
 		position: absolute;
 		inset: 0%;
+		will-change: transform;
 	}
 
 	.sidenav__menu-bg-panel.is--first {
@@ -813,5 +839,18 @@
 
 	.sidenav__menu-bg-panel.is--second {
 		background-color: #121214;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.menu,
+		.menu-close,
+		.menu-link__inner,
+		.menu-contact-cta,
+		.menu-contact-border,
+		.menu-contact-text,
+		.menu__socials :global(.social-item),
+		.sidenav__menu-bg-panel {
+			will-change: auto;
+		}
 	}
 </style>

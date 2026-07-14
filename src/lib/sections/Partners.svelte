@@ -152,6 +152,12 @@
     overflow: hidden;
     height: 100%;
 
+    :global(h2) {
+      @media (max-width: 700px) and (min-width: 550px) {
+        font-size: 62px;
+      }
+    }
+
     @include breakpoint(desktop) {
       padding-left: $offset-content;
     }

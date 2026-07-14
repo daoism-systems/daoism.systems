@@ -1,7 +1,7 @@
 import { splitText, type SplitResult } from '../splitText';
 import { DURATIONS } from './constants/durations';
 import { clamp, clearStyles } from './helpers';
-import { isMobileMotionContext, scaleMotionDuration, useMotionBlur } from './motion';
+import { isLowPerformanceTier, scaleMotionDuration, useMotionBlur } from './motion';
 import { AnimationTimeline } from './helpers/animationTimeline';
 
 export type TextRevealParams = {
@@ -253,7 +253,7 @@ class TextRevealController {
 	}
 
 	private isCharMode() {
-		return this.params.split !== false && !isMobileMotionContext();
+		return this.params.split !== false && !isLowPerformanceTier();
 	}
 
 	private getTargets(): HTMLElement[] {

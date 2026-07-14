@@ -2,6 +2,9 @@ import { browser } from '$app/environment';
 import type Lenis from 'lenis';
 import { writable } from 'svelte/store';
 
+export type GraphicsTier = 'low' | 'medium' | 'high';
+export const graphicsTier = writable<GraphicsTier>('high');
+
 export let loadingProgress = writable(0);
 
 // Eased progress for the loading number (LoadingLabel). Driven by the background-pattern

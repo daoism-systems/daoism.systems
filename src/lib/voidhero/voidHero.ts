@@ -396,7 +396,7 @@ export class VoidHeroGame {
 	}
 
 	/**
-	 * Toggle game-scene visibility for the 404 warmup render loop. Visible=true forces
+	 * Toggle game-scene visibility for the 404 warmup render. Visible=true forces
 	 * `root` plus the FX pool meshes (which are otherwise hidden until first burst) into
 	 * the real post-processing graph so first-use pipeline costs are paid during loading.
 	 * Seeds one instance per pool with sub-pixel opacity so the InstancedMesh draw actually

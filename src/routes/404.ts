@@ -1968,10 +1968,6 @@ class NotFoundSketch {
 		this.gamePrewarmFramesLeft = NOT_FOUND_SCENE_SETTINGS.warmupFrames;
 	}
 
-	private waitForNextFrame(): Promise<void> {
-		return new Promise((resolve) => requestAnimationFrame(() => resolve()));
-	}
-
 	/** Called from the Svelte component when the user clicks "Go Home" */
 	triggerTransition(): void {
 		if (this.isTransitioning) return;

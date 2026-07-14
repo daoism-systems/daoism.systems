@@ -464,6 +464,10 @@
       display: none;
     }
 
+    .circle-small__title {
+      min-width: 143px;
+    }
+
     @media (hover: hover) and (pointer: fine) {
       &:hover {
         .circle-small__title,

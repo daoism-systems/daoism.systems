@@ -15,6 +15,8 @@ export interface TimelineEntry {
 	durations: number[]; // cached per-animation duration (avoids re-reading effect.getTiming() each frame)
 	startTime: number; // ms from timeline start
 	stagger?: number; // ms between animations in this entry
+	forwardEasing: string;
+	reverseEasing: string;
 }
 
 export interface CallbackEntry {
@@ -78,18 +80,20 @@ export class AnimationTimeline {
 	add(
 		target: Element | Element[],
 		keyframes: Keyframe[],
-		options: { duration: number; easing?: string; fill?: FillMode },
+		options: { duration: number; easing?: string; reverseEasing?: string; fill?: FillMode },
 		startOffset = 0,
 		stagger = 0
 	): this {
 		const targets = Array.isArray(target) ? target : [target];
 		const animations: Animation[] = [];
 		const durations: number[] = [];
+		const forwardEasing = options.easing ?? 'linear';
+		const reverseEasing = options.reverseEasing ?? forwardEasing;
 
 		for (const el of targets) {
 			const anim = el.animate(keyframes, {
 				duration: options.duration,
-				easing: options.easing ?? 'linear',
+				easing: forwardEasing,
 				fill: options.fill ?? 'both'
 			});
 			anim.pause();
@@ -97,7 +101,14 @@ export class AnimationTimeline {
 			durations.push(options.duration);
 		}
 
-		this.entries.push({ animations, durations, startTime: startOffset, stagger });
+		this.entries.push({
+			animations,
+			durations,
+			startTime: startOffset,
+			stagger,
+			forwardEasing,
+			reverseEasing
+		});
 		const lastStart = startOffset + Math.max(0, targets.length - 1) * stagger;
 		this._recalcDuration(lastStart, options.duration);
 		return this;
@@ -116,6 +127,7 @@ export class AnimationTimeline {
 			this._resetCallbacks();
 		}
 		const wasPlayingForward = this._playing && !this._reversed;
+		if (fromStart || this._currentTime <= 0) this._setEasing(false);
 		this._reversed = false;
 		if (!this._playing) {
 			this._playing = true;
@@ -129,6 +141,7 @@ export class AnimationTimeline {
 	}
 
 	reverse(): void {
+		if (this._currentTime >= this._duration) this._setEasing(true);
 		this._reversed = true;
 		if (!this._playing) {
 			this._playing = true;
@@ -253,6 +266,15 @@ export class AnimationTimeline {
 				const localTime = time - animStart;
 				const duration = entry.durations[i] ?? 0;
 				anim.currentTime = Math.max(0, Math.min(duration, localTime));
+			}
+		}
+	}
+
+	private _setEasing(reversed: boolean): void {
+		for (const entry of this.entries) {
+			const easing = reversed ? entry.reverseEasing : entry.forwardEasing;
+			for (const animation of entry.animations) {
+				animation.effect?.updateTiming({ easing });
 			}
 		}
 	}

@@ -90,6 +90,12 @@
     width: 100%;
     margin-left: 0;
 
+    :global(h2) {
+      @media (max-width: 612px) and (min-width: 550px) {
+        font-size: 64px;
+      }
+    }
+
     @include breakpoint(desktop) {
       margin-left: $offset-content;
     }
