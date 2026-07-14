@@ -72,7 +72,7 @@
 		width: 100%;
 		position: relative;
 
-		@include breakpoint(desktop) {
+		@media (min-width: 1025px) {
 			margin-left: $offset-content;
 		}
 
@@ -80,6 +80,10 @@
 		:global(.services-heading) {
 			@include breakpoint(desktop) {
 				font-size: 104px;
+			}
+
+			@media (max-width: 1110px) and (min-width: 550px) {
+				font-size: 96px;
 			}
 		}
 
@@ -110,8 +114,9 @@
 
 		&-card {
 			flex: 0 0 auto;
-			width: calc(100% - 4.625rem);
-			max-width: 21.25rem;
+			// width: calc(100% - 4.625rem);
+			width: 50%;
+			// max-width: 21.25rem;
 			padding: 0.75rem 0.75rem 1.25rem;
 			background: $color-grey-600;
 			border-radius: 0.75rem;
@@ -126,6 +131,11 @@
 			opacity: 0;
 			transform: translateY(60px);
 			will-change: transform, opacity;
+
+			@media (max-width: 768px) {
+				width: calc(100% - 4.625rem);
+				max-width: 21.25rem;
+			}
 
 			&__title {
 				font-size: 15px;
