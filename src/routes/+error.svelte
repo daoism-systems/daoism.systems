@@ -8,7 +8,6 @@
 	import ScrollIndicator from '$lib/components/ScrollIndicator.svelte';
 	import { begin, dispatch, end, prepare, removePopup, restoreView, setTransitioning, voidHeroState } from '$lib/voidhero/voidHeroStore.svelte';
 	import { konami } from '$lib/voidhero/konami.svelte';
-	import { SceneEventBus } from './404';
 	import HeroHeading from '$lib/components/VoidHero/HeroHeading.svelte';
 	import KonamiHint from '$lib/components/VoidHero/KonamiHint.svelte';
 	import IdleHint from '$lib/components/VoidHero/IdleHint.svelte';
@@ -18,9 +17,11 @@
 	import GameResults from '$lib/components/VoidHero/GameResults.svelte';
 	import GameExit from '$lib/components/VoidHero/GameExit.svelte';
 	import ComboPopupLayer from '$lib/components/VoidHero/ComboPopupLayer.svelte';
+	import { SceneEventBus } from '$lib/voidhero/events';
 
 	let scene = $state<NotFoundSketch | null>(null);
 	let ready = $state(false);
+	let prewarming = $state(false);
 	let transitionController: AbortController | null = null;
 
 	const idleAndStill = $derived(
@@ -40,6 +41,10 @@
 		const unsubscribe = events.subscribe((event) => {
 			if (event.kind === 'ready') {
 				ready = true;
+				return;
+			}
+			if (event.kind === 'prewarm') {
+				prewarming = event.busy;
 				return;
 			}
 			if (event.kind === 'secretRequest') {
@@ -136,6 +141,13 @@
 		scene?.setSecretButtonVisible(idleAndStill);
 	});
 
+	// Warm the game's GPU pipelines while the player reads the pre-start screen —
+	// the modal dwell covers compile jank the idle scene would otherwise show.
+	// Reads `scene`, so it re-fires if the phase flips before the scene loads.
+	$effect(() => {
+		if (voidHeroState.phase === 'ready') scene?.prewarmGame();
+	});
+
 	function handleStart() {
 		if (voidHeroState.transitioning) return;
 		if (begin()) scene?.startGame();
@@ -210,6 +222,14 @@
 		name="viewport"
 		content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
 	/>
+	<!-- Injected at component mount (ssr=false), so these start the scene's asset
+	     downloads in parallel with the lazy scene-chunk download/parse instead of
+	     after it. crossorigin="anonymous" matches three.js FileLoader (fetch,
+	     same-origin credentials) and ImageLoader (crossOrigin anonymous). -->
+	<link rel="preload" href="/models/404.glb" as="fetch" crossorigin="anonymous" />
+	<link rel="preload" href="/textures/Concrete_basecolor.webp" as="image" crossorigin="anonymous" />
+	<link rel="preload" href="/draco/draco_wasm_wrapper.js" as="fetch" crossorigin="anonymous" />
+	<link rel="preload" href="/draco/draco_decoder.wasm" as="fetch" crossorigin="anonymous" />
 </svelte:head>
 
 <a href="/" class="error-logo" onclick={handleGoHome}>
@@ -229,7 +249,12 @@
 	]}
 />
 
-<HeroHeading phase={voidHeroState.phase} score={voidHeroState.runHud.score} {ready} />
+<HeroHeading
+	phase={voidHeroState.phase}
+	score={voidHeroState.runHud.score}
+	{ready}
+	preparing={prewarming}
+/>
 
 <div
 	class="error-cta-text"

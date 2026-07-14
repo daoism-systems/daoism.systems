@@ -6,9 +6,11 @@
 		phase: GamePhase;
 		score: number;
 		ready?: boolean;
+		/** Game prewarm in flight — shows a spinner instead of the score on the pre-start screen. */
+		preparing?: boolean;
 	};
 
-	let { phase, score, ready = false }: Props = $props();
+	let { phase, score, ready = false, preparing = false }: Props = $props();
 
 	let headingEl = $state<HTMLHeadingElement | null>(null);
 	let prevScore = -1;
@@ -25,7 +27,11 @@
 </script>
 
 <h1 bind:this={headingEl} use:gradientDrift class:playing={phase !== 'idle'} class:ready class:preview={phase === 'ready'}>
-	{#if phase === 'playing' || phase === 'ready'}{score}{:else}4<span class="mx-30"></span>4{/if}
+	{#if phase === 'ready' && preparing}<span
+			class="heading-spinner"
+			role="status"
+			aria-label="Preparing game"
+		></span>{:else if phase === 'playing' || phase === 'ready'}{score}{:else}4<span class="mx-30"></span>4{/if}
 </h1>
 
 <style lang="scss">
@@ -117,6 +123,28 @@
 
 		@include breakpoint(not-desktop) {
 			font-size: 12rem;
+		}
+	}
+
+	// Same look as the page loader's spinner (.page-loader__spinner in
+	// +error.svelte), shown in place of the score while the game prewarms.
+	.heading-spinner {
+		display: inline-block;
+		vertical-align: middle;
+		width: 4rem;
+		height: 4rem;
+		border-radius: 50%;
+		border: 0.25rem solid rgba(255, 255, 255, 0.18);
+		border-top-color: #000;
+		// The h1's blanket `span { opacity: 0 }` (for the .mx-30 spacer) must not
+		// hide the spinner.
+		opacity: 1;
+		animation: heading-spinner-spin 0.85s linear infinite;
+	}
+
+	@keyframes heading-spinner-spin {
+		to {
+			transform: rotate(360deg);
 		}
 	}
 
