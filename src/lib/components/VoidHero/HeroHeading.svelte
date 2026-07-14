@@ -124,6 +124,14 @@
 		@include breakpoint(not-desktop) {
 			font-size: 12rem;
 		}
+		
+		@media (max-width: 465px) {
+			font-size: 8rem;
+		}
+
+		@media (max-width: 395px) {
+			font-size: 6.5rem;
+		}
 	}
 
 	// Same look as the page loader's spinner (.page-loader__spinner in
