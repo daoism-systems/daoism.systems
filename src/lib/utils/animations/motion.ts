@@ -1,6 +1,13 @@
+import { get } from 'svelte/store';
+import { graphicsTier } from '$lib/store.svelte';
+
 function hasCoarsePointer() {
 	if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
 	return window.matchMedia('(hover: none), (pointer: coarse)').matches;
+}
+
+export function isLowPerformanceTier() {
+	return get(graphicsTier) === 'low';
 }
 
 export function isMobileMotionContext() {
@@ -13,6 +20,5 @@ export function scaleMotionDuration(duration: number, factor = 1.18) {
 }
 
 export function useMotionBlur() {
-	if (typeof window === 'undefined') return true;
-	return !hasCoarsePointer();
+	return !isLowPerformanceTier();
 }

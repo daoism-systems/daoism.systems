@@ -13,7 +13,8 @@ import {
 	loadingProgress,
 	virtualScrollHeight,
 	lenisInstance,
-	warmupComplete
+	warmupComplete,
+	graphicsTier
 } from '$lib/store.svelte';
 import type Lenis from 'lenis';
 import { SCROLL_TO_EASING } from '$lib/utils/lenis';
@@ -555,7 +556,9 @@ class MainScene {
 		// approach that isn't working and reload instead.
 		if (this._recoveryAttempts > MainScene.MAX_RECOVERY_ATTEMPTS) {
 			this._recovering = false;
-			this.reloadPage(`${reason} — repeated recovery within ${MainScene.RECOVERY_HEALTHY_WINDOW_MS}ms`);
+			this.reloadPage(
+				`${reason} — repeated recovery within ${MainScene.RECOVERY_HEALTHY_WINDOW_MS}ms`
+			);
 			return;
 		}
 
@@ -606,6 +609,7 @@ class MainScene {
 			onBenchmarkComplete: () => this.setLoadingStage('benchmark', 1)
 		});
 		this.graphicsTier = result.tier;
+		graphicsTier.set(result.tier);
 		this._graphicsOptions = result.options;
 	}
 

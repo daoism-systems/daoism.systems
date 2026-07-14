@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { headingReveal } from '$lib/utils/animations/headingReveal';
+	import { isLowPerformanceTier } from '$lib/utils/animations/motion';
 	import {
 		ensureHeadingFilterDefs,
 		nextHeadingEffectInstanceId,
@@ -12,7 +13,6 @@
 		unregisterHeadingController,
 		type HeadingFilterEffectId
 	} from '$lib/utils/UiInAndOutEffect';
-	import { isMobileMotionContext } from '$lib/utils/animations/motion';
 	type HeadingRevealConfig = Partial<NonNullable<Parameters<typeof headingReveal>[1]>>;
 	const HEADING_EFFECT_ATTR = 'data-heading-effect-id';
 
@@ -59,9 +59,7 @@
 	});
 
 	onMount(() => {
-		// Same mobile gate as textReveal (viewport/pointer), not a UA sniff, so all
-		// reveal paths agree on what counts as mobile.
-		isReducedHeading = isMobileMotionContext();
+		isReducedHeading = isLowPerformanceTier();
 		applyHeadingSurface(0, 0);
 		ensureHeadingFilterDefs();
 		registerHeadingEffectsConsoleApi();
@@ -198,6 +196,7 @@
 	}
 </script>
 
+
 {#if isReducedHeading}
 	<h2
 		bind:this={headingEl}
@@ -213,9 +212,7 @@
 	{#if sup}
 		<sup
 			class="text-sm"
-			style="opacity: {effectiveProgress >= 1 ? 0 : 1}; transform: {effectiveProgress >= 1
-				? 'scale(0.6)'
-				: 'scale(1)'}"
+			style="opacity: {effectiveProgress >= 1 ? 0 : 1}; transform: {effectiveProgress >= 1 ? 'scale(0.6)' : 'scale(1)'}"
 			>[<span>{sup}</span>]
 		</sup>
 	{/if}
