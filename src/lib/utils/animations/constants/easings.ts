@@ -1,5 +1,6 @@
 export const EASINGS = {
 	EASE_POWER2_OUT: 'cubic-bezier(0.22, 1, 0.36, 1)',
+	EASE_POWER2_IN: 'cubic-bezier(0.64, 0, 0.78, 0)',
 	EASE_EXPO_OUT: 'cubic-bezier(0.19, 1, 0.22, 1)',
 	EASE_POWER1_INOUT: 'cubic-bezier(0.45, 0.05, 0.55, 0.95)',
 	EASE_SINE_INOUT: 'cubic-bezier(0.37, 0, 0.63, 1)',
