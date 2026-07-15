@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { cubicInOut, quintOut } from 'svelte/easing';
 	import { fade } from 'svelte/transition';
 	import { Howler } from 'howler';
 	import { EASINGS } from '$lib/utils/animations/constants/easings';
@@ -28,6 +29,8 @@
 
 	const preloaderMotionEase = EASINGS.EASE_CUSTOM_REVEAL;
 	const preloaderExitEase = EASINGS.EASE_POWER1_INOUT;
+	const waitingMessageEnter = { delay: 320, duration: 720, easing: quintOut };
+	const waitingMessageExit = { duration: 420, easing: cubicInOut };
 
 	// $effect(() => {
 	// 	if (!shouldPlaySequence) {
@@ -82,7 +85,11 @@
 
 		{#if !shouldPlaySequence}
 			{#key waitingMessage}
-				<p class="preloader-waiting-copy" in:fade={{ duration: 280 }} out:fade={{ duration: 220 }}>
+				<p
+					class="preloader-waiting-copy"
+					in:fade={waitingMessageEnter}
+					out:fade={waitingMessageExit}
+				>
 					{waitingMessage}
 				</p>
 			{/key}
@@ -122,7 +129,7 @@
 	.preloader-shell.preloader-shell--exit {
 		pointer-events: none;
 		will-change: opacity, filter;
-		animation: preloader-shell-fade 0.7s var(--preloader-exit-ease) forwards;
+		animation: preloader-shell-fade 1.15s var(--preloader-exit-ease) forwards;
 	}
 
 	.preloader-shell.preloader-shell--exit :global(.preloader-status) {
@@ -145,12 +152,8 @@
 		color: rgba(168, 174, 188, 0.55);
 		text-shadow: 0 8px 24px rgba(0, 0, 0, 0.42);
 		pointer-events: none;
-		opacity: 0;
-		transform: translate(-50%, calc(-50% + 10px));
-		filter: blur(8px);
-		animation:
-			preloader-waiting-in 0.62s var(--preloader-btn-ease) forwards,
-			preloader-waiting-pulse 2.8s ease-in-out 0.62s infinite;
+		opacity: 1;
+		transform: translate(-50%, -50%);
 	}
 
 	@media (max-width: 1400px) {
@@ -197,7 +200,7 @@
 
 		.preloader-waiting-copy {
 			animation: none;
-			opacity: 0.82;
+			opacity: 1;
 			transform: translate(-50%, -50%);
 		}
 	}
@@ -236,29 +239,6 @@
 		to {
 			opacity: 0;
 			transform: translate3d(0, -10px, 0);
-		}
-	}
-
-	@keyframes preloader-waiting-in {
-		from {
-			opacity: 0;
-			transform: translate(-50%, calc(-50% + 10px));
-			filter: blur(8px);
-		}
-		to {
-			opacity: 0.8;
-			transform: translate(-50%, -50%);
-			filter: blur(0);
-		}
-	}
-
-	@keyframes preloader-waiting-pulse {
-		0%,
-		100% {
-			opacity: 0.45;
-		}
-		50% {
-			opacity: 0.95;
 		}
 	}
 

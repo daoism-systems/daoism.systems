@@ -877,7 +877,11 @@ class TrainSlider implements Inspectable {
 		const minDuration = Math.max(0, this.timing.inertiaMinDurationSec);
 		const maxDuration = Math.max(minDuration, this.timing.inertiaMaxDurationSec);
 		const durationScale = Math.max(0, this.timing.inertiaDurationScale);
-		let duration = THREE.MathUtils.clamp((distance / speed) * durationScale, minDuration, maxDuration);
+		let duration = THREE.MathUtils.clamp(
+			(distance / speed) * durationScale,
+			minDuration,
+			maxDuration
+		);
 		if (reduceMotion) duration = minDuration;
 
 		driver.setScrollAnimated(target, duration);

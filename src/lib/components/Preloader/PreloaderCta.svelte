@@ -131,12 +131,11 @@
   @use '$lib/styles/variables' as *;
 
   .preloader-btn-with-sound {
-    /* Bouncy overshoot for the top-to-bottom reveal wave (easeOutBack). */
     --cta-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
     position: absolute;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, calc(-50% + 18px)) scale(0.7);
+    transform: translate(-50%, -50%) scale(0.72);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -148,9 +147,8 @@
     color: #a8aebc;
     line-height: 150%;
     opacity: 0;
-    filter: blur(12px);
     pointer-events: none;
-    will-change: opacity, transform, filter;
+    will-change: opacity, transform;
   }
 
 
@@ -338,9 +336,8 @@
   .preloader-with-sound-label {
     display: block;
     opacity: 0;
-    transform: scale(0.6);
-    filter: blur(6px);
-    will-change: transform, opacity, filter;
+    transform: scale(0.82);
+    will-change: transform, opacity;
   }
 
   .preloader-btn-with-sound.preloader-btn-with-sound--ready .start {
@@ -383,10 +380,9 @@
     font-size: 0.58rem;
     line-height: 1;
     opacity: 0;
-    transform: scale(0.7);
-    filter: blur(6px);
+    transform: scale(0.82);
     cursor: pointer;
-    will-change: transform, opacity, filter, border-color, background-color, color, box-shadow;
+    will-change: transform, opacity, border-color, background-color, color, box-shadow;
     transition:
       transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
       border-color 0.3s ease,
@@ -546,13 +542,11 @@
   @keyframes preloader-with-sound-wrap-in {
     from {
       opacity: 0;
-      transform: translate(-50%, calc(-50% + 18px)) scale(0.7);
-      filter: blur(12px);
+      transform: translate(-50%, -50%) scale(0.72);
     }
     to {
       opacity: 1;
       transform: translate(-50%, -50%) scale(1);
-      filter: blur(0);
     }
   }
 
@@ -560,25 +554,21 @@
     from {
       opacity: 1;
       transform: translate(-50%, -50%) scale(1);
-      filter: blur(0);
     }
     to {
       opacity: 0;
       transform: translate(-50%, -50%) scale(0.96);
-      filter: blur(0);
     }
   }
 
   @keyframes preloader-with-sound-label-reveal {
     from {
       opacity: 0;
-      transform: scale(0.6);
-      filter: blur(6px);
+      transform: scale(0.82);
     }
     to {
       opacity: 1;
       transform: scale(1);
-      filter: blur(0);
     }
   }
 
@@ -586,12 +576,10 @@
     from {
       opacity: 1;
       transform: scale(1);
-      filter: blur(0);
     }
     to {
       opacity: 0;
       transform: scale(0.8);
-      filter: blur(0);
     }
   }
 
@@ -609,13 +597,11 @@
   @keyframes preloader-sound-toggle-reveal {
     from {
       opacity: 0;
-      transform: scale(0.7);
-      filter: blur(6px);
+      transform: scale(0.82);
     }
     to {
       opacity: 1;
       transform: scale(1);
-      filter: blur(0);
     }
   }
 

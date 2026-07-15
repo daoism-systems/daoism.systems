@@ -61,15 +61,16 @@ const SLIDE_EMISSIVE_INTENSITY = 1;
 const SLIDE_CONTRAST = 1.08; // pivot around 0.5: deepens blacks, lifts the logo
 const SLIDE_BRIGHTNESS = 1.12; // overall gain so the mid-grey shapes read brighter
 const GRAIN_STRENGTH = 0.06; // peak-to-peak ≈ ±0.03 luminance jitter
+const MOBILE_GRAIN_STRENGTH = 0;
 const GRAIN_SCALE = 900; // screen-space frequency of the grain cells
 
-function applySlideGrade(color: any) {
+function applySlideGrade(color: any, grainStrength = GRAIN_STRENGTH) {
 	const contrasted = add(mul(sub(color, vec3(0.5)), float(SLIDE_CONTRAST)), vec3(0.5));
 	const brightened = mul(contrasted, float(SLIDE_BRIGHTNESS));
 	// Screen-locked, per-frame animated hash noise → film grain over the slide.
 	const grainSeed = dot(mul(screenUV, float(GRAIN_SCALE)), vec2(12.9898, 78.233));
 	const grainRandom = fract(mul(sin(add(grainSeed, mul(time, float(11.0)))), float(43758.5453)));
-	const grain = mul(sub(grainRandom, float(0.5)), float(GRAIN_STRENGTH));
+	const grain = mul(sub(grainRandom, float(0.5)), float(grainStrength));
 	return max(add(brightened, grain), vec3(0));
 }
 
@@ -209,15 +210,7 @@ function createMobileSlideMaterial(params: {
 	const sampledUv = createSampledSlideUv(params);
 	const { outerBorderMask, edgeDistance } = createEdgeMaskNodes(uvCoord);
 	const activeHintMask = smoothstep(float(0.82), float(0.98), params.focusUniform);
-
-	// Radial chromatic fringe near the rim, scaled by focus — a soft lens flare on the active slide.
-	const caEdgeWeight = sub(float(1), smoothstep(float(0.06), float(0.28), edgeDistance));
-	const caStrength = mul(caEdgeWeight, mul(params.focusUniform, float(0.014)));
-	const radialDir = sub(uvCoord, vec2(0.5, 0.5));
-	const baseR = texture(params.mainTexture, sub(sampledUv, mul(radialDir, caStrength))).r;
-	const baseG = texture(params.mainTexture, sampledUv).g;
-	const baseB = texture(params.mainTexture, add(sampledUv, mul(radialDir, caStrength))).b;
-	const baseColor = vec3(baseR, baseG, baseB);
+	const baseColor = texture(params.mainTexture, sampledUv).rgb;
 
 	// Inner vignette that fades out as the slide gains focus, so the active card pops.
 	const dimAmount = sub(float(1), params.focusUniform);
@@ -234,7 +227,10 @@ function createMobileSlideMaterial(params: {
 	const darkBorderColor = vec3(0.1, 0.11, 0.14);
 	const darkenedBase = mix(dimmedBase, darkBorderColor, mul(outerBorderMask, highlightStrength));
 
-	material.colorNode = mul(applySlideGrade(darkenedBase), params.uniforms.colorIntensity);
+	material.colorNode = mul(
+		applySlideGrade(darkenedBase, MOBILE_GRAIN_STRENGTH),
+		params.uniforms.colorIntensity
+	);
 	material.positionNode = createContinuousPosition(params.props, params.uniforms);
 	material.opacityNode = mul(
 		createRoundedOpacityNode(uvCoord, params.uniforms.cornerRadius),
