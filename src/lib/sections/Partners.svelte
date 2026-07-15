@@ -118,7 +118,7 @@
       style:transform={`translate3d(0, ${paragraphOffsetY}px, 0)`}
       use:textReveal={paragraphRevealOptions}
     >
-        Teams shaping coordination, on-chain.
+        Teams shaping decentralized web
     </p>
     <div
       class="partners__divider"
