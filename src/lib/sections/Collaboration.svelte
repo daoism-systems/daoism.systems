@@ -4,7 +4,6 @@
 	import IconPlus from '$lib/components/IconPlus.svelte';
 	import { COLLABORATION_UI_WINDOW } from '$lib/config/revealTiming';
 	import { headingReveal } from '$lib/utils/animations/headingReveal';
-	import { textReveal } from '$lib/utils/animations/textReveal';
 	import { clamp01, getPhaseProgress, getUiProgress } from '$lib/utils/animations/uiProgress';
 
 	type Props = {
@@ -25,13 +24,11 @@
 	let scrimOpacity = $derived(revealProgress * (1 - getPhaseProgress(progress, 1, 0.1)));
 	let headingUiProgress = $derived(uiProgress);
 	let subtitleUiProgress = $derived(getPhaseProgress(uiProgress, 0.06, 0.74));
-	let descUiProgress = $derived(getPhaseProgress(uiProgress, 0.1, 0.78));
 	let buttonUiProgress = $derived(getPhaseProgress(uiProgress, 0.1, 0.78));
 
 	let isSectionHidden = $derived(uiProgress <= HIDDEN_EPSILON);
 
 	let subtitleOffsetY = $derived((1 - subtitleUiProgress) * 28);
-	let descOffsetY = $derived((1 - descUiProgress) * 32);
 	let headingOffsetY = $derived((1 - headingUiProgress) * 20);
 
 	const headingRevealConfig = $derived({
@@ -44,12 +41,6 @@
 		progress: subtitleUiProgress,
 		duration: 0.55,
 		stagger: 0.01
-	});
-
-	const descRevealOptions = $derived({
-		progress: descUiProgress,
-		duration: 0.72,
-		scrubProgressPower: 1.25
 	});
 
 	const buttonClipPath = $derived(`inset(0 ${(1 - buttonUiProgress) * 100}% 0 0)`);
@@ -94,17 +85,9 @@
 		use:headingReveal={subtitleRevealOptions}
 	>
 		<span class="text-line">
-		    Tell us about your <span class="highlight">project</span>
+		    We work through <span class="highlight">interdependence</span> — your goals become our requirements.
 		</span>
 	</div>
-
-	<p
-		class="collaboration__desc section-reveal-paragraph"
-		style:transform={`translate3d(0, ${descOffsetY}px, 0)`}
-		use:textReveal={descRevealOptions}
-	>
-		We work through interdependence — your goals become our requirements.
-	</p>
 
 </div>
 
@@ -218,7 +201,7 @@
 			margin: auto 0 0 auto;
 			// em, not ch: KH Interference isn't monospace, so em is the unit that
 			// keeps the measure proportional across the font-size steps below.
-			max-width: 18em;
+			max-width: 22em;
 			font-size: var(--text-2xl);
 			line-height: var(--tw-leading, var(--text-2xl--line-height));
 			font-family: $font-secondary;
@@ -285,42 +268,6 @@
 					color: $color-grey-100;
 					text-shadow: none;
 				}
-			}
-		}
-
-		&__desc {
-			position: relative;
-			z-index: 1;
-			margin-left: auto;
-			color: $color-grey-100;
-			padding-top: 1rem;
-			text-shadow:
-				0 0 2px rgba(255, 255, 255, 0.16),
-				0 6px 20px rgba(5, 8, 15, 0.38);
-			will-change: transform;
-			font-style: normal;
-			font-weight: 400;
-			line-height: 120%;
-
-			@include breakpoint(not-desktop) {
-				margin-left: 0;
-				text-shadow: none; // no white glow on the light readability scrim
-			}
-
-			@media (max-width: 1300px) {
-				font-size: var(--text-xl);
-			}
-
-			@media (max-width: 628px) {
-				font-size: var(--text-base);
-			}
-
-			@media (max-width: 420px) {
-				font-size: 15px;
-			}
-
-			@include breakpoint(phone) {
-				padding-top: 0.8rem;
 			}
 		}
 	}
