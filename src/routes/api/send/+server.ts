@@ -4,6 +4,7 @@ import { env } from '$env/dynamic/private';
 
 const RESEND_API_KEY = env.RESEND_API_KEY;
 const TO_EMAIL = env.TO_EMAIL;
+
 // Optional. Defaults to Resend's shared onboarding sender so the form works before a
 // domain is verified — note that sender only delivers to the Resend account owner's
 // address. For production from your own domain, verify it in Resend and set FROM_EMAIL.
