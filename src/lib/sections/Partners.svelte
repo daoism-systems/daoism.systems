@@ -105,7 +105,7 @@
 <div class="partners">
   <Heading
     className="partners"
-    text={['Teams we previously', 'worked with']}
+    text={['Teams we', 'worked with']}
     sup="5"
     position="bottom"
     progress={sectionProgress}
@@ -118,7 +118,7 @@
       style:transform={`translate3d(0, ${paragraphOffsetY}px, 0)`}
       use:textReveal={paragraphRevealOptions}
     >
-        We work through interdependence — your goals become our requirements.
+        Teams shaping coordination, on-chain.
     </p>
     <div
       class="partners__divider"

@@ -4,6 +4,7 @@
   import SlideFocusBadge from '$lib/components/SlideFocusBadge.svelte';
   import { VENTURES_UI_WINDOW } from '$lib/config/revealTiming';
   import { clamp01, getPhaseProgress, getUiProgress } from '$lib/utils/animations/uiProgress';
+  import { textReveal } from '$lib/utils/animations/textReveal';
 
   let { progress } = $props();
 
@@ -31,6 +32,12 @@
     stagger: 0.012
   });
 
+  const paragraphRevealOptions = $derived({
+    progress: contentUiProgress,
+    duration: 1.2,
+    scrubProgressPower: 1.18
+  });
+
 </script>
 
 <div class="ventures section__wrap">
@@ -48,6 +55,10 @@
     class="ventures__desc"
     style:transform={`translate3d(0, ${contentOffsetY}px, 0)`}
   >
+    <p class="section-reveal-paragraph" use:textReveal={paragraphRevealOptions}>
+        A public record of our activity, case studies and patterns for resilient, permissionless coordination systems.
+    </p>
+
     <!-- Mobile: red badge pinned above the slider, tracks the centered slide -->
     <SlideFocusBadge reveal={contentUiProgress} />
   </div>
@@ -86,5 +97,14 @@
       }
     }
 
+    .section-reveal-paragraph {
+      // Tighter measure than the shared 44ch; this column sits beside the slider.
+      max-width: 40ch;
+
+      @include breakpoint(phone) {
+        font-size: 14px;
+        line-height: 1.4;
+      }
+    }
   }
 </style>

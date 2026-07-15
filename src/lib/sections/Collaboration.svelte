@@ -25,11 +25,13 @@
 	let scrimOpacity = $derived(revealProgress * (1 - getPhaseProgress(progress, 1, 0.1)));
 	let headingUiProgress = $derived(uiProgress);
 	let subtitleUiProgress = $derived(getPhaseProgress(uiProgress, 0.06, 0.74));
+	let descUiProgress = $derived(getPhaseProgress(uiProgress, 0.1, 0.78));
 	let buttonUiProgress = $derived(getPhaseProgress(uiProgress, 0.1, 0.78));
 
 	let isSectionHidden = $derived(uiProgress <= HIDDEN_EPSILON);
 
 	let subtitleOffsetY = $derived((1 - subtitleUiProgress) * 28);
+	let descOffsetY = $derived((1 - descUiProgress) * 32);
 	let headingOffsetY = $derived((1 - headingUiProgress) * 20);
 
 	const headingRevealConfig = $derived({
@@ -42,6 +44,12 @@
 		progress: subtitleUiProgress,
 		duration: 0.55,
 		stagger: 0.01
+	});
+
+	const descRevealOptions = $derived({
+		progress: descUiProgress,
+		duration: 0.72,
+		scrubProgressPower: 1.25
 	});
 
 	const buttonClipPath = $derived(`inset(0 ${(1 - buttonUiProgress) * 100}% 0 0)`);
@@ -89,6 +97,14 @@
 		    Tell us about your <span class="highlight">project</span>
 		</span>
 	</div>
+
+	<p
+		class="collaboration__desc section-reveal-paragraph"
+		style:transform={`translate3d(0, ${descOffsetY}px, 0)`}
+		use:textReveal={descRevealOptions}
+	>
+		We work through interdependence — your goals become our requirements.
+	</p>
 
 </div>
 

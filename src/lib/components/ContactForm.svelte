@@ -166,7 +166,7 @@
 	<InputField
 		type="text"
 		label="Message"
-		placeholder="Tell your wild idea"
+		placeholder="Tell us what you're building"
 		hasError={Boolean(errors.message)}
 		bind:value={inputs.message}
 		id="message"
