@@ -1,5 +1,4 @@
 <script lang="ts">
-  import Tag from '$lib/components/Tag.svelte';
   import Heading from '$lib/components/Heading.svelte';
   import IconPlus from '$lib/components/IconPlus.svelte';
   import SlideFocusBadge from '$lib/components/SlideFocusBadge.svelte';
@@ -21,9 +20,7 @@
     })
   );
   let headingUiProgress = $derived(uiProgress);
-  let tagRevealProgress = $derived(getPhaseProgress(sectionProgress, 0.25, 0.15));
   let contentRevealProgress = $derived(getPhaseProgress(sectionProgress, 0.25, 0.1));
-  let tagUiProgress = $derived(tagRevealProgress * descOutProgress);
   let contentUiProgress = $derived(contentRevealProgress * descOutProgress);
   let isSectionHidden = $derived(uiProgress <= HIDDEN_EPSILON);
   let contentOffsetY = $derived((1 - contentUiProgress) * 30);
@@ -41,18 +38,11 @@
     scrubProgressPower: 1.18
   });
 
-  const tagRevealOptions = $derived({
-    progress: tagUiProgress,
-    split: false,
-    motion: false,
-    duration: 0.95,
-    scrubProgressPower: 1.12
-  });
 </script>
 
 <div class="ventures section__wrap">
   <Heading
-    text={['Insights', 'from our team']}
+    text={['Our Blog']}
     position="bottom"
     progress={sectionProgress}
     headingRevealConfig={headingRevealConfig}
@@ -65,12 +55,8 @@
     class="ventures__desc"
     style:transform={`translate3d(0, ${contentOffsetY}px, 0)`}
   >
-    <div class="ventures__label">
-      <Tag text="web3" action={textReveal} actionParams={tagRevealOptions} />
-    </div>
-
     <p class="section-reveal-paragraph" use:textReveal={paragraphRevealOptions}>
-        We bring technical and operational expertise to realize the cutting edge of DAO and DeFi innovation across web3.
+        A public record of our activity, case studies and patterns for resilient, permissionless coordination systems.
     </p>
 
     <!-- Mobile: red badge pinned above the slider, tracks the centered slide -->
@@ -115,10 +101,6 @@
       @include breakpoint(desktop) {
         left: -100%;
       }
-    }
-
-    &__label {
-      margin-bottom: 1rem;
     }
 
     .section-reveal-paragraph {

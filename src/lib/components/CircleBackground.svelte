@@ -312,8 +312,14 @@
       </div>
       <div class="circle-small__title min-[2245px]:!text-3xl">Hover to explore</div>
       <div class="circle-small__text text-sm min-[2245px]:!text-2xl">
-        <h6>On-Chain Solutions</h6>
-        <p>Custom design and implementation of on-chain systems: smart contracts, DAOs, and DeFi protocols engineered end to end across web3.</p>
+        <h6>We Develop</h6>
+        <ul>
+          <li>Smart Contracts</li>
+          <li>User Interfaces</li>
+          <li>Interoperability Solutions</li>
+          <li>AI agents tooling</li>
+          <li>AI agents workflows</li>
+        </ul>
       </div>
       <svg class="circle-small__circle" viewBox="0 0 1402 900" fill="none" xmlns="http://www.w3.org/2000/svg">
         <g opacity="0.8">
@@ -341,8 +347,14 @@
 
       <div class="circle-small__title min-[2245px]:text-3xl!">Hover to explore</div>
       <div class="circle-small__text text-sm min-[2245px]:text-2xl!">
-        <h6>Consultancy</h6>
-        <p>Advisory, architecture, and maintenance for precise system requirements, from protocol design reviews to ongoing on-chain support.</p>
+        <h6>We Design</h6>
+        <ul>
+          <li>Tokenomics</li>
+          <li>Governance systems</li>
+          <li>Treasury management solutions</li>
+          <li>Liquidity allocation strategies</li>
+          <li>Protocol architectures</li>
+        </ul>
       </div>
       <svg class="circle-small__circle" viewBox="0 0 1402 900" fill="none" xmlns="http://www.w3.org/2000/svg">
         <g opacity="0.8">
@@ -555,11 +567,18 @@
         width: 100%;
       }
 
-      p {
+      ul {
         color: $color-grey-300;
         font-family: inherit;
         display: block;
         width: 100%;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+
+        li {
+          line-height: 1.5;
+        }
       }
     }
   }

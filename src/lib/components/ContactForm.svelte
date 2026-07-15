@@ -6,7 +6,6 @@
 	let inputs = {
 		name: '',
 		email: '',
-		phone: '',
 		message: ''
 	};
 
@@ -15,7 +14,6 @@
 	let errors: Record<FieldName, string> = {
 		name: '',
 		email: '',
-		phone: '',
 		message: ''
 	};
 
@@ -40,7 +38,7 @@
 
 		if (!trimmedValue) {
 			if (field === 'message') return '';
-			if (field === 'phone') return 'Phone number is required';
+			if (field === 'name') return 'Alias is required';
 			return `${field[0].toUpperCase()}${field.slice(1)} is required`;
 		}
 
@@ -52,15 +50,10 @@
 		}
 
 		if (field === 'name') {
-			const namePattern = /^[A-Za-zÀ-ÖØ-öø-ÿ' -]+$/;
-			if (trimmedValue.length < 2) return 'Name must be at least 2 characters';
-			if (!namePattern.test(trimmedValue))
-				return 'Name can contain only letters, spaces, apostrophes, and hyphens';
-		}
-
-		if (field === 'phone') {
-			const phonePattern = /^[+]?[\d\s\-()]{7,}$/;
-			if (!phonePattern.test(trimmedValue)) return 'Enter a valid phone number';
+			const aliasPattern = /^[A-Za-zÀ-ÖØ-öø-ÿ0-9._' -]+$/;
+			if (trimmedValue.length < 2) return 'Alias must be at least 2 characters';
+			if (!aliasPattern.test(trimmedValue))
+				return 'Alias can contain only letters, numbers, dots, underscores, apostrophes, and hyphens';
 		}
 
 		return '';
@@ -70,7 +63,6 @@
 		const nextErrors: Record<FieldName, string> = {
 			name: validateField('name', inputs.name),
 			email: validateField('email', inputs.email),
-			phone: validateField('phone', inputs.phone),
 			message: validateField('message', inputs.message)
 		};
 
@@ -124,8 +116,8 @@
 				submitting: false,
 				info: { error: false, msg }
 			};
-			inputs = { name: '', email: '', phone: '', message: '' };
-			errors = { name: '', email: '', phone: '', message: '' };
+			inputs = { name: '', email: '', message: '' };
+			errors = { name: '', email: '', message: '' };
 		} else {
 			status = {
 				...status,
@@ -141,7 +133,7 @@
 		<div class="contact-form__cell">
 			<InputField
 				type="text"
-				label="Name"
+				label="Alias"
 				placeholder="Satoshi Nakamoto"
 				hasError={Boolean(errors.name)}
 				bind:value={inputs.name}
@@ -170,27 +162,11 @@
 				<p class="field-error">{errors.email}</p>
 			{/if}
 		</div>
-		<div class="contact-form__cell">
-			<InputField
-				type="tel"
-				label="Number"
-				placeholder="+32 470 12 34 56"
-				hasError={Boolean(errors.phone)}
-				bind:value={inputs.phone}
-				id="phone"
-				name="phone"
-				required={true}
-				oninput={() => handleOnChange('phone')}
-			/>
-			{#if errors.phone}
-				<p class="field-error">{errors.phone}</p>
-			{/if}
-		</div>
 	</div>
 	<InputField
 		type="text"
 		label="Message"
-		placeholder="Tell your wild idea"
+		placeholder="Tell us what you're building"
 		hasError={Boolean(errors.message)}
 		bind:value={inputs.message}
 		id="message"
@@ -203,7 +179,7 @@
 	{/if}
 	<Button
 		label={status.submitting ? 'Submitting...' : status.submitted ? 'Submitted' : 'Submit'}
-		data-cursor-text-label={status.submitting ? 'Please wait...' : status.submitted ? 'Done' : "Don't be scared"}
+		data-cursor-text-label={status.submitting ? 'Please wait...' : status.submitted ? 'Done' : 'Initialize handshake protocol'}
 		color="red"
 		type="submit"
 		{...status.submitting ? { disabled: true } : {}}
@@ -257,23 +233,19 @@
 		}
 
 		&__cell {
-			width: calc((100% - 2rem) / 3);
+			width: calc((100% - 1rem) / 2);
 			display: flex;
 			flex-direction: column;
 			gap: 0.25rem;
 			min-width: 0;
 
 			@media (min-width: 2245px) {
-				width: calc((100% - 3rem) / 3);
+				width: calc((100% - 1.5rem) / 2);
 				gap: 0.4rem;
 			}
 
 			@include breakpoint(tablet) {
 				width: calc(50% - 0.5rem);
-
-				&:last-of-type {
-					width: 100%;
-				}
 			}
 
 			@include breakpoint(phone) {

@@ -137,7 +137,7 @@
 	<div class="hero__top text-[15px]  md:text-base min-[1181px]:text-lg min-[2245px]:text-2xl!">
 		<div class="hidden lg:flex">
 			<p use:textReveal={textRevealOptions}>
-			    We engineer decentralized systems that put power back in users' hands.
+			    Web3 studio serving self-sovereign internet
 			</p>
 			<p use:textReveal={textRevealOptions}>Berlin, DE</p>
 		</div>
