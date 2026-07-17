@@ -6,14 +6,16 @@
           "PostProcessing": {
             "chromaticScale": 0,
             "chromaticStrength": 0,
-            "chromaticExclusionRadius": 0.27848101265822794
+            "chromaticExclusionRadius": 0.27848101265822794,
+            "chromaticBreathingAmount": 1.2
           },
           "Particles": {
             "octagonSize": 0.6329113924050636,
             "cubesSize": 0.4936708860759497,
             "pyramidsSize": 1.2848101265822807,
             "forestEmissive": 0.7278481012658233,
-            "signTreeEmissive": 0.620253164556962
+            "signTreeEmissive": 0.620253164556962,
+            "octagonEmissive": 5
           },
           "TrainSlider": {
             "exitDistance": 9.620253164556964,
@@ -1173,6 +1175,24 @@
                       "b": 0.5098039215686274,
                       "a": 1
                     }
+                  },
+                  {
+                    "id": "rsCfKpfnzQ",
+                    "position": 0.033,
+                    "connectedRight": true,
+                    "handles": [
+                      0.5,
+                      1,
+                      0.5,
+                      0
+                    ],
+                    "type": "bezier",
+                    "value": {
+                      "r": 1,
+                      "g": 1,
+                      "b": 1,
+                      "a": 1
+                    }
                   }
                 ]
               },
@@ -1510,7 +1530,7 @@
                       0
                     ],
                     "type": "hold",
-                    "value": 1
+                    "value": 0.7
                   },
                   {
                     "id": "rgbs1kf0002",
@@ -2444,6 +2464,25 @@
                     "value": 0.35
                   }
                 ]
+              },
+              "OkKVY_soX-": {
+                "type": "BasicKeyframedTrack",
+                "__debugName": "PostProcessing:[\"chromaticBreathingAmount\"]",
+                "keyframes": [
+                  {
+                    "id": "sls-tv51WZ",
+                    "position": 0.033,
+                    "connectedRight": true,
+                    "handles": [
+                      0.5,
+                      1,
+                      0.5,
+                      0
+                    ],
+                    "type": "bezier",
+                    "value": 1.2
+                  }
+                ]
               }
             },
             "trackIdByPropPath": {
@@ -2467,7 +2506,8 @@
               "[\"vignetteWidth\"]": "4GvqIKbLC-",
               "[\"vignetteCenter\"]": "KRJawJF6vI",
               "[\"chromaticCenterY\"]": "CA9EQGKTFr",
-              "[\"chromaticCenterX\"]": "OYGyLKzKvG"
+              "[\"chromaticCenterX\"]": "OYGyLKzKvG",
+              "[\"chromaticBreathingAmount\"]": "OkKVY_soX-"
             }
           },
           "Transition": {
@@ -4052,6 +4092,7 @@
   },
   "definitionVersion": "0.4.0",
   "revisionHistory": [
+    "OMtq3ntauwRrG30r",
     "n99uQf1T0adg3IcS",
     "DE0wo2kK9rTtjcTd",
     "uHXHBvGdVDSULnEc",
@@ -4100,7 +4141,6 @@
     "THxD99FBsY_hzbbB",
     "AwcczL522EjPRxiU",
     "xafIXcSfnaaPD1p9",
-    "gAkQHXxVgJCyP_Tq",
-    "moV5d9tN9AE4j3Zd"
+    "gAkQHXxVgJCyP_Tq"
   ]
 }
