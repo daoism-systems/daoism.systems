@@ -228,6 +228,10 @@ body {
 	overflow-x: hidden;
 }
 
+img {
+	-webkit-user-drag: none;
+}
+
 h1,
 h2,
 h3 {
