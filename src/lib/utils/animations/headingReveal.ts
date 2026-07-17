@@ -14,6 +14,7 @@ type HeadingRevealParams = {
 	onBeforeRevealEnd?: () => void;
 	beforeRevealEndOffset?: number;
 	onDone?: () => void;
+	onReverseDone?: () => void;
 };
 
 const DEFAULT_REVEAL_DURATION = 1.2;
@@ -78,8 +79,9 @@ class HeadingRevealController {
 
 				if (this.hasRevealed) {
 					const currentProgress = this.timeline?.progress ?? 0;
-					this.build();
-					this.scrubTo(currentProgress);
+					this.build(false);
+					this.timeline?.setProgress(currentProgress);
+					this.syncWithParams();
 				}
 			}, 250);
 		});
@@ -94,7 +96,8 @@ class HeadingRevealController {
 			nextParams.onMidpoint !== this.params.onMidpoint ||
 			nextParams.onBeforeRevealEnd !== this.params.onBeforeRevealEnd ||
 			nextParams.beforeRevealEndOffset !== this.params.beforeRevealEndOffset ||
-			nextParams.onDone !== this.params.onDone;
+			nextParams.onDone !== this.params.onDone ||
+			nextParams.onReverseDone !== this.params.onReverseDone;
 
 		this.params = nextParams;
 		if (shouldRebuild) {
@@ -178,6 +181,7 @@ class HeadingRevealController {
 			},
 			onReverseComplete: () => {
 				this.setWillChange('auto');
+				this.params.onReverseDone?.();
 			}
 		});
 
@@ -311,12 +315,12 @@ class HeadingRevealController {
 		}
 	}
 
-	private build() {
+	private build(syncWithParams = true) {
 		if (this.destroyed) return;
 		this.clearSplits();
 		if (!this.setupChars()) return;
 		this.createTimeline();
-		this.syncWithParams();
+		if (syncWithParams) this.syncWithParams();
 	}
 }
 

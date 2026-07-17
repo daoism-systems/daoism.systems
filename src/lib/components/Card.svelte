@@ -29,8 +29,9 @@
 	const maxImageShift = 14;
 	const tiltSmoothing = 0.12;
 	const revealOptions = {
-		startViewport: 0.82,
-		endViewport: 0.24,
+		startViewport: 0.92,
+		endViewport: 0.16,
+		ease: 'cubic-bezier(0.4, 0, 0.2, 1)',
 		fromDirection: index % 2 === 0 ? 'top' : 'bottom'
 	} as const;
 

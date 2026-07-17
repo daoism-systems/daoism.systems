@@ -11,6 +11,15 @@
   const HIDDEN_EPSILON = 0.001;
   const HEADING_HIDE_START = 0.86;
   const HEADING_HIDE_END = 0.98;
+  const CARDS_REVEAL_START = 0.02;
+  const CARDS_REVEAL_END = 0.17;
+  const CARDS_MOVE_START = 0.2;
+  const CARDS_MOVE_END = 0.94;
+  const CARDS_SMOOTHING_MS = 170;
+
+  function getCardsMoveProgress(value: number): number {
+    return clamp01((value - CARDS_MOVE_START) / (CARDS_MOVE_END - CARDS_MOVE_START));
+  }
 
   let sectionProgress = $derived(clamp01(progress));
   let uiProgress = $derived(getUiProgress(sectionProgress));
@@ -19,6 +28,10 @@
   );
   let paragraphUiProgress = $derived(getPhaseProgress(uiProgress, 0.08, 0.82));
   let lineUiProgress = $derived(getPhaseProgress(uiProgress, 0.04, 0.86));
+  let cardsRevealProgress = $derived(
+    getPhaseProgress(sectionProgress, CARDS_REVEAL_START, CARDS_REVEAL_END - CARDS_REVEAL_START)
+  );
+  let cardsMoveProgress = $derived(getCardsMoveProgress(sectionProgress));
   let isSectionHidden = $derived(uiProgress <= HIDDEN_EPSILON);
   let paragraphOffsetY = $derived((1 - paragraphUiProgress) * 24);
 
@@ -37,22 +50,32 @@
   // Cards Scroll Logic
   let cardsEl = $state<HTMLElement | null>(null);
   let isDesktop = $state(false);
+  let prefersReducedMotion = $state(false);
   let moveY = $state(0);
   let moveX = $state(0);
-  let smoothedSectionProgress = $state(0);
+  let smoothedCardsMoveProgress = $state(0);
   let cardsFrame = 0;
   let cardsFrameTime = 0;
-  const cardsSmoothingMs = 120;
   let cardsTransform = $derived.by(() => {
-    const clampedProgress = smoothedSectionProgress;
-    return isDesktop
-      ? `translate3d(0, -${moveY * clampedProgress}px, 0)`
-      : `translate3d(-${moveX * clampedProgress}px, 0, 0)`;
+    const revealProgress = prefersReducedMotion ? 1 : cardsRevealProgress;
+    const revealX = isDesktop ? (1 - revealProgress) * -32 : 0;
+    const revealY = (1 - revealProgress) * 28;
+    const translateX = revealX - moveX * smoothedCardsMoveProgress;
+    const translateY = revealY - moveY * smoothedCardsMoveProgress;
+    const scale = 0.975 + revealProgress * 0.025;
+
+    return `translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})`;
   });
+  let cardsOpacity = $derived(prefersReducedMotion ? 1 : cardsRevealProgress);
+  let cardsBlur = $derived(prefersReducedMotion ? 0 : (1 - cardsRevealProgress) * 10);
 
   onMount(() => {
     const cards = cardsEl;
     if (!cards) return;
+    const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const updateMotionPreference = () => {
+      prefersReducedMotion = reducedMotionQuery.matches;
+    };
 
     const updateMeasurements = () => {
       const containerHeight = window.innerHeight;
@@ -74,21 +97,27 @@
       if (!cardsFrameTime) cardsFrameTime = now;
       const frameDeltaMs = Math.min(Math.max(now - cardsFrameTime, 0), 64);
       cardsFrameTime = now;
-      const alpha = 1 - Math.exp(-frameDeltaMs / cardsSmoothingMs);
-      smoothedSectionProgress += (sectionProgress - smoothedSectionProgress) * alpha;
-      if (Math.abs(sectionProgress - smoothedSectionProgress) < 0.0005) {
-        smoothedSectionProgress = sectionProgress;
+      const alpha = prefersReducedMotion
+        ? 1
+        : 1 - Math.exp(-frameDeltaMs / CARDS_SMOOTHING_MS);
+      smoothedCardsMoveProgress +=
+        (cardsMoveProgress - smoothedCardsMoveProgress) * alpha;
+      if (Math.abs(cardsMoveProgress - smoothedCardsMoveProgress) < 0.0001) {
+        smoothedCardsMoveProgress = cardsMoveProgress;
       }
       cardsFrame = requestAnimationFrame(animateCards);
     };
 
+    updateMotionPreference();
     updateMeasurements();
-    smoothedSectionProgress = sectionProgress;
+    smoothedCardsMoveProgress = cardsMoveProgress;
     cardsFrame = requestAnimationFrame(animateCards);
 
     window.addEventListener('resize', updateMeasurements);
+    reducedMotionQuery.addEventListener('change', updateMotionPreference);
     return () => {
       window.removeEventListener('resize', updateMeasurements);
+      reducedMotionQuery.removeEventListener('change', updateMotionPreference);
       cancelAnimationFrame(cardsFrame);
     };
   });
@@ -130,7 +159,13 @@
   </div>
 </div>
 
-<div class="cards" style="transform: {cardsTransform}" bind:this={cardsEl}>
+<div
+  class="cards"
+  style:opacity={cardsOpacity}
+  style:filter={`blur(${cardsBlur}px)`}
+  style:transform={cardsTransform}
+  bind:this={cardsEl}
+>
   {#each Cards as card, index}
     <Card
       id={card.id}
@@ -248,7 +283,8 @@
     left: 0;
     display: flex;
     gap: 1.25rem;
-    will-change: transform;
+    transform-origin: left center;
+    will-change: transform, opacity, filter;
     backface-visibility: hidden;
 
     @include breakpoint(desktop) {
