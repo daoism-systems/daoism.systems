@@ -63,7 +63,7 @@ function applyMobileCaps(options: GraphicsOptions): GraphicsOptions {
 		denoise: true,
 		postProcessing: {
 			...options.postProcessing,
-			fxaa: false,
+			fxaa: true,
 			bloom: false,
 			fluidDistortion: false,
 			// Kept on: the mobile timeline keyframes a continuous strength/scale
@@ -99,7 +99,8 @@ export function createDefaultGraphicsOptions(): GraphicsOptions {
 		// Scales the main drawing buffer after max-resolution clamping.
 		// Safari gets a mild default reduction because its multi-pass particle path
 		// is materially slower than Chromium on the same hardware.
-		resolutionScale: isMobile ? 0.85 : isSafari ? 0.85 : 1,
+        // resolutionScale: isMobile ? 0.85 : isSafari ? 0.85 : 1,
+		resolutionScale: 1,
 		denoise: true,
 		shadowMapType: THREE.PCFSoftShadowMap,
 		enableOctagonParticles: true,
@@ -142,7 +143,8 @@ export function createGraphicsOptionsForTier(
 				width: Math.min(base.maxResolution.width, 1920),
 				height: Math.min(base.maxResolution.height, 1080)
 			},
-			resolutionScale: Math.min(base.resolutionScale, isMobile ? 0.75 : 0.85),
+			// resolutionScale: Math.min(base.resolutionScale, isMobile ? 0.75 : 0.85),
+			resolutionScale: 1,
 			denoise: false,
 			shadowMapType: mediumShadowMapType,
 			enableOctagonParticles: base.enableOctagonParticles,
@@ -150,7 +152,7 @@ export function createGraphicsOptionsForTier(
 			postProcessing: {
 				...base.postProcessing,
 				bloom: true,
-				fxaa: false,
+				fxaa: true,
 				// Inherit, don't force on — applyMobileCaps disables CA and mobile is
 				// pinned to this tier, so an explicit `true` would undo the mobile cap.
 				chromaticAberration: base.postProcessing.chromaticAberration
@@ -173,7 +175,8 @@ export function createGraphicsOptionsForTier(
 			width: Math.min(base.maxResolution.width, 1280),
 			height: Math.min(base.maxResolution.height, 720)
 		},
-		resolutionScale: Math.min(base.resolutionScale, isMobile ? 0.65 : 0.7),
+		// resolutionScale: Math.min(base.resolutionScale, isMobile ? 0.65 : 0.7),
+		resolutionScale: 1,
 		denoise: true,
 		shadowMapType: base.shadowMapType,
 		enableOctagonParticles: base.enableOctagonParticles,

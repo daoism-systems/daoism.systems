@@ -259,6 +259,51 @@ export class ModelRotationController {
 		}
 	}
 
+	/**
+	 * No-VAT path (mobile): wrap a MIXER-ANIMATED pyramids root in a pivot chain
+	 * that stays exact under per-frame mixer writes. The `attach()`-based pivots
+	 * (`ensurePyramidsPivots`) bake the pivot offset into the target's local
+	 * transform once — but the mixer then overwrites that local with clip values
+	 * authored for the ORIGINAL parent space, so the bbox-center offset corrupts
+	 * every animated TRS (position/scale/rotation all land wrong). Here the chain
+	 *   transitionPivot(+center) → rotationPivot(spin) → counterPivot(−center)
+	 * carries the compensation itself and the root is `add()`-ed with its local
+	 * transform untouched: at identity spin the authored world transform
+	 * reproduces exactly, and the auto-spin still rotates about the group's rest
+	 * center like the VAT pivot does.
+	 */
+	public attachAnimatedPyramidsRoot(root: THREE.Object3D): void {
+		if (this.pyramidsRotationPivot) return;
+		const parent = root.parent;
+		if (!parent) return;
+
+		this.getObjectWorldCenter(root, this.tempWorldCenter);
+		this.tempLocalCenter.copy(this.tempWorldCenter);
+		parent.worldToLocal(this.tempLocalCenter);
+
+		const transitionPivot = new THREE.Group();
+		transitionPivot.name = 'PyramidsTransitionPivot';
+		transitionPivot.position.copy(this.tempLocalCenter);
+
+		const rotationPivot = new THREE.Group();
+		rotationPivot.name = 'PyramidsRotationPivot';
+
+		const counterPivot = new THREE.Group();
+		counterPivot.name = 'PyramidsCounterPivot';
+		counterPivot.position.copy(this.tempLocalCenter).negate();
+
+		parent.add(transitionPivot);
+		transitionPivot.add(rotationPivot);
+		rotationPivot.add(counterPivot);
+		// add(), NOT attach(): the root's local transform must stay exactly what
+		// the mixer writes.
+		counterPivot.add(root);
+
+		this.pyramidsSourceGroup = root;
+		this.pyramidsTransitionPivot = transitionPivot;
+		this.pyramidsRotationPivot = rotationPivot;
+	}
+
 	public attachPyramidVATMesh(mesh: THREE.Object3D): void {
 		this.pyramidVATMesh = mesh;
 		if (this.pyramidsRotationPivot) {

@@ -127,18 +127,18 @@ const PRELOADER_BLACK = new THREE.Color('#000000');
 class MainScene {
 	private readonly PARTICLE_RADIUS_SCALE = 0.6;
 	private readonly loadingProgressTracker = new LoadingProgressTracker(
-		{
-			// `pyramidAssets` (source GLB + VAT bin, ~28 MB) is the dominant network
-			// cost on a cold cache, so it gets the largest share. `objects` (the
-			// 2.2 MB main GLB) was over-weighted at 40 — most of its time was
-			// actually the untracked pyramid download that followed it, which froze
-			// the bar mid-load on Vercel/incognito.
-			benchmark: 5,
-			objects: 15,
-			pyramidAssets: 40,
-			sceneSetup: 15,
-			warmup: 25
-		},
+		// Desktop: `pyramidAssets` (source GLB + VAT bin, ~28 MB) is the dominant
+		// network cost on a cold cache, so it gets the largest share. `objects`
+		// (the 2.2 MB main GLB) was over-weighted at 40 — most of its time was
+		// actually the untracked pyramid download that followed it, which froze
+		// the bar mid-load on Vercel/incognito.
+		// Mobile: pyramidVat is off and the mobile GLB carries the pyramids, so
+		// there are no pyramid downloads — their weight moves onto `objects`.
+		// (detectMob() directly: field initializers run before the constructor
+		// body assigns this.isMobile.)
+		detectMob()
+			? { benchmark: 5, objects: 55, pyramidAssets: 0, sceneSetup: 15, warmup: 25 }
+			: { benchmark: 5, objects: 15, pyramidAssets: 40, sceneSetup: 15, warmup: 25 },
 		(progress) => {
 			loadingProgress.set(progress);
 			const t = Math.min(1, progress / 100);
@@ -437,7 +437,12 @@ class MainScene {
 		});
 		this.introTransition.start();
 
-		void this.loadObjects('/models/DAO_full_scene.glb').catch((error) => {
+		// Mobile loads its own GLB: same node names and 46.68 s timeline, but the
+		// pyramids keep their (much simpler) mixer animation instead of the VAT —
+		// pyramidVat is off on mobile (see MOBILE_SCENE_FEATURES), which also
+		// skips the pyramids_merged/pyramids_vat/pyramids_source downloads.
+		const modelUrl = this.isMobile ? '/models/DAO_mobile_scene.glb' : '/models/DAO_full_scene.glb';
+		void this.loadObjects(modelUrl).catch((error) => {
 			console.error('Failed to load scene objects:', error);
 		});
 
@@ -1255,6 +1260,7 @@ class MainScene {
 		this.particleOrchestrator.setupCubes(cubes);
 		this.refreshModelGroups();
 
+		this.particleOrchestrator.setupPyramidSolids(gltf.scene);
 		this.particleOrchestrator.setupPyramidsAndForest(gltf.scene, !this.features.pyramidVat);
 		this.refreshModelGroups();
 		this.setLoadingStage('sceneSetup', 0.45);

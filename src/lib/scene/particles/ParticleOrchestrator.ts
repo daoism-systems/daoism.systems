@@ -90,6 +90,32 @@ export class ParticleOrchestrator {
 		}
 	}
 
+	/**
+	 * No-VAT path (mobile): the pyramid solids ship in the main GLB and ride the
+	 * main scroll mixer. Attach the whole pyramids root to the rotation pivot
+	 * BEFORE the particle-source attach in `setupPyramidsAndForest` — that way
+	 * the pivot wraps solids AND particle sources, so Theatre's `pyramidsVisible`
+	 * and the auto-rotation cover both coherently (with VAT, the solid mesh gets
+	 * this via `attachPyramidVATMesh`). Solids also take the chromatic layer the
+	 * VAT mesh would have received.
+	 */
+	public setupPyramidSolids(modelScene: THREE.Group): void {
+		if (this.deps.features.pyramidVat) return;
+		const root =
+			modelScene.getObjectByName('pyramids_1') ?? modelScene.getObjectByName('Pyramids');
+		if (!root) return;
+
+		// Mixer-safe pivots: the root is animated by the main mixer, so the
+		// attach()-style pivots would corrupt its animated transforms.
+		this.deps.modelRotationController.attachAnimatedPyramidsRoot(root);
+
+		root.traverse((child) => {
+			if (child instanceof THREE.Mesh && !/particle/i.test(child.name)) {
+				this.enableChromaticLayer(child, SCENE_LAYERS.CHROMATIC_1);
+			}
+		});
+	}
+
 	public setupPyramidsAndForest(modelScene: THREE.Group, includePyramidParticles = true): void {
 		if (!this.deps.features.pyramidParticles && !this.deps.features.forestParticles) {
 			return;

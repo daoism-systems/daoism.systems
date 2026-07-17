@@ -47,7 +47,12 @@ export const MOBILE_SCENE_FEATURES: Partial<SceneFeatureFlags> = {
 	// octagonFluid is listed explicitly (not left to normalizeDependencies) so a
 	// ?sceneEnable=globalFluid debug URL on mobile doesn't drag the octagon sim on.
 	octagonFluid: false,
-	globalFluid: false
+	globalFluid: false,
+	// Mobile plays the pyramids from DAO_mobile_scene.glb's own (simple) mixer
+	// clips — no VAT. This also skips the pyramids_merged/pyramids_vat downloads,
+	// and pyramid particle clouds build from the mobile GLB's particle groups
+	// (setupPyramidsAndForest includePyramidParticles path).
+	pyramidVat: false
 };
 
 export interface SceneFeatureConfig {
