@@ -1,6 +1,12 @@
 export function detectMob() {
 	if (typeof navigator === 'undefined') return false;
 
+	// Debug override: `?forceMobile=1` takes the full mobile path (mobile GLB,
+	// mobile theatre state, mobile feature flags) on a desktop browser.
+	if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('forceMobile')) {
+		return true;
+	}
+
 	const ua = navigator.userAgent;
 	const toMatch = [
 		/Android/i,
