@@ -132,12 +132,12 @@ class MainScene {
 		// (the 2.2 MB main GLB) was over-weighted at 40 — most of its time was
 		// actually the untracked pyramid download that followed it, which froze
 		// the bar mid-load on Vercel/incognito.
-		// Mobile: pyramidVat is off and the mobile GLB carries the pyramids, so
-		// there are no pyramid downloads — their weight moves onto `objects`.
+		// Mobile: the mobile bake is small and balanced (~1.3 MB GLB vs ~1.7 MB
+		// pyramid assets), so the split is closer to even.
 		// (detectMob() directly: field initializers run before the constructor
 		// body assigns this.isMobile.)
 		detectMob()
-			? { benchmark: 5, objects: 55, pyramidAssets: 0, sceneSetup: 15, warmup: 25 }
+			? { benchmark: 5, objects: 30, pyramidAssets: 25, sceneSetup: 15, warmup: 25 }
 			: { benchmark: 5, objects: 15, pyramidAssets: 40, sceneSetup: 15, warmup: 25 },
 		(progress) => {
 			loadingProgress.set(progress);
@@ -264,10 +264,15 @@ class MainScene {
 	// mid-download smoothness — the stage is snapped to 1 once both resolve. The
 	// VAT now ships gzipped (~1.8 MB on the wire vs 22.9 MB raw); progress tracks
 	// the compressed transfer, so this denominator follows the .gz size.
-	private static readonly PYRAMID_ASSET_BYTES = {
-		source: 6.0 * 1024 * 1024,
-		vat: 1.85 * 1024 * 1024
-	};
+	private static readonly PYRAMID_ASSET_BYTES = detectMob()
+		? {
+				source: 1.05 * 1024 * 1024,
+				vat: 0.62 * 1024 * 1024
+			}
+		: {
+				source: 6.0 * 1024 * 1024,
+				vat: 1.85 * 1024 * 1024
+			};
 
 	/** Touch/pointer quiet period before idle half-rate rendering engages. */
 	private static readonly IDLE_INPUT_MS = 2000;
@@ -437,10 +442,10 @@ class MainScene {
 		});
 		this.introTransition.start();
 
-		// Mobile loads its own GLB: same node names and 46.68 s timeline, but the
-		// pyramids keep their (much simpler) mixer animation instead of the VAT —
-		// pyramidVat is off on mobile (see MOBILE_SCENE_FEATURES), which also
-		// skips the pyramids_merged/pyramids_vat/pyramids_source downloads.
+		// Mobile loads its own GLB: same node names, same 12 clips, same 46.68 s
+		// timeline as desktop, but built from the simpler mobile FBX. Pyramid
+		// visuals come from the mobile VAT bake (pyramids_mobile_*, loaded by
+		// ParticleOrchestrator), exactly like desktop uses pyramids_*.
 		const modelUrl = this.isMobile ? '/models/DAO_mobile_scene.glb' : '/models/DAO_full_scene.glb';
 		void this.loadObjects(modelUrl).catch((error) => {
 			console.error('Failed to load scene objects:', error);

@@ -63,7 +63,9 @@ function applyMobileCaps(options: GraphicsOptions): GraphicsOptions {
 		denoise: true,
 		postProcessing: {
 			...options.postProcessing,
-			fxaa: true,
+			// Off: a full-screen post pass mobile GPUs can't spare; at ~3x DPR the
+			// aliasing it would fix is barely visible anyway.
+			fxaa: false,
 			bloom: false,
 			fluidDistortion: false,
 			// Kept on: the mobile timeline keyframes a continuous strength/scale

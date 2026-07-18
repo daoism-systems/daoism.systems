@@ -47,12 +47,12 @@ export const MOBILE_SCENE_FEATURES: Partial<SceneFeatureFlags> = {
 	// octagonFluid is listed explicitly (not left to normalizeDependencies) so a
 	// ?sceneEnable=globalFluid debug URL on mobile doesn't drag the octagon sim on.
 	octagonFluid: false,
-	globalFluid: false,
-	// Mobile plays the pyramids from DAO_mobile_scene.glb's own (simple) mixer
-	// clips — no VAT. This also skips the pyramids_merged/pyramids_vat downloads,
-	// and pyramid particle clouds build from the mobile GLB's particle groups
-	// (setupPyramidsAndForest includePyramidParticles path).
-	pyramidVat: false
+	globalFluid: false
+	// pyramidVat stays ON: mobile uses its own VAT bake (pyramids_mobile_*,
+	// from DAO_60fps_mobile_07.fbx) — one merged draw call instead of ~170
+	// mixer-driven solid meshes. `?sceneDisable=pyramidVat` still falls back to
+	// mixer-driven solids from the GLB (setupPyramidSolids), though the shipped
+	// mobile GLB has the bases stripped, so that path shows particles only.
 };
 
 export interface SceneFeatureConfig {

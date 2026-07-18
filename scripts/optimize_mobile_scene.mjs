@@ -19,6 +19,11 @@
  *
  * Usage (after `blender --background --python scripts/convert_fbx_to_glb_mobile.py`):
  *   node scripts/optimize_mobile_scene.mjs
+ *   node scripts/optimize_mobile_scene.mjs static/models/pyramids_mobile_source.glb
+ *
+ * The optional path argument optimizes another GLB in place with the same
+ * passes — used for the mobile pyramid source, whose re-baked per-frame keys
+ * (see bake_pyramid_vat.py) are mostly parked and resample well.
  */
 
 import { NodeIO } from '@gltf-transform/core';
@@ -26,15 +31,21 @@ import { KHRDracoMeshCompression } from '@gltf-transform/extensions';
 import { resample, dedup, prune } from '@gltf-transform/functions';
 import draco3d from 'draco3dgltf';
 import { statSync } from 'fs';
-import { join } from 'path';
+import { join, isAbsolute } from 'path';
 
 const PROJECT_DIR = new URL('..', import.meta.url).pathname;
-const GLB_INPUT = join(PROJECT_DIR, 'static/models/DAO_mobile_scene.glb');
-const GLB_OUTPUT = join(PROJECT_DIR, 'static/models/DAO_mobile_scene.glb');
+const argPath = process.argv[2];
+const resolved = argPath
+	? isAbsolute(argPath)
+		? argPath
+		: join(PROJECT_DIR, argPath)
+	: join(PROJECT_DIR, 'static/models/DAO_mobile_scene.glb');
+const GLB_INPUT = resolved;
+const GLB_OUTPUT = resolved;
 
 async function main() {
 	console.log('='.repeat(60));
-	console.log('Optimize DAO_mobile_scene.glb (resample + dedup + draco)');
+	console.log(`Optimize ${GLB_INPUT.split('/').pop()} (resample + dedup + draco)`);
 	console.log('='.repeat(60));
 
 	const originalSize = statSync(GLB_INPUT).size;

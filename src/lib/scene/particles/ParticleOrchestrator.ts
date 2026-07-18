@@ -282,7 +282,10 @@ export class ParticleOrchestrator {
 	): Promise<void> {
 		if (!this.deps.features.fallbackPyramidParticles) return;
 		if (this.pyramidParticleSystems.length > 0) return;
-		const sourceUrls = ['/models/pyramids_source.glb'];
+		// Mobile ships its own (smaller) pyramid bake from the mobile FBX.
+		const sourceUrls = [
+			this.deps.isMobile ? '/models/pyramids_mobile_source.glb' : '/models/pyramids_source.glb'
+		];
 
 		for (const url of sourceUrls) {
 			try {
@@ -330,8 +333,8 @@ export class ParticleOrchestrator {
 		try {
 			this.pyramidVAT = new PyramidVAT(this.deps.gltfLoader);
 			const vatMesh = await this.pyramidVAT.load(
-				'/models/pyramids_merged.glb',
-				'/models/pyramids_vat.bin.gz',
+				this.deps.isMobile ? '/models/pyramids_mobile_merged.glb' : '/models/pyramids_merged.glb',
+				this.deps.isMobile ? '/models/pyramids_mobile_vat.bin.gz' : '/models/pyramids_vat.bin.gz',
 				onProgress
 			);
 

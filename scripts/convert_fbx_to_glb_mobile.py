@@ -1,28 +1,28 @@
 """
 Blender Python Script: Convert the mobile FBX into the mobile full-scene GLB.
 
-Mobile counterpart of `convert_fbx_to_glb.py`. The mobile FBX
-(DAO_60fps_mobile_07.fbx) carries a much simpler pyramid animation with the
-same visuals as the desktop VAT, so — unlike the desktop pipeline — ALL
-animation is kept and exported as mixer clips. No VAT bake, no base stripping:
-on mobile the runtime disables `pyramidVat` and plays the pyramid solids (and
-their particle sources) straight from this GLB, which also removes the
-pyramids_merged.glb / pyramids_vat.bin.gz / pyramids_source.glb downloads.
+Mobile counterpart of `convert_fbx_to_glb.py`, mirroring the desktop GLB shape:
+animation is reduced to the same 12 group/camera clips and the pyramid base
+meshes are stripped — pyramid visuals come from the MOBILE VAT
+(pyramids_mobile_merged.glb / pyramids_mobile_vat.bin.gz /
+pyramids_mobile_source.glb, baked by `bake_pyramid_vat.py -- --mobile` from the
+same mobile FBX). Unlike the desktop pipeline there is no separate strip step:
+the solids are deleted here before export, so no re-encode pass is needed.
 
 Shared with the desktop conversion (must stay in sync with the runtime):
   1. Camera `Full_Camera_60FPS` (object + action) is renamed to `Full_Camera_01`
      so `modelAssembly.resolveSceneModelObjects` finds it via getObjectByName.
   2. Scene frame range is extended to the full action range (the FBX stores a
      stale 1..250 render range while the animation runs to ~2801).
-
-Every action in the FBX spans the identical 1..2801 range. That uniformity is
-load-bearing: `AnimationController.setScrollProgress` scrubs each clip by its
-OWN duration (`action.time = t * clip.duration`), so a shorter clip would play
-its motion too early. The export asserts this invariant.
+  3. Animation is reduced to the 12 allowlisted group/camera clips. All clips
+     span the identical 1..2801 range — load-bearing, because
+     `AnimationController.setScrollProgress` scrubs each clip by its OWN
+     duration. The export asserts this invariant.
 
 Usage:
   blender --background --python scripts/convert_fbx_to_glb_mobile.py
   node scripts/optimize_mobile_scene.mjs   # then: resample keys + dedup + draco
+  blender --background --python scripts/bake_pyramid_vat.py -- --mobile
 """
 
 import bpy
@@ -37,6 +37,26 @@ MOBILE_SCENE_OUTPUT = os.path.join(MODELS_DIR, "DAO_mobile_scene.glb")
 
 CAMERA_OLD_NAME = "Full_Camera_60FPS"
 CAMERA_NEW_NAME = "Full_Camera_01"
+
+# Objects whose animation is KEPT — the same 12 clips as the desktop GLB
+# (see convert_fbx_to_glb.py ANIM_KEEP_OBJECTS). Pyramid motion lives in the
+# mobile VAT instead.
+ANIM_KEEP_OBJECTS = {
+    "Cubes",
+    "Sausages",
+    "object_01",
+    "object_02",
+    "object_03",
+    "object_04",
+    "object_05",
+    "Octagon",
+    "inner_01",
+    "inner_02",
+    "Inner_03",
+    CAMERA_NEW_NAME,
+}
+
+PYRAMID_ROOT_CANDIDATES = ("pyramids_1", "Pyramids")
 
 # Draco params — match scripts/convert_fbx_to_glb.py so compression is uniform.
 DRACO_POSITION_Q = 14
@@ -132,6 +152,65 @@ def assert_uniform_action_ranges():
     print(f"All {len(bpy.data.actions)} actions span {next(iter(ranges))}")
 
 
+def reduce_full_scene_animation():
+    """Clear animation on every object outside the allowlist, then purge the
+    now-orphaned actions — same reduction as the desktop convert script."""
+    scene = bpy.context.scene
+    # Freeze leaf objects at the start pose before clearing their animation.
+    scene.frame_set(scene.frame_start)
+    bpy.context.evaluated_depsgraph_get().update()
+
+    cleared = 0
+    for obj in bpy.data.objects:
+        if obj.name in ANIM_KEEP_OBJECTS:
+            continue
+        if obj.animation_data:
+            obj.animation_data_clear()
+            cleared += 1
+    print(f"\nCleared animation on {cleared} non-allowlist objects")
+
+    keep_prefixes = tuple(name + "|" for name in ANIM_KEEP_OBJECTS)
+    removed = 0
+    for action in list(bpy.data.actions):
+        if not action.name.startswith(keep_prefixes):
+            bpy.data.actions.remove(action)
+            removed += 1
+    print(f"Purged {removed} orphaned actions; {len(bpy.data.actions)} remain")
+
+
+def strip_pyramid_base_meshes():
+    """Delete the solid pyramid meshes (VAT renders them), keeping the
+    particle/_remesh subtrees — mirrors scripts/strip_pyramid_bases.{mjs,py}."""
+    root = None
+    for candidate in PYRAMID_ROOT_CANDIDATES:
+        root = bpy.data.objects.get(candidate)
+        if root is not None:
+            break
+    if root is None:
+        raise ValueError(f"Pyramid root not found (tried {PYRAMID_ROOT_CANDIDATES})")
+
+    to_remove = []
+
+    def collect(obj):
+        name_lower = obj.name.lower()
+        if "particle" in name_lower:
+            return
+        if obj.type == "MESH" and "_remesh" not in name_lower:
+            to_remove.append(obj)
+        for child in obj.children:
+            collect(child)
+
+    collect(root)
+
+    for obj in to_remove:
+        mesh_data = obj.data if obj.type == "MESH" else None
+        bpy.data.objects.remove(obj, do_unlink=True)
+        if mesh_data and mesh_data.users == 0:
+            bpy.data.meshes.remove(mesh_data)
+
+    print(f"Stripped {len(to_remove)} pyramid base meshes (VAT renders them)")
+
+
 def export_mobile_scene():
     print(f"\nExporting mobile scene -> {MOBILE_SCENE_OUTPUT}")
     bpy.ops.object.select_all(action="SELECT")
@@ -168,6 +247,8 @@ def main():
     extend_frame_range()
     assert_uniform_action_ranges()
 
+    reduce_full_scene_animation()
+    strip_pyramid_base_meshes()
     export_mobile_scene()
 
     print("\n" + "=" * 60)
