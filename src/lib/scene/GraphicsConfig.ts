@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { WebGPURenderer } from 'three/webgpu';
-import { detectMob, detectSafari } from '$lib/utils/isMobile';
+import { detectMob } from '$lib/utils/isMobile';
 
 // ── Tier ────────────────────────────────────────────────────────────────────
 
@@ -94,14 +94,11 @@ function applyMobileCaps(options: GraphicsOptions): GraphicsOptions {
 
 export function createDefaultGraphicsOptions(): GraphicsOptions {
 	const isMobile = detectMob();
-	const isSafari = detectSafari();
 
 	return applyMobileCaps({
 		maxResolution: { width: 2560, height: 1440 },
-		// Scales the main drawing buffer after max-resolution clamping.
-		// Safari gets a mild default reduction because its multi-pass particle path
-		// is materially slower than Chromium on the same hardware.
-        // resolutionScale: isMobile ? 0.85 : isSafari ? 0.85 : 1,
+		// Scales the main drawing buffer after max-resolution clamping. Pinned to
+		// 1 on every tier; resolution is controlled by maxResolution alone.
 		resolutionScale: 1,
 		denoise: true,
 		shadowMapType: THREE.PCFSoftShadowMap,
@@ -145,7 +142,6 @@ export function createGraphicsOptionsForTier(
 				width: Math.min(base.maxResolution.width, 1920),
 				height: Math.min(base.maxResolution.height, 1080)
 			},
-			// resolutionScale: Math.min(base.resolutionScale, isMobile ? 0.75 : 0.85),
 			resolutionScale: 1,
 			denoise: false,
 			shadowMapType: mediumShadowMapType,
@@ -177,7 +173,6 @@ export function createGraphicsOptionsForTier(
 			width: Math.min(base.maxResolution.width, 1280),
 			height: Math.min(base.maxResolution.height, 720)
 		},
-		// resolutionScale: Math.min(base.resolutionScale, isMobile ? 0.65 : 0.7),
 		resolutionScale: 1,
 		denoise: true,
 		shadowMapType: base.shadowMapType,

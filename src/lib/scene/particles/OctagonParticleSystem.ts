@@ -59,6 +59,11 @@ export class OctagonParticleSystem extends BaseParticleSystem {
 	 * (the assembly stays crisp). Flipped to true by MainScene once the intro ends. */
 	private fluidActive = false;
 	private idlePosePinned = false;
+	/** Matrix the CPU-pin path last wrote positions for — the pinned pose is a
+	 * pure function of it (worldOffsetY is baked in), so an unchanged matrix
+	 * means the per-particle rewrite + buffer re-upload can be skipped. */
+	private readonly lastPinnedMatrix = new THREE.Matrix4();
+	private hasPinnedPose = false;
 
 	private worldPositionsBuffer: StorageBufferNode<'vec3'> | null = null;
 	private velocitiesBuffer: StorageBufferNode<'vec4'> | null = null;
@@ -263,9 +268,16 @@ export class OctagonParticleSystem extends BaseParticleSystem {
 			this.fluidUniforms.uActivity.value <= OctagonParticleSystem.IDLE_ACTIVITY_EPSILON;
 		if (!shouldCpuPinPose) {
 			this.idlePosePinned = false;
+			// The GPU sim owns positions from here — the cached pinned pose no
+			// longer matches the buffer, so the next pin must rewrite it.
+			this.hasPinnedPose = false;
 			return;
 		}
 		if (!this.worldPositionsAttr || !this.localPositionsArray) return;
+
+		if (this.hasPinnedPose && matrix.equals(this.lastPinnedMatrix)) {
+			return;
+		}
 
 		const tempVec = BaseParticleSystem._tempVec;
 		const tempScale = OctagonParticleSystem._tempScale;
@@ -277,6 +289,8 @@ export class OctagonParticleSystem extends BaseParticleSystem {
 			bufferArray.fill(OctagonParticleSystem.HIDDEN_POSITION);
 			this.worldPositionsAttr.needsUpdate = true;
 			this.worldPositionsAttr.version++;
+			this.lastPinnedMatrix.copy(matrix);
+			this.hasPinnedPose = true;
 			this.clearVelocitiesWhenIdle();
 			return;
 		}
@@ -296,6 +310,8 @@ export class OctagonParticleSystem extends BaseParticleSystem {
 		}
 		this.worldPositionsAttr.needsUpdate = true;
 		this.worldPositionsAttr.version++;
+		this.lastPinnedMatrix.copy(matrix);
+		this.hasPinnedPose = true;
 		this.clearVelocitiesWhenIdle();
 	}
 
@@ -420,6 +436,7 @@ export class OctagonParticleSystem extends BaseParticleSystem {
 		this.worldPositionsAttr = null;
 		this.velocitiesAttr = null;
 		this.idlePosePinned = false;
+		this.hasPinnedPose = false;
 		this.authoredOpacity = 1;
 		this.introOpacityMultiplier = 1;
 	}

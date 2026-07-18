@@ -124,6 +124,11 @@ const DAO_FOG_PRESETS: ReadonlySet<number> = new Set([0, 1, 4]);
 /** Reused preloader-fade base color — avoids re-parsing '#000000' per progress tick. */
 const PRELOADER_BLACK = new THREE.Color('#000000');
 
+/** Module scope so static + instance field initializers can read it (they run
+ * before the constructor assigns `this.isMobile`). This module is only ever
+ * reached via `await import(...)` from the client, so the UA check is live. */
+const IS_MOBILE = detectMob();
+
 class MainScene {
 	private readonly PARTICLE_RADIUS_SCALE = 0.6;
 	private readonly loadingProgressTracker = new LoadingProgressTracker(
@@ -134,9 +139,7 @@ class MainScene {
 		// the bar mid-load on Vercel/incognito.
 		// Mobile: the mobile bake is small and balanced (~1.3 MB GLB vs ~1.7 MB
 		// pyramid assets), so the split is closer to even.
-		// (detectMob() directly: field initializers run before the constructor
-		// body assigns this.isMobile.)
-		detectMob()
+		IS_MOBILE
 			? { benchmark: 5, objects: 30, pyramidAssets: 25, sceneSetup: 15, warmup: 25 }
 			: { benchmark: 5, objects: 15, pyramidAssets: 40, sceneSetup: 15, warmup: 25 },
 		(progress) => {
@@ -264,7 +267,7 @@ class MainScene {
 	// mid-download smoothness — the stage is snapped to 1 once both resolve. The
 	// VAT now ships gzipped (~1.8 MB on the wire vs 22.9 MB raw); progress tracks
 	// the compressed transfer, so this denominator follows the .gz size.
-	private static readonly PYRAMID_ASSET_BYTES = detectMob()
+	private static readonly PYRAMID_ASSET_BYTES = IS_MOBILE
 		? {
 				source: 1.05 * 1024 * 1024,
 				vat: 0.62 * 1024 * 1024
@@ -290,7 +293,7 @@ class MainScene {
 		this.modelRotationController = new ModelRotationController();
 
 		this.isSafari = detectSafari();
-		this.isMobile = detectMob();
+		this.isMobile = IS_MOBILE;
 		this.responsiveLayout = new ResponsiveLayout(this.isMobile);
 		this.introTransition = new IntroTransition({
 			enabled: this.features.introTransition,

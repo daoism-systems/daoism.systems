@@ -14,8 +14,7 @@
             "cubesSize": 0.4936708860759497,
             "pyramidsSize": 1.2848101265822807,
             "forestEmissive": 0.7278481012658233,
-            "signTreeEmissive": 0.620253164556962,
-            "octagonEmissive": 5
+            "signTreeEmissive": 0.620253164556962
           },
           "TrainSlider": {
             "exitDistance": 9.620253164556964,
@@ -1122,7 +1121,7 @@
                 "keyframes": [
                   {
                     "id": "fSWTu_lK37",
-                    "position": 0.067,
+                    "position": 0,
                     "connectedRight": true,
                     "handles": [
                       0.5,
@@ -1141,7 +1140,7 @@
                 "keyframes": [
                   {
                     "id": "Up-ghSjjEn",
-                    "position": 0.067,
+                    "position": 0,
                     "connectedRight": true,
                     "handles": [
                       0.5,
@@ -1161,24 +1160,6 @@
                   {
                     "id": "wRMFyUBtht",
                     "position": 0,
-                    "connectedRight": true,
-                    "handles": [
-                      0.5,
-                      1,
-                      0.5,
-                      0
-                    ],
-                    "type": "bezier",
-                    "value": {
-                      "r": 0.5098039215686274,
-                      "g": 0.5098039215686274,
-                      "b": 0.5098039215686274,
-                      "a": 1
-                    }
-                  },
-                  {
-                    "id": "rsCfKpfnzQ",
-                    "position": 0.033,
                     "connectedRight": true,
                     "handles": [
                       0.5,
@@ -1530,7 +1511,7 @@
                       0
                     ],
                     "type": "hold",
-                    "value": 0.7
+                    "value": 0.9
                   },
                   {
                     "id": "rgbs1kf0002",
@@ -2471,7 +2452,7 @@
                 "keyframes": [
                   {
                     "id": "sls-tv51WZ",
-                    "position": 0.033,
+                    "position": 0,
                     "connectedRight": true,
                     "handles": [
                       0.5,
@@ -2480,7 +2461,7 @@
                       0
                     ],
                     "type": "bezier",
-                    "value": 1.2
+                    "value": 0.5
                   }
                 ]
               }
@@ -4092,6 +4073,7 @@
   },
   "definitionVersion": "0.4.0",
   "revisionHistory": [
+    "CVy6zceonYj0tpoV",
     "OMtq3ntauwRrG30r",
     "n99uQf1T0adg3IcS",
     "DE0wo2kK9rTtjcTd",
@@ -4140,7 +4122,6 @@
     "0wQLHThaGbAdzpZI",
     "THxD99FBsY_hzbbB",
     "AwcczL522EjPRxiU",
-    "xafIXcSfnaaPD1p9",
-    "gAkQHXxVgJCyP_Tq"
+    "xafIXcSfnaaPD1p9"
   ]
 }

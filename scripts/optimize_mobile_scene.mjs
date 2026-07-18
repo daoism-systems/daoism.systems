@@ -15,9 +15,9 @@
  *
  * Everything runs in ONE read -> ONE write, so meshes go through exactly one
  * lossy Draco decode/encode cycle. Node names and per-clip durations are
- * untouched — every clip must stay 46.68 s (see convert_fbx_to_glb_mobile.py).
+ * untouched — every clip must stay 46.68 s (see convert_fbx_to_glb.py).
  *
- * Usage (after `blender --background --python scripts/convert_fbx_to_glb_mobile.py`):
+ * Usage (after `blender --background --python scripts/convert_fbx_to_glb.py -- --mobile`):
  *   node scripts/optimize_mobile_scene.mjs
  *   node scripts/optimize_mobile_scene.mjs static/models/pyramids_mobile_source.glb
  *

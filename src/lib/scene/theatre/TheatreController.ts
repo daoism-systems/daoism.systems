@@ -344,11 +344,18 @@ function flattenConfig(
 function unflattenConfig(
 	flat: Record<string, FlatValue>,
 	keyMap: KeyMap,
-	colorFormats: Map<string, ColorFormat>
+	colorFormats: Map<string, ColorFormat>,
+	into: Record<string, any> | null = null
 ): Record<string, any> {
-	const result: Record<string, any> = {};
+	// `into` is the previous call's result, reused so the per-fire cost is leaf
+	// writes only. onValuesChange fires once per changed object per Theatre tick
+	// — during scroll that's most registered objects every frame, and rebuilding
+	// the nested graph each fire was steady GC churn (mobile frame-pacing spikes).
+	// Safe because every applyConfig consumer copies values out synchronously.
+	const result = into ?? {};
 
-	for (const [flatKey, value] of Object.entries(flat)) {
+	for (const flatKey in flat) {
+		if (colorFormats.has(flatKey)) continue; // converted in the color pass below
 		const path = keyMap.get(flatKey);
 		if (!path) continue;
 
@@ -359,24 +366,29 @@ function unflattenConfig(
 			}
 			current = current[path[i]];
 		}
-		current[path[path.length - 1]] = value;
+		current[path[path.length - 1]] = flat[flatKey];
 	}
+
+	if (colorFormats.size === 0) return result;
 
 	for (const [camelKey, format] of colorFormats) {
 		const path = keyMap.get(camelKey);
 		if (!path) continue;
 
-		let parent = result;
-		for (let i = 0; i < path.length - 1; i++) {
-			parent = parent[path[i]];
-			if (!parent) break;
-		}
-		if (!parent) continue;
-
-		const colorKey = path[path.length - 1];
-		const rgba = parent[colorKey];
+		// Read Theatre's raw rgba from `flat` (the leaf is not written above) so
+		// the converted value can land in a stable, reused leaf slot.
+		const rgba = flat[camelKey];
 		if (!isRgbaColor(rgba)) continue;
 
+		let parent = result;
+		for (let i = 0; i < path.length - 1; i++) {
+			if (!(path[i] in parent)) {
+				parent[path[i]] = {};
+			}
+			parent = parent[path[i]];
+		}
+
+		const colorKey = path[path.length - 1];
 		const r = Math.max(0, Math.min(1, rgba.r));
 		const g = Math.max(0, Math.min(1, rgba.g));
 		const b = Math.max(0, Math.min(1, rgba.b));
@@ -388,13 +400,16 @@ function unflattenConfig(
 			const hex = (Math.round(r * 255) << 16) | (Math.round(g * 255) << 8) | Math.round(b * 255);
 			parent[colorKey] = `#${hex.toString(16).padStart(6, '0')}`;
 		} else {
-			// 'rgb' — preserve original {r,g,b[,a]} shape.
-			parent[colorKey] = {
-				r,
-				g,
-				b,
-				...(typeof rgba.a === 'number' ? { a: rgba.a } : {})
-			};
+			// 'rgb' — preserve original {r,g,b[,a]} shape, mutating the reused leaf.
+			let target = parent[colorKey];
+			if (!target || typeof target !== 'object') {
+				target = {};
+				parent[colorKey] = target;
+			}
+			target.r = r;
+			target.g = g;
+			target.b = b;
+			if (typeof rgba.a === 'number') target.a = rgba.a;
 		}
 	}
 
@@ -833,8 +848,9 @@ export class TheatreController {
 		if (Object.keys(theatreProps).length === 0) return;
 
 		const obj = this.sheet.object(name, theatreProps, { reconfigure: true });
+		let nested: Record<string, any> | null = null;
 		const unsub = obj.onValuesChange((values) => {
-			const nested = unflattenConfig(values as Record<string, FlatValue>, keyMap, colorFormats);
+			nested = unflattenConfig(values as Record<string, FlatValue>, keyMap, colorFormats, nested);
 			inspectable.applyConfig?.(nested);
 		});
 		this.unsubscribes.push(unsub);
