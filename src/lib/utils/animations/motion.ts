@@ -1,5 +1,6 @@
 import { get } from 'svelte/store';
 import { graphicsTier } from '$lib/store.svelte';
+import { detectMob } from '$lib/utils/isMobile';
 
 function hasCoarsePointer() {
 	if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
@@ -20,5 +21,5 @@ export function scaleMotionDuration(duration: number, factor = 1.18) {
 }
 
 export function useMotionBlur() {
-	return !isLowPerformanceTier();
+	return !isLowPerformanceTier() && !detectMob();
 }

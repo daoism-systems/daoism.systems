@@ -37,37 +37,86 @@ export type SiteRuntime = {
 	destroy: () => void;
 };
 
+// Lenis emits every frame and keeps lerping for ~1-2s after a flick, so every
+// consumer below is epsilon-gated: re-publishing an unchanged value costs a
+// Svelte invalidation or a scene write per frame for the whole momentum tail.
 const CAMERA_PROGRESS_EPSILON = 0.0004;
 const SCROLL_PROGRESS_EPSILON = 0.0004;
+const PAGE_PROGRESS_EPSILON = 0.0004;
 const SCROLL_POSITION_EPSILON = 0.25;
+
+// "Nothing published yet" — the next value always clears the gate.
+const UNSENT = -1;
 
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 
 export async function createSiteRuntime(options: SiteRuntimeOptions): Promise<SiteRuntime> {
 	let scene: MainScene | null = null;
 	let isDestroyed = false;
-	let lastSceneProgressSent = -1;
-	let lastScrollProgressSent = -1;
-	let lastScrollPositionSent = -1;
-	let previousStep = 0;
 	let bodyClickHandler: ((event: MouseEvent) => void) | null = null;
 	const previousDocumentOverflow = document.documentElement.style.overflow;
 	const previousBodyOverflow = document.body.style.overflow;
 
-	const emitProgress = (globalProgress: number, animatedScroll = 0) => {
-		const pageProgress = options.calculatePageProgress(globalProgress);
+	// Last value handed to each consumer, so each can be gated independently.
+	let sentSceneProgress = UNSENT;
+	let sentScrollProgress = UNSENT;
+	let sentScrollPosition = UNSENT;
+	let sentPageProgress = UNSENT;
+	let previousStep = 0;
 
-		options.onScrollProgress(globalProgress);
-		options.onPageProgress(pageProgress);
-		scene?.setActivePageSection(pageProgress.step, pageProgress.value);
+	const moved = (next: number, sent: number, epsilon: number) =>
+		sent === UNSENT || Math.abs(next - sent) >= epsilon;
 
-		if (pageProgress.step !== previousStep) {
-			if (!sfx.isPlaying(SFX_KEY.transition)) sfx.play(SFX_KEY.transition);
-			previousStep = pageProgress.step;
+	/** Camera scrub — scene-side only, no DOM cost. */
+	const publishSceneProgress = (sceneProgress: number) => {
+		if (!scene || !moved(sceneProgress, sentSceneProgress, CAMERA_PROGRESS_EPSILON)) return;
+		sentSceneProgress = sceneProgress;
+		scene.setCameraProgress(sceneProgress * 100);
+	};
+
+	/** Scrollbar, tracker, scroll-driven components — plain numbers, cheap. */
+	const publishScrollProgress = (progress: number, force = false) => {
+		if (!force && !moved(progress, sentScrollProgress, SCROLL_PROGRESS_EPSILON)) return;
+		sentScrollProgress = progress;
+		options.onScrollProgress(progress);
+		scrollY.set(progress);
+	};
+
+	/** Pixel offset for anything positioned against the virtual scroll height. */
+	const publishScrollPosition = (animatedScroll: number, force = false) => {
+		if (!force && !moved(animatedScroll, sentScrollPosition, SCROLL_POSITION_EPSILON)) return;
+		sentScrollPosition = animatedScroll;
+		scrollPosition.set(animatedScroll);
+	};
+
+	/**
+	 * Section UI — the costly consumer. `calculatePageProgress` returns a fresh
+	 * object and the page assigns it into `$state`, so Svelte invalidates on
+	 * identity: an unchanged value still re-renders every mounted section.
+	 * A step change always publishes, so a section transition is never held back
+	 * by the epsilon.
+	 */
+	const publishPageProgress = (progress: number, force = false) => {
+		const pageProgress = options.calculatePageProgress(progress);
+		const stepChanged = pageProgress.step !== previousStep;
+
+		if (force || stepChanged || moved(progress, sentPageProgress, PAGE_PROGRESS_EPSILON)) {
+			sentPageProgress = progress;
+			options.onPageProgress(pageProgress);
+			scene?.setActivePageSection(pageProgress.step, pageProgress.value);
 		}
 
-		scrollY.set(globalProgress);
-		scrollPosition.set(animatedScroll);
+		if (stepChanged) {
+			previousStep = pageProgress.step;
+			if (!sfx.isPlaying(SFX_KEY.transition)) sfx.play(SFX_KEY.transition);
+		}
+	};
+
+	/** Seed or force-sync every consumer — initial paint and programmatic jumps. */
+	const emitProgress = (globalProgress: number, animatedScroll = 0) => {
+		publishScrollProgress(globalProgress, true);
+		publishPageProgress(globalProgress, true);
+		publishScrollPosition(animatedScroll, true);
 	};
 
 	document.documentElement.style.overflow = 'hidden';
@@ -80,32 +129,11 @@ export async function createSiteRuntime(options: SiteRuntimeOptions): Promise<Si
 		{
 			isMobile: options.isMobile,
 			mapToSceneProgress: options.mapToSceneProgress,
-			onCameraProgress: (sceneProgress) => {
-				if (!scene) return;
-				if (Math.abs(sceneProgress - lastSceneProgressSent) < CAMERA_PROGRESS_EPSILON) return;
-				lastSceneProgressSent = sceneProgress;
-				scene.setCameraProgress(sceneProgress * 100);
-			},
+			onCameraProgress: publishSceneProgress,
 			onScrollUpdate: (progress, animatedScroll) => {
-				if (Math.abs(progress - lastScrollProgressSent) >= SCROLL_PROGRESS_EPSILON) {
-					lastScrollProgressSent = progress;
-					options.onScrollProgress(progress);
-					scrollY.set(progress);
-				}
-
-				if (Math.abs(animatedScroll - lastScrollPositionSent) >= SCROLL_POSITION_EPSILON) {
-					lastScrollPositionSent = animatedScroll;
-					scrollPosition.set(animatedScroll);
-				}
-
-				const pageProgress = options.calculatePageProgress(progress);
-				options.onPageProgress(pageProgress);
-				scene?.setActivePageSection(pageProgress.step, pageProgress.value);
-
-				if (pageProgress.step !== previousStep) {
-					if (!sfx.isPlaying(SFX_KEY.transition)) sfx.play(SFX_KEY.transition);
-					previousStep = pageProgress.step;
-				}
+				publishScrollProgress(progress);
+				publishScrollPosition(animatedScroll);
+				publishPageProgress(progress);
 			}
 		}
 	);
@@ -150,9 +178,7 @@ export async function createSiteRuntime(options: SiteRuntimeOptions): Promise<Si
 		lenisController.lenis.stop();
 		lenisController.lenis.scrollTo(0, { immediate: true, force: true });
 		lenisController.resetProgress();
-		lastSceneProgressSent = -1;
-		lastScrollProgressSent = -1;
-		lastScrollPositionSent = -1;
+		sentSceneProgress = UNSENT;
 		emitProgress(0, 0);
 	}
 
@@ -173,13 +199,9 @@ export async function createSiteRuntime(options: SiteRuntimeOptions): Promise<Si
 		const dims = lenis.dimensions;
 		const progress = clamp01(lenis.animatedScroll / Math.max(1, dims.scrollHeight - dims.height));
 
-		lastSceneProgressSent = -1;
-		lastScrollProgressSent = -1;
-		scene.setCameraProgress(options.mapToSceneProgress(progress) * 100);
-
-		const pageProgress = options.calculatePageProgress(progress);
-		options.onPageProgress(pageProgress);
-		scene.setActivePageSection(pageProgress.step, pageProgress.value);
+		sentSceneProgress = UNSENT;
+		publishSceneProgress(options.mapToSceneProgress(progress));
+		publishPageProgress(progress, true);
 	}
 
 	function destroy() {

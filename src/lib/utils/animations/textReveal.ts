@@ -305,7 +305,11 @@ class TextRevealController {
 	private setWillChange(value: 'active' | 'auto') {
 		const charMode = this.isCharMode();
 		const cssValue =
-			value === 'auto' ? 'auto' : charMode ? 'transform, opacity, filter' : 'transform, opacity';
+			value === 'auto'
+				? 'auto'
+				: charMode && useMotionBlur()
+					? 'transform, opacity, filter'
+					: 'transform, opacity';
 		for (const target of this.getTargets()) {
 			target.style.willChange = cssValue;
 		}

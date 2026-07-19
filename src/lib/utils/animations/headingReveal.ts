@@ -29,6 +29,11 @@ const POWER3_OUT_BEZIER = 'cubic-bezier(0.215, 0.61, 0.355, 1)';
 const HIDDEN_TRANSFORM = 'translate3d(0, 100%, 0) rotateX(-85deg) scale(0.96)';
 const VISIBLE_TRANSFORM = 'translate3d(0, 0, 0) rotateX(0deg) scale(1)';
 
+// Only hint `filter` when the blur actually animates — otherwise every char gets
+// a promoted layer for a property that never changes.
+const revealWillChange = () =>
+	useMotionBlur() ? 'transform, opacity, filter' : 'transform, opacity';
+
 class HeadingRevealController {
 	private timeline: AnimationTimeline | null = null;
 	private splits: SplitResult[] = [];
@@ -173,7 +178,7 @@ class HeadingRevealController {
 
 		const tl = new AnimationTimeline({
 			onStart: () => {
-				this.setWillChange('transform, opacity, filter');
+				this.setWillChange(revealWillChange());
 				this.hasRevealed = true;
 			},
 			onComplete: () => {
@@ -278,12 +283,12 @@ class HeadingRevealController {
 	private setScrubWillChange(active: boolean) {
 		if (active === this.willChangeActive) return;
 		this.willChangeActive = active;
-		this.setWillChange(active ? 'transform, opacity, filter' : 'auto');
+		this.setWillChange(active ? revealWillChange() : 'auto');
 	}
 
 	private playReveal() {
 		if (!this.timeline) return;
-		this.setWillChange('transform, opacity, filter');
+		this.setWillChange(revealWillChange());
 		this.timeline.timeScale = 1;
 		this.timeline.play();
 	}
@@ -294,7 +299,7 @@ class HeadingRevealController {
 			this.setHiddenState();
 			return;
 		}
-		this.setWillChange('transform, opacity, filter');
+		this.setWillChange(revealWillChange());
 		this.timeline.timeScale = speedMultiplier;
 		this.timeline.reverse();
 	}
