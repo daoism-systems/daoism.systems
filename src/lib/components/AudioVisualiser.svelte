@@ -129,7 +129,14 @@
 		if (fadeRaf !== null) cancelAnimationFrame(fadeRaf);
 	});
 
+	// While muted the analyser output is flat, so draw() renders one static frame
+	// and does not re-arm its rAF — no 30fps loop competing with the scene while
+	// idle. isMuted/isHovered/shouldShowIntro are re-read here so any change that
+	// alters the drawn frame restarts the loop (or repaints the static frame).
 	$effect(() => {
+		void isMuted;
+		void isHovered;
+		void shouldShowIntro;
 		if (isDocumentVisible && shouldRenderMobileDocked) {
 			startVisualiser();
 			return;
@@ -188,14 +195,20 @@
 			stopVisualiser();
 			return;
 		}
-		animationId = requestAnimationFrame(draw);
-		if (
-			lastVisualiserFrameTs !== 0 &&
-			timestamp - lastVisualiserFrameTs < VISUALISER_FRAME_INTERVAL_MS
-		) {
-			return;
+		if (isMuted) {
+			// Flat line while muted — render this one frame and halt (animationId 0
+			// keeps the resize → startVisualiser repaint path working).
+			animationId = 0;
+		} else {
+			animationId = requestAnimationFrame(draw);
+			if (
+				lastVisualiserFrameTs !== 0 &&
+				timestamp - lastVisualiserFrameTs < VISUALISER_FRAME_INTERVAL_MS
+			) {
+				return;
+			}
+			lastVisualiserFrameTs = timestamp;
 		}
-		lastVisualiserFrameTs = timestamp;
 
 		const hasAudioData = Boolean(analyser && dataArray && bufferLength > 0);
 		if (hasAudioData) {
@@ -231,7 +244,9 @@
 				? 'rgba(255, 255, 255, 0.26)'
 				: 'rgba(230, 71, 73, 0.22)';
 		ctx.fillStyle = baseColor;
-		ctx.shadowBlur = isMobileDocked ? 9 : isHovered ? 10 : 7;
+		// No canvas shadow on the mobile dock — shadowBlur is one of the most
+		// expensive 2D-canvas ops and competes with the WebGL scene's frame budget.
+		ctx.shadowBlur = isMobileDocked ? 0 : isHovered ? 10 : 7;
 		ctx.shadowColor = glowColor;
 		ctx.globalAlpha = shouldShowIntro ? 1 : 0.82;
 

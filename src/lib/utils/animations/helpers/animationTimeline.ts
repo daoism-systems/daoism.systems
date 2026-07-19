@@ -13,6 +13,7 @@
 export interface TimelineEntry {
 	animations: Animation[];
 	durations: number[]; // cached per-animation duration (avoids re-reading effect.getTiming() each frame)
+	appliedTimes: number[]; // last currentTime written per animation (-1 = never) — during a scrub most staggered targets are pinned at 0/duration, so skipping equal writes avoids a style invalidation per target per frame
 	startTime: number; // ms from timeline start
 	stagger?: number; // ms between animations in this entry
 	forwardEasing: string;
@@ -104,6 +105,7 @@ export class AnimationTimeline {
 		this.entries.push({
 			animations,
 			durations,
+			appliedTimes: animations.map(() => -1),
 			startTime: startOffset,
 			stagger,
 			forwardEasing,
@@ -261,11 +263,13 @@ export class AnimationTimeline {
 		for (const entry of this.entries) {
 			const stagger = entry.stagger ?? 0;
 			for (let i = 0; i < entry.animations.length; i++) {
-				const anim = entry.animations[i];
 				const animStart = entry.startTime + i * stagger;
 				const localTime = time - animStart;
 				const duration = entry.durations[i] ?? 0;
-				anim.currentTime = Math.max(0, Math.min(duration, localTime));
+				const clamped = Math.max(0, Math.min(duration, localTime));
+				if (entry.appliedTimes[i] === clamped) continue;
+				entry.appliedTimes[i] = clamped;
+				entry.animations[i].currentTime = clamped;
 			}
 		}
 	}

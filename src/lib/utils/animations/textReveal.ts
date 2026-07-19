@@ -1,7 +1,12 @@
 import { splitText, type SplitResult } from '../splitText';
 import { DURATIONS } from './constants/durations';
 import { clamp, clearStyles } from './helpers';
-import { isLowPerformanceTier, scaleMotionDuration, useMotionBlur } from './motion';
+import {
+	isLowPerformanceTier,
+	isMobileMotionContext,
+	scaleMotionDuration,
+	useMotionBlur
+} from './motion';
 import { AnimationTimeline } from './helpers/animationTimeline';
 
 export type TextRevealParams = {
@@ -40,6 +45,8 @@ const DEFAULT_CHAR_OFFSET_Y = '0.4em';
 const DEFAULT_BLOCK_OFFSET_X = 0;
 const DEFAULT_BLOCK_OFFSET_Y = 16;
 const DEFAULT_CHAR_BLUR = '8px';
+// Below this delta the scrub is considered settled and the driver rAF stops.
+const SCRUB_SETTLE_EPSILON = 0.0005;
 
 // Cubic-bezier equivalents of GSAP named easings.
 const POWER2_OUT_BEZIER = 'cubic-bezier(0.33, 1, 0.68, 1)';
@@ -158,6 +165,14 @@ class TextRevealController {
 	private resizeObserver: ResizeObserver | null = null;
 	private resizeTimeout: ReturnType<typeof setTimeout> | null = null;
 
+	// Frame-aligned scrub driver (same pattern as headingReveal): scroll updates
+	// set `targetProgress`; a single self-terminating rAF pulls the timeline
+	// toward it, coalescing multiple reactive updates into one apply per frame.
+	private targetProgress = 0;
+	private appliedProgress = -1;
+	private scrubRafId = 0;
+	private willChangeActive = false;
+
 	constructor(
 		private readonly node: HTMLElement,
 		private params: TextRevealParams = {}
@@ -213,6 +228,7 @@ class TextRevealController {
 		this.destroyed = true;
 		this.resizeObserver?.disconnect();
 		if (this.resizeTimeout) clearTimeout(this.resizeTimeout);
+		if (this.scrubRafId) cancelAnimationFrame(this.scrubRafId);
 
 		this.timeline?.destroy();
 		this.timeline = null;
@@ -253,7 +269,10 @@ class TextRevealController {
 	}
 
 	private isCharMode() {
-		return this.params.split !== false && !isLowPerformanceTier();
+		// Mobile shares the low-tier block mode: per-char splits mean dozens of
+		// will-change-promoted layers rastering at once right as a section scrubs
+		// in — the single biggest frame spike on phones.
+		return this.params.split !== false && !isLowPerformanceTier() && !isMobileMotionContext();
 	}
 
 	private getTargets(): HTMLElement[] {
@@ -339,6 +358,10 @@ class TextRevealController {
 
 	private createTimeline() {
 		this.timeline?.destroy();
+		// The new timeline's animations start at currentTime 0; force the next scrub
+		// to re-apply against them regardless of the previously applied value.
+		this.appliedProgress = -1;
+		this.willChangeActive = false;
 
 		const targets = this.getTargets();
 		if (!targets.length) {
@@ -383,19 +406,58 @@ class TextRevealController {
 	}
 
 	private scrubTo(rawProgress: number) {
+		// A non-finite value would set anim.currentTime = NaN, which throws in WAAPI
+		// and aborts the apply loop mid-reveal (chars stuck). Drop it.
+		if (!Number.isFinite(rawProgress)) return;
+
 		const progress = clamp(0, 1, rawProgress);
-		const normalizedProgress = progress ** (this.params.scrubProgressPower ?? 1);
+		this.targetProgress = progress ** (this.params.scrubProgressPower ?? 1);
+		this.hasRevealed = this.hasRevealed || this.targetProgress > 0;
 
-		if (!this.timeline) return;
-
-		this.timeline.pause();
-		this.timeline.setProgress(normalizedProgress);
-		this.setWillChange(normalizedProgress > 0 && normalizedProgress < 1 ? 'active' : 'auto');
-		this.hasRevealed = this.hasRevealed || normalizedProgress > 0;
-
-		if (normalizedProgress === 1) {
-			this.clearTargetStyles();
+		// First apply after a (re)build runs synchronously so there's no 1-frame
+		// hidden flash when a section mounts mid-scroll; ongoing updates coalesce
+		// through the rAF driver.
+		if (this.appliedProgress < 0) {
+			this.applyScrub(this.targetProgress);
+			return;
 		}
+		this.ensureScrubRaf();
+	}
+
+	private applyScrub(p: number) {
+		if (!this.timeline) return;
+		this.appliedProgress = p;
+		// Set-once based on whether we're mid-reveal — no per-frame re-write.
+		this.setScrubWillChange(p > 0 && p < 1);
+		this.timeline.pause();
+		this.timeline.setProgress(p);
+		if (p === 1) this.clearTargetStyles();
+	}
+
+	private ensureScrubRaf() {
+		if (this.scrubRafId || !this.timeline) return;
+
+		const tick = () => {
+			this.scrubRafId = 0;
+			if (this.destroyed || !this.timeline) return;
+
+			if (this.targetProgress !== this.appliedProgress) {
+				this.applyScrub(this.targetProgress);
+			}
+
+			// Re-arm only while the target is still moving (snap-to-target, no lag).
+			if (Math.abs(this.targetProgress - this.appliedProgress) > SCRUB_SETTLE_EPSILON) {
+				this.scrubRafId = requestAnimationFrame(tick);
+			}
+		};
+
+		this.scrubRafId = requestAnimationFrame(tick);
+	}
+
+	private setScrubWillChange(active: boolean) {
+		if (active === this.willChangeActive) return;
+		this.willChangeActive = active;
+		this.setWillChange(active ? 'active' : 'auto');
 	}
 
 	private playReveal() {
