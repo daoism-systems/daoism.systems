@@ -1,4 +1,4 @@
-import { splitText, type SplitResult } from '../splitText';
+import { splitText, splitTextIntoLines, type SplitResult } from '../splitText';
 import { DURATIONS } from './constants/durations';
 import { clamp, clearStyles } from './helpers';
 import {
@@ -35,16 +35,20 @@ export type TextRevealHandle = {
 	timeScale: number;
 };
 
+type RevealMode = 'character' | 'line' | 'block';
+
 const DEFAULT_DURATION = (DURATIONS.MOTION_REVEAL_DURATION / 1000) * 1.2;
-const DEFAULT_CHAR_STAGGER = 0.008;
-const DEFAULT_BLOCK_STAGGER = 0;
-const DEFAULT_EASE = 'power2.out';
-const DEFAULT_BLOCK_EASE = 'power3.out';
-const DEFAULT_CHAR_OFFSET_X = '0em';
-const DEFAULT_CHAR_OFFSET_Y = '0.4em';
-const DEFAULT_BLOCK_OFFSET_X = 0;
-const DEFAULT_BLOCK_OFFSET_Y = 16;
 const DEFAULT_CHAR_BLUR = '8px';
+const LINE_REVEAL_EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
+const LINE_SETTLE_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
+const REVEAL_MODE_DEFAULTS = {
+	character: { stagger: 0.008, ease: 'power2.out', offsetX: '0em', offsetY: '0.4em' },
+	line: { stagger: 0.055, ease: LINE_REVEAL_EASE, offsetX: '0em', offsetY: '0.72em' },
+	block: { stagger: 0, ease: 'power3.out', offsetX: 0, offsetY: 16 }
+} satisfies Record<
+	RevealMode,
+	{ stagger: number; ease: string; offsetX: number | string; offsetY: number | string }
+>;
 // Below this delta the scrub is considered settled and the driver rAF stops.
 const SCRUB_SETTLE_EPSILON = 0.0005;
 
@@ -156,14 +160,55 @@ function bezierRevealKeyframes(
 	return [fromKf, stepKf, toKf];
 }
 
+function cinematicLineRevealKeyframes(
+	offsetX: number | string,
+	offsetY: number | string,
+	ease: string
+): Keyframe[] {
+	const transform = (positionFactor: number, rotateX: number, scaleY: number) =>
+		`perspective(900px) translate3d(${scaleCssLength(offsetX, positionFactor)}, ${scaleCssLength(offsetY, positionFactor)}, 0) rotateX(${rotateX}deg) scaleY(${scaleY})`;
+	const hiddenTransform = transform(1, -7, 0.96);
+
+	return [
+		{
+			offset: 0,
+			transform: hiddenTransform,
+			opacity: 0,
+			visibility: 'hidden'
+		},
+		{
+			offset: 0.001,
+			transform: hiddenTransform,
+			opacity: 0.01,
+			visibility: 'visible',
+			easing: cssEaseFor(ease)
+		},
+		{
+			offset: 0.84,
+			transform: transform(0.008, 0.2, 1.004),
+			opacity: 1,
+			visibility: 'visible',
+			easing: LINE_SETTLE_EASE
+		},
+		{
+			offset: 1,
+			transform: 'perspective(900px) translate3d(0px, 0px, 0) rotateX(0deg) scaleY(1)',
+			opacity: 1,
+			visibility: 'visible'
+		}
+	];
+}
+
 class TextRevealController {
 	private split: SplitResult | null = null;
 	private timeline: AnimationTimeline | null = null;
+	private revealMode: RevealMode = 'block';
 	private destroyed = false;
 	private hasRevealed = false;
 	private timeScaleValue = 1;
 	private resizeObserver: ResizeObserver | null = null;
 	private resizeTimeout: ReturnType<typeof setTimeout> | null = null;
+	private observedWidth = 0;
 
 	// Frame-aligned scrub driver (same pattern as headingReveal): scroll updates
 	// set `targetProgress`; a single self-terminating rAF pulls the timeline
@@ -180,7 +225,9 @@ class TextRevealController {
 
 	init() {
 		if (document.fonts?.ready) {
-			document.fonts.ready.then(() => this.setup());
+			document.fonts.ready.then(() => {
+				if (!this.destroyed) this.setup();
+			});
 			return;
 		}
 		this.setup();
@@ -188,16 +235,23 @@ class TextRevealController {
 
 	private setup() {
 		this.build();
+		this.observedWidth = this.node.getBoundingClientRect().width;
 
-		this.resizeObserver = new ResizeObserver(() => {
+		this.resizeObserver = new ResizeObserver(([entry]) => {
+			const nextWidth = entry?.contentRect.width ?? this.node.getBoundingClientRect().width;
+			if (Math.abs(nextWidth - this.observedWidth) < 0.5) return;
+			this.observedWidth = nextWidth;
+
 			if (this.resizeTimeout) clearTimeout(this.resizeTimeout);
 			this.resizeTimeout = setTimeout(() => {
 				if (this.destroyed) return;
-				if (this.hasRevealed) {
-					const currentProgress = this.timeline?.progress ?? 0;
-					this.build();
-					this.scrubTo(currentProgress);
-				}
+				const modeChanged = this.resolveRevealMode() !== this.revealMode;
+				if (!this.hasRevealed && this.revealMode !== 'line' && !modeChanged) return;
+
+				const currentProgress = this.timeline?.progress ?? 0;
+				const hasControlledProgress = typeof this.params.progress === 'number';
+				this.build();
+				if (this.hasRevealed && !hasControlledProgress) this.scrubTo(currentProgress);
 			}, 250);
 		});
 
@@ -268,16 +322,20 @@ class TextRevealController {
 		this.split = null;
 	}
 
-	private isCharMode() {
-		// Mobile shares the low-tier block mode: per-char splits mean dozens of
-		// will-change-promoted layers rastering at once right as a section scrubs
-		// in — the single biggest frame spike on phones.
-		return this.params.split !== false && !isLowPerformanceTier() && !isMobileMotionContext();
+	private resolveRevealMode(): RevealMode {
+		if (this.params.split === false || isLowPerformanceTier()) return 'block';
+		return isMobileMotionContext() ? 'line' : 'character';
 	}
 
 	private getTargets(): HTMLElement[] {
-		if (!this.isCharMode()) return [this.node];
-		return this.split?.chars ?? [];
+		switch (this.revealMode) {
+			case 'character':
+				return this.split?.chars ?? [];
+			case 'line':
+				return this.split?.lines ?? [];
+			case 'block':
+				return [this.node];
+		}
 	}
 
 	private shouldApplyMotion() {
@@ -290,29 +348,22 @@ class TextRevealController {
 	}
 
 	private getStagger() {
-		if (!this.isCharMode()) return this.params.stagger ?? DEFAULT_BLOCK_STAGGER;
-		const stagger = this.params.stagger ?? DEFAULT_CHAR_STAGGER;
-		return scaleMotionDuration(stagger, 1.2);
+		const stagger = this.params.stagger ?? REVEAL_MODE_DEFAULTS[this.revealMode].stagger;
+		return this.revealMode === 'block' ? stagger : scaleMotionDuration(stagger, 1.2);
 	}
 
 	private getEase() {
-		return this.params.ease ?? (this.isCharMode() ? DEFAULT_EASE : DEFAULT_BLOCK_EASE);
+		return this.params.ease ?? REVEAL_MODE_DEFAULTS[this.revealMode].ease;
 	}
 
 	private getOffsetX(): number | string {
 		if (!this.shouldApplyMotion()) return 0;
-		return (
-			this.params.wordOffsetX ??
-			(this.isCharMode() ? DEFAULT_CHAR_OFFSET_X : DEFAULT_BLOCK_OFFSET_X)
-		);
+		return this.params.wordOffsetX ?? REVEAL_MODE_DEFAULTS[this.revealMode].offsetX;
 	}
 
 	private getOffsetY(): number | string {
 		if (!this.shouldApplyMotion()) return 0;
-		return (
-			this.params.wordOffsetY ??
-			(this.isCharMode() ? DEFAULT_CHAR_OFFSET_Y : DEFAULT_BLOCK_OFFSET_Y)
-		);
+		return this.params.wordOffsetY ?? REVEAL_MODE_DEFAULTS[this.revealMode].offsetY;
 	}
 
 	private clearTargetStyles() {
@@ -322,7 +373,7 @@ class TextRevealController {
 	}
 
 	private setWillChange(value: 'active' | 'auto') {
-		const charMode = this.isCharMode();
+		const charMode = this.revealMode === 'character';
 		const cssValue =
 			value === 'auto'
 				? 'auto'
@@ -338,7 +389,7 @@ class TextRevealController {
 	private setHiddenState() {
 		const targets = this.getTargets();
 		if (!targets.length) return;
-		const charMode = this.isCharMode();
+		const charMode = this.revealMode === 'character';
 		const blur = charMode && useMotionBlur() ? `blur(${DEFAULT_CHAR_BLUR})` : 'none';
 		const hiddenTransform = `translate(${toCssLength(this.getOffsetX())}, ${toCssLength(this.getOffsetY())})`;
 
@@ -352,8 +403,14 @@ class TextRevealController {
 
 	private ensureStructure() {
 		this.clearSplit();
-		if (!this.isCharMode()) return;
-		this.split = splitText(this.node);
+		if (this.revealMode === 'block') return;
+		this.split =
+			this.revealMode === 'character' ? splitText(this.node) : splitTextIntoLines(this.node);
+
+		if (this.revealMode === 'line' && !this.split.lines.length) {
+			this.clearSplit();
+			this.revealMode = 'block';
+		}
 	}
 
 	private createTimeline() {
@@ -369,9 +426,9 @@ class TextRevealController {
 			return;
 		}
 
-		const charMode = this.isCharMode();
+		const charMode = this.revealMode === 'character';
 		const durationMs = this.getDuration() * 1000;
-		const staggerMs = charMode ? this.getStagger() * 1000 : 0;
+		const staggerMs = this.revealMode === 'block' ? 0 : this.getStagger() * 1000;
 		const applyBlur = charMode && useMotionBlur();
 		const offsetX = this.getOffsetX();
 		const offsetY = this.getOffsetY();
@@ -395,10 +452,13 @@ class TextRevealController {
 		// 1:1. Unknown eases fall back to the cubic-bezier approximation.
 		const easeName = this.getEase();
 		const easeFn = GSAP_POWER_OUT[easeName];
-		const keyframes = easeFn
-			? bakeRevealKeyframes(easeFn, offsetX, offsetY, applyBlur)
-			: bezierRevealKeyframes(offsetX, offsetY, applyBlur);
-		const easing = easeFn ? 'linear' : cssEaseFor(easeName);
+		const keyframes =
+			this.revealMode === 'line'
+				? cinematicLineRevealKeyframes(offsetX, offsetY, easeName)
+				: easeFn
+					? bakeRevealKeyframes(easeFn, offsetX, offsetY, applyBlur)
+					: bezierRevealKeyframes(offsetX, offsetY, applyBlur);
+		const easing = this.revealMode === 'line' || easeFn ? 'linear' : cssEaseFor(easeName);
 
 		tl.add(targets, keyframes, { duration: durationMs, easing, fill: 'both' }, 0, staggerMs);
 		tl.timeScale = this.timeScaleValue;
@@ -503,6 +563,7 @@ class TextRevealController {
 
 		this.timeline?.destroy();
 		this.timeline = null;
+		this.revealMode = this.resolveRevealMode();
 		this.ensureStructure();
 		this.createTimeline();
 		this.setHiddenState();
