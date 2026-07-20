@@ -233,6 +233,13 @@ export const PARTNERS_UI_TIMING = {
 		},
 		headingMotion: STANDARD_HEADING_MOTION.desktop,
 		copyDuration: 1.02,
+		cardItems: {
+			surface: { start: 0, end: 0.64 },
+			number: { start: 0.1, end: 0.72 },
+			type: { start: 0.18, end: 0.8 },
+			description: { start: 0.28, end: 0.9 },
+			icon: { start: 0.4, end: 1 }
+		},
 		cardsSmoothingMs: 150
 	},
 	mobile: {
@@ -245,12 +252,19 @@ export const PARTNERS_UI_TIMING = {
 		beats: {
 			heading: { start: 0, end: 0.66 },
 			divider: { start: 0.14, end: 0.72 },
-			paragraph: { start: 0.15, end: 0.9 },
-			cardsReveal: { start: 0.18, end: 0.36 },
+			paragraph: { start: 0.44, end: 0.9 },
+			cardsReveal: { start: 0.15, end: 0.28 },
 			cardsMove: { start: 0.4, end: 0.94 }
 		},
 		headingMotion: STANDARD_HEADING_MOTION.mobile,
 		copyDuration: 0.84,
+		cardItems: {
+			surface: { start: 0, end: 0.68 },
+			number: { start: 0.08, end: 0.7 },
+			type: { start: 0.14, end: 0.76 },
+			description: { start: 0.24, end: 0.88 },
+			icon: { start: 0.34, end: 1 }
+		},
 		cardsSmoothingMs: 135
 	}
 } as const;
@@ -264,6 +278,13 @@ export const TEAM_UI_TIMING = {
 			cardsCycle: { start: 0.34, end: 0.92 }
 		},
 		headingMotion: STANDARD_HEADING_MOTION.desktop,
+		cardItems: {
+			surface: { start: 0, end: 0.68 },
+			edge: { start: 0.14, end: 0.84 },
+			index: { start: 0.12, end: 0.74 },
+			title: { start: 0.18, end: 0.82 },
+			description: { start: 0.28, end: 0.96 }
+		},
 		cardsSmoothingMs: 120
 	},
 	mobile: {
@@ -274,6 +295,13 @@ export const TEAM_UI_TIMING = {
 			cardsCycle: { start: 0.4, end: 0.94 }
 		},
 		headingMotion: STANDARD_HEADING_MOTION.mobile,
+		cardItems: {
+			surface: { start: 0, end: 0.66 },
+			edge: { start: 0.1, end: 0.82 },
+			index: { start: 0.1, end: 0.72 },
+			title: { start: 0.2, end: 0.84 },
+			description: { start: 0.32, end: 1 }
+		},
 		cardsSmoothingMs: 135
 	}
 } as const;

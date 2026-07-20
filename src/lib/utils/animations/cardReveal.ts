@@ -1,5 +1,6 @@
 import { clamp, clearStyles } from './helpers';
 import { scaleMotionDuration, useMotionBlur } from './motion';
+import type { ProgressBeat } from './uiProgress';
 
 // Cubic-bezier equivalent of GSAP's `power2.out` (≡ easeOutCubic).
 const POWER2_OUT_BEZIER = 'cubic-bezier(0.33, 1, 0.68, 1)';
@@ -10,7 +11,20 @@ type CardRevealParams = {
 	ease?: string;
 	mobileBreakpoint?: number;
 	fromDirection?: 'top' | 'bottom';
+	completeWhenFullyVisible?: boolean;
+	itemTiming?: Readonly<{
+		desktop: CardItemRevealTiming;
+		mobile: CardItemRevealTiming;
+	}>;
 };
+
+type CardItemRevealTiming = Readonly<{
+	surface: ProgressBeat;
+	number: ProgressBeat;
+	type: ProgressBeat;
+	description: ProgressBeat;
+	icon: ProgressBeat;
+}>;
 
 type TweenSpec = {
 	el: HTMLElement;
@@ -20,6 +34,14 @@ type TweenSpec = {
 	filter?: string;
 	offsetMs: number;
 	durationMs: number;
+};
+
+const DEFAULT_ITEM_TIMING: CardItemRevealTiming = {
+	surface: { start: 0, end: 0.72 },
+	number: { start: 0, end: 0.8 },
+	type: { start: 0.08, end: 0.86 },
+	description: { start: 0.14, end: 0.94 },
+	icon: { start: 0, end: 1 }
 };
 
 const composeTransform = (opts: {
@@ -54,15 +76,15 @@ export function cardReveal(node: HTMLElement, initialParams: CardRevealParams = 
 	const shouldRebuild = (prev: CardRevealParams, next: CardRevealParams): boolean =>
 		prev.ease !== next.ease ||
 		prev.mobileBreakpoint !== next.mobileBreakpoint ||
-		prev.fromDirection !== next.fromDirection;
+		prev.fromDirection !== next.fromDirection ||
+		prev.completeWhenFullyVisible !== next.completeWhenFullyVisible ||
+		prev.itemTiming !== next.itemTiming;
 
-	const icon = (node.querySelector('.card__icon img, .card__icon svg') ||
-		node.querySelector('.card__icon')) as HTMLElement | null;
-	const category = node.querySelector<HTMLElement>('.card__desc span');
-	const title = node.querySelector<HTMLElement>('.card__desc h4');
-	const subtitle = node.querySelector<HTMLElement>('.card__desc p');
+	const icon = node.querySelector<HTMLElement>('.card__icon-reveal');
 	const number = node.querySelector<HTMLElement>('.card__number');
-	const targets = [node, icon, category, title, subtitle, number].filter(Boolean) as HTMLElement[];
+	const type = node.querySelector<HTMLElement>('.card__type');
+	const description = node.querySelector<HTMLElement>('.card__desc');
+	const targets = [node, number, type, description, icon].filter(Boolean) as HTMLElement[];
 
 	const setWillChange = (active: boolean) => {
 		if (active === isActivelyAnimating) return;
@@ -77,13 +99,19 @@ export function cardReveal(node: HTMLElement, initialParams: CardRevealParams = 
 		if (isMobileMode) {
 			const vw = window.innerWidth || 1;
 			const startX = vw * (params.startViewport ?? 0.86);
-			const endX = vw * (params.endViewport ?? 0.55);
+			const configuredEndX = vw * (params.endViewport ?? 0.55);
+			const endX = params.completeWhenFullyVisible
+				? Math.max(configuredEndX, vw - rect.width)
+				: configuredEndX;
 			const distance = Math.max(startX - endX, 1);
 			return clamp(0, 1, (startX - rect.left) / distance);
 		}
 		const vh = window.innerHeight || 1;
 		const startY = vh * (params.startViewport ?? 1);
-		const endY = vh * (params.endViewport ?? 0.7);
+		const configuredEndY = vh * (params.endViewport ?? 0.7);
+		const endY = params.completeWhenFullyVisible
+			? Math.max(configuredEndY, vh - rect.height)
+			: configuredEndY;
 		const distance = Math.max(startY - endY, 1);
 		return clamp(0, 1, (startY - rect.top) / distance);
 	};
@@ -154,102 +182,71 @@ export function cardReveal(node: HTMLElement, initialParams: CardRevealParams = 
 	};
 
 	const buildTweens = (): TweenSpec[] => {
-		const revealDurationMs = scaleMotionDuration(1) * 1000;
-		const revealStaggerMs = scaleMotionDuration(0.12) * 1000;
+		const timelineMs = scaleMotionDuration(1) * 1000;
+		const itemTiming =
+			(isMobileMode ? params.itemTiming?.mobile : params.itemTiming?.desktop) ??
+			DEFAULT_ITEM_TIMING;
 		const startBlur = useMotionBlur() ? 'blur(12px)' : undefined;
-		const titleBlur = useMotionBlur() ? 'blur(4px)' : undefined;
+		const contentBlur = useMotionBlur() ? 'blur(4px)' : undefined;
 		const startScale = 0.94;
 		const verticalOffsetSign = params.fromDirection === 'bottom' ? 1 : -1;
 
 		const tweens: TweenSpec[] = [];
+		const addTween = (
+			el: HTMLElement | null,
+			beat: ProgressBeat,
+			motion: Pick<TweenSpec, 'xPercent' | 'yPercent' | 'scale' | 'filter'>
+		) => {
+			if (!el) return;
+			const start = clamp(0, 1, beat.start);
+			const end = clamp(start, 1, beat.end);
+			tweens.push({
+				el,
+				...motion,
+				offsetMs: start * timelineMs,
+				durationMs: Math.max((end - start) * timelineMs, 1)
+			});
+		};
 
 		if (isMobileMode) {
-			tweens.push({
-				el: node,
+			addTween(node, itemTiming.surface, {
 				yPercent: verticalOffsetSign * 24,
 				scale: startScale,
-				filter: startBlur,
-				offsetMs: 0,
-				durationMs: revealDurationMs
+				filter: startBlur
 			});
-			if (icon) {
-				tweens.push({
-					el: icon,
-					yPercent: verticalOffsetSign * 22,
-					scale: startScale,
-					offsetMs: 0,
-					durationMs: revealDurationMs
-				});
-			}
-			if (number) {
-				tweens.push({
-					el: number,
-					yPercent: verticalOffsetSign * 18,
-					offsetMs: 0,
-					durationMs: revealDurationMs
-				});
-			}
-			if (category) {
-				tweens.push({
-					el: category,
-					yPercent: verticalOffsetSign * 14,
-					offsetMs: 90,
-					durationMs: revealDurationMs
-				});
-			}
-			const titleParts = [title, subtitle].filter(Boolean) as HTMLElement[];
-			titleParts.forEach((el, i) => {
-				tweens.push({
-					el,
-					yPercent: verticalOffsetSign * 16,
-					filter: titleBlur,
-					offsetMs: 150 + i * revealStaggerMs,
-					durationMs: revealDurationMs
-				});
+			addTween(number, itemTiming.number, {
+				yPercent: verticalOffsetSign * 18
+			});
+			addTween(type, itemTiming.type, {
+				yPercent: verticalOffsetSign * 14
+			});
+			addTween(description, itemTiming.description, {
+				yPercent: verticalOffsetSign * 16,
+				filter: contentBlur
+			});
+			addTween(icon, itemTiming.icon, {
+				yPercent: verticalOffsetSign * 22,
+				scale: startScale
 			});
 		} else {
-			tweens.push({
-				el: node,
+			addTween(node, itemTiming.surface, {
 				xPercent: -20,
 				scale: startScale,
-				filter: startBlur,
-				offsetMs: 0,
-				durationMs: revealDurationMs
+				filter: startBlur
 			});
-			if (icon) {
-				tweens.push({
-					el: icon,
-					xPercent: -18,
-					scale: startScale,
-					offsetMs: 0,
-					durationMs: revealDurationMs
-				});
-			}
-			if (number) {
-				tweens.push({
-					el: number,
-					xPercent: -12,
-					offsetMs: 0,
-					durationMs: revealDurationMs
-				});
-			}
-			if (category) {
-				tweens.push({
-					el: category,
-					xPercent: -10,
-					offsetMs: 90,
-					durationMs: revealDurationMs
-				});
-			}
-			const titleParts = [title, subtitle].filter(Boolean) as HTMLElement[];
-			titleParts.forEach((el, i) => {
-				tweens.push({
-					el,
-					xPercent: -14,
-					filter: titleBlur,
-					offsetMs: 150 + i * revealStaggerMs,
-					durationMs: revealDurationMs
-				});
+			addTween(number, itemTiming.number, {
+				xPercent: -12
+			});
+			addTween(type, itemTiming.type, {
+				xPercent: -10
+			});
+			addTween(description, itemTiming.description, {
+				xPercent: -14,
+				filter: contentBlur
+			});
+			addTween(icon, itemTiming.icon, {
+				xPercent: -18,
+				scale: startScale
 			});
 		}
 

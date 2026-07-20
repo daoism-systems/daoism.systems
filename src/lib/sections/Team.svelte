@@ -222,6 +222,7 @@
 						total={cardCount}
 						title={vacancy.title}
 						description={vacancy.description}
+						itemRevealTiming={timing.cardItems}
 						revealProgress={revealOpacity}
 					/>
 				</div>

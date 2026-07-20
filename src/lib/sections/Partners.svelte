@@ -175,6 +175,7 @@
       type={card.type}
       iconScale={card.iconScale ?? 1}
       index={index}
+      total={Cards.length}
     />
   {/each}
 </div>
