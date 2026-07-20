@@ -9,6 +9,7 @@ import type { VelocityNode } from '../particles/FluidMouseField';
 import {
 	DEFAULT_SLIDER_CONFIG,
 	PERFORMANCE_PRESETS,
+	TABLET_MAX_WIDTH,
 	getMobileCurveScale,
 	resolveSliderProps,
 	type ResolvedSliderProps,
@@ -33,7 +34,6 @@ const INERTIA_MAX_DURATION_SEC = 1.4;
 const EDGE_RUBBER_BAND_FRAC = 0.18;
 const VISIBLE_CARDS_DESKTOP = 2.5;
 const VISIBLE_CARDS_MOBILE = 1.3;
-const MOBILE_VIEWPORT_PX = 768;
 const SNAP_ON_RELEASE_DEFAULT = true;
 
 type SliderTimingConfig = {
@@ -495,7 +495,7 @@ class TrainSlider implements Inspectable {
 	}
 
 	public handleResize(): void {
-		const shouldShowHint = window.innerWidth < 1024;
+		const shouldShowHint = window.innerWidth <= TABLET_MAX_WIDTH;
 		this.uniforms.mobileClickHint.value = shouldShowHint ? 1 : 0;
 		this.uniforms.mobileCurveScale.value = getMobileCurveScale(window.innerWidth);
 
@@ -583,7 +583,8 @@ class TrainSlider implements Inspectable {
 			focusUniform,
 			props: this.props,
 			uniforms: this.uniforms,
-			isMobileViewport: typeof window !== 'undefined' ? (window.innerWidth || 0) < 768 : false
+			isMobileViewport:
+				typeof window !== 'undefined' ? (window.innerWidth || 0) <= TABLET_MAX_WIDTH : false
 		});
 	}
 
@@ -791,7 +792,7 @@ class TrainSlider implements Inspectable {
 		const ventures = driver.getVenturesPixelRange();
 		const slideCount = this.props.slideCount;
 		const viewportWidth = typeof window !== 'undefined' ? window.innerWidth || 1 : 1;
-		const isMobile = viewportWidth < MOBILE_VIEWPORT_PX;
+		const isMobile = viewportWidth <= TABLET_MAX_WIDTH;
 		const visibleCards = isMobile ? VISIBLE_CARDS_MOBILE : VISIBLE_CARDS_DESKTOP;
 		const perSlideDragPx = Math.max(140, viewportWidth / visibleCards);
 		const sectionPx = Math.max(0, ventures.endPx - ventures.startPx);
@@ -1054,7 +1055,7 @@ class TrainSlider implements Inspectable {
 		if (typeof window === 'undefined') return;
 		// On mobile (≤1024) the pinned SlideFocusBadge replaces the per-slide tap
 		// tooltip, so the anchored bubble is never surfaced there.
-		if ((window.innerWidth || 0) <= 1024) {
+		if ((window.innerWidth || 0) <= TABLET_MAX_WIDTH) {
 			this.dispatchTapTooltip(false, 0, 0, null, null);
 			return;
 		}
@@ -1137,7 +1138,7 @@ class TrainSlider implements Inspectable {
 		// pinned SlideFocusBadge. Fires on every focus change during scroll (the same
 		// 0.7-hysteresis boundary the tooltip used), deduped so the badge only swaps
 		// when the centered slide actually changes.
-		const isMobileViewport = (window.innerWidth || 0) <= 1024;
+		const isMobileViewport = (window.innerWidth || 0) <= TABLET_MAX_WIDTH;
 		const visible = isMobileViewport && this.group.visible;
 		const index = visible ? this.getFocusedSlideIndex() : this.focusBadgeLast.index;
 		if (this.focusBadgeLast.visible === visible && this.focusBadgeLast.index === index) return;

@@ -4,6 +4,16 @@ import TrainSlider, { type ScrollDriver } from './TrainSlider';
 import { FluidMouseField } from '../particles/FluidMouseField';
 import type { GraphicsTier } from '../GraphicsConfig';
 import { TRAIN_SLIDER_LAYOUT, VENTURES_SECTION_INDEX } from '../animation/sceneUiTiming';
+import { PHONE_MAX_WIDTH, TABLET_MAX_WIDTH } from './trainSlider/config';
+
+/**
+ * Group zoom for the tablet band (768–1024]. Tablets take the mobile single-focus
+ * treatment, but the phone scale formula saturates at ~1.05 by 768 — a value tuned
+ * to fill a narrow phone — which oversized the card on the wider tablet viewport
+ * (see camera FOV 30 at this range). This pulls the single card back to leave the
+ * neighbours peeking. Sole knob for tablet card size; lower = smaller card.
+ */
+const TABLET_SLIDER_SCALE = 0.85;
 
 export interface TrainSliderHostDeps {
 	/**
@@ -45,7 +55,7 @@ export class TrainSliderHost {
 			planeWidth: cardWidth,
 			planeHeight: cardHeight,
 			spacing: 0.07,
-			mobileClickHint: window.innerWidth < 1024,
+			mobileClickHint: window.innerWidth <= TABLET_MAX_WIDTH,
 			// Run the slider at full desktop 'high' fidelity on mobile too. The slider's
 			// tier only drives the harmonica/curve params + plane geometry segments
 			// (16×8 → 32×16), so this upgrades just the slide effect without lifting the
@@ -104,15 +114,23 @@ export class TrainSliderHost {
 		const sliderGroup = this.trainSlider.getGroup();
 		const viewportWidth = window.innerWidth;
 		const viewportHeight = window.innerHeight;
-		const isMobileViewport = viewportWidth < 768;
 
-		if (!isMobileViewport) {
+		// Desktop (> 1024): unchanged packed layout.
+		if (viewportWidth > TABLET_MAX_WIDTH) {
 			const desktopT = Math.max(0, Math.min(1, (viewportWidth - 375) / (1440 - 375)));
 			const desktopScale = (0.8 + (0.9 - 0.8) * desktopT) * 0.5;
 			sliderGroup.scale.setScalar(desktopScale);
 			return;
 		}
 
+		// Tablet (768–1024]: mobile single-focus treatment, but a dedicated flat scale
+		// instead of the phone formula's saturated ~1.05 max, which oversized the card.
+		if (viewportWidth > PHONE_MAX_WIDTH) {
+			sliderGroup.scale.setScalar(TABLET_SLIDER_SCALE);
+			return;
+		}
+
+		// Phone (≤768): original width/height-tuned scale, unchanged.
 		const widthT = Math.max(0, Math.min(1, (viewportWidth - 320) / (768 - 320)));
 		const heightT = Math.max(0, Math.min(1, (viewportHeight - 640) / (900 - 640)));
 		const mobileScale = (0.88 + (1.05 - 0.88) * widthT) * (0.95 + 0.08 * heightT);

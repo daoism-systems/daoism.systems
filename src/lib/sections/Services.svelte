@@ -134,10 +134,16 @@
 		}
 
 		&__cards {
+			--services-title-space: 3rem;
+			--services-cards-gap: 1.5rem;
+
 			display: none;
 			position: absolute;
 			left: 0;
-			bottom: calc(10% - var(--card-overflow-allowance, 56px));
+			bottom: calc(
+				var(--services-title-space) + var(--services-cards-gap) -
+					var(--card-overflow-allowance, 56px)
+			);
 			width: 100%;
 			flex-direction: row;
 			gap: 0.625rem;
@@ -149,6 +155,10 @@
 			-webkit-overflow-scrolling: touch;
 			scrollbar-width: none;
 			contain: layout style;
+
+			@media (min-width: 550px) and (max-width: 1110px) {
+				--services-title-space: 5.75rem;
+			}
 
 			&::-webkit-scrollbar {
 				display: none;
@@ -207,6 +217,22 @@
 				margin: 0;
 				padding: 0;
 				backface-visibility: hidden;
+
+				li {
+					position: relative;
+					padding-left: 0.85rem;
+
+					&::before {
+						content: '';
+						position: absolute;
+						left: 0;
+						top: 0.6em;
+						width: 3px;
+						height: 3px;
+						border-radius: 50%;
+						background: currentColor;
+					}
+				}
 			}
 		}
 	}

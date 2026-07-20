@@ -282,14 +282,6 @@
 				debugGlobalProgress={pageProgress.globalProgress}
 			/>
 		{/if}
-
-		<ScrollTracker
-			number={pageProgress.step}
-			label={activeSectionLabel}
-			sectionLabels={TRACKER_SECTION_LABELS}
-			globalProgress={scrollProgress}
-			sectionStarts={TRACKER_SECTION_STARTS}
-		/>
 	{/if}
 
 	<div
@@ -323,10 +315,20 @@
 	{/if}
 
 	{#if !data.uiHidden}
-		<AudioVisualiser
-			introVisible={introRevealReady && (isMobileIntro ? introPhase >= 5 : introPhase >= 2)}
-			mobileHidden={isContactActive}
-		/>
+		<div class="mobile-dock">
+			<ScrollTracker
+				number={pageProgress.step}
+				label={activeSectionLabel}
+				sectionLabels={TRACKER_SECTION_LABELS}
+				globalProgress={scrollProgress}
+				sectionStarts={TRACKER_SECTION_STARTS}
+			/>
+
+			<AudioVisualiser
+				introVisible={introRevealReady && (isMobileIntro ? introPhase >= 5 : introPhase >= 2)}
+				mobileHidden={isContactActive}
+			/>
+		</div>
 	{/if}
 
 	{#if !data.uiHidden}
@@ -403,6 +405,35 @@
 		inset: 0;
 		z-index: 1;
 		background: #000;
+	}
+
+	.mobile-dock {
+		display: contents;
+
+		@include breakpoint(not-desktop) {
+			position: fixed;
+			left: $offset-x-phone;
+			right: $offset-x-phone;
+			bottom: 1.25rem;
+			z-index: 101;
+			display: flex;
+			align-items: flex-end;
+			justify-content: space-between;
+			gap: 1rem;
+			pointer-events: none;
+
+			:global(.scroll-tracker) {
+				position: static;
+				inset: auto;
+				pointer-events: auto;
+			}
+
+			/* relative (not static) keeps the button's ::before ring anchored to it. */
+			:global(#audio-visualiser.audio-visualiser--mobile) {
+				position: relative;
+				inset: auto;
+			}
+		}
 	}
 
 	.sections {

@@ -472,7 +472,8 @@
        vignette open — a time-based transition here would lag/desync it */
     color: #fff;
 
-    @include breakpoint(not-desktop) {
+    // Hidden on mobile only; tablets keep the circles (desktop unchanged).
+    @include breakpoint(phone) {
       display: none;
     }
 

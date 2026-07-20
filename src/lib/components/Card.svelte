@@ -246,7 +246,7 @@
 		</div>
 		<div class="card__icon">
 			<div class="card__icon-inner">
-				<img src={icon} alt={`partner icon ${id}`} style:transform={`scale(${iconScale})`} />
+				<img src={icon} alt={`partner icon ${id}`} style:--icon-scale={iconScale} />
 			</div>
 		</div>
 	</div>
@@ -303,12 +303,12 @@
 
 		@include breakpoint(tablet) {
 			width: 48vw;
-			height: 45svh;
+			aspect-ratio: 320 / 329;
 		}
 
 		@include breakpoint(phone) {
 			width: 71.2vw;
-			height: 36svh;
+			aspect-ratio: 320 / 329;
 		}
 
 		@include breakpoint(small-phone) {
@@ -480,6 +480,18 @@
 					max-width: 100%;
 					height: auto;
 					max-height: none;
+					transform: scale(var(--icon-scale, 1));
+				}
+
+				// Partner logos ship at very different intrinsic sizes, so a plain
+				// max-width leaves the small SVGs tiny. Drive every logo off a
+				// uniform height (~the design's share of the card) so the set scales
+				// in step with the card and reads consistently on tablet/phone.
+				@include breakpoint(not-desktop) {
+					width: auto;
+					max-width: 60%;
+					height: 42%;
+					max-height: 42%;
 				}
 			}
 
