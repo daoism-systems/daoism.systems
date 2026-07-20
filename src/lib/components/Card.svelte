@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
+	import { PARTNERS_UI_TIMING } from '$lib/config/revealTiming';
 	import { cardReveal } from '$lib/utils/animations/cardReveal';
 	import { hoverSound } from '$lib/utils/hoverSound';
 
@@ -9,6 +10,7 @@
 	export let subtitle: string;
 	export let type: string;
 	export let index: number;
+	export let total: number;
 	export let iconScale: number = 1;
 
 	let cardEl: HTMLDivElement;
@@ -32,7 +34,12 @@
 		startViewport: 0.92,
 		endViewport: 0.16,
 		ease: 'cubic-bezier(0.4, 0, 0.2, 1)',
-		fromDirection: index % 2 === 0 ? 'top' : 'bottom'
+		fromDirection: index % 2 === 0 ? 'top' : 'bottom',
+		completeWhenFullyVisible: index === total - 1,
+		itemTiming: {
+			desktop: PARTNERS_UI_TIMING.desktop.cardItems,
+			mobile: PARTNERS_UI_TIMING.mobile.cardItems
+		}
 	} as const;
 
 	function clearReleaseBurstTimers() {
@@ -236,7 +243,7 @@
 		<div class="card__header">
 			<div class="card__number">
 				<span class="text-3xl">{id}</span>
-				<span>/ 5</span>
+				<span>/ {total}</span>
 			</div>
 			<span class="card__type text-sm">{type}</span>
 		</div>
@@ -245,8 +252,10 @@
 			<p>{subtitle}</p>
 		</div>
 		<div class="card__icon">
-			<div class="card__icon-inner">
-				<img src={icon} alt={`partner icon ${id}`} style:transform={`scale(${iconScale})`} />
+			<div class="card__icon-reveal">
+				<div class="card__icon-inner">
+					<img src={icon} alt={`partner icon ${id}`} style:transform={`scale(${iconScale})`} />
+				</div>
 			</div>
 		</div>
 	</div>
@@ -483,20 +492,24 @@
 				}
 			}
 
+			&-reveal,
 			&-inner {
 				display: flex;
 				align-items: center;
 				justify-content: center;
 				width: 100%;
 				height: 100%;
-				transform: translate3d(var(--img-shift-x), var(--img-shift-y), var(--img-z))
-					scale(var(--img-scale));
-				transition: transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
-				will-change: transform;
 
 				@include breakpoint(desktop) {
 					height: auto;
 				}
+			}
+
+			&-inner {
+				transform: translate3d(var(--img-shift-x), var(--img-shift-y), var(--img-z))
+					scale(var(--img-scale));
+				transition: transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
+				will-change: transform;
 			}
 		}
 
@@ -522,6 +535,7 @@
 
 	@media (prefers-reduced-motion: reduce) {
 		.card,
+		.card__icon-reveal,
 		.card__icon-inner,
 		.card::before,
 		.card::after {

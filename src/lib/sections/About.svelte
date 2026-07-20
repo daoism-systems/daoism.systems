@@ -1,31 +1,45 @@
 <script lang="ts">
   import Heading from '$lib/components/Heading.svelte';
   import IconPlus from '$lib/components/IconPlus.svelte';
-  import { ABOUT_UI_WINDOW } from '$lib/config/revealTiming';
-  import { clamp01, getPhaseProgress, getUiProgress } from '$lib/utils/animations/uiProgress';
+  import { ABOUT_UI_TIMING, SUPPORTING_UI_REVEAL_PROGRESS } from '$lib/config/revealTiming';
+  import { clamp01, getBeatProgress, getUiProgress } from '$lib/utils/animations/uiProgress';
   import { textReveal } from '$lib/utils/animations/textReveal';
 
-  let { progress } = $props();
+  let { progress, isMobileTiming = false } = $props();
 
   const HIDDEN_EPSILON = 0.001;
+  let timing = $derived(isMobileTiming ? ABOUT_UI_TIMING.mobile : ABOUT_UI_TIMING.desktop);
   let sectionProgress = $derived(clamp01(progress));
-  let uiProgress = $derived(getUiProgress(progress, ABOUT_UI_WINDOW));
-  let paragraphUiProgress = $derived(getPhaseProgress(uiProgress, 0.14, 0.76));
-  let isHidden = $derived(uiProgress <= HIDDEN_EPSILON);
+  let uiProgress = $derived(getUiProgress(progress, timing.window));
+  let headingUiProgress = $derived(getBeatProgress(uiProgress, timing.beats.heading));
+  let primaryCopyProgress = $derived(
+    getBeatProgress(uiProgress, timing.beats.primaryCopy)
+  );
+  let secondaryCopyProgress = $derived(
+    getBeatProgress(uiProgress, timing.beats.secondaryCopy)
+  );
+  let isIconHidden = $derived(
+    isMobileTiming
+      ? headingUiProgress < SUPPORTING_UI_REVEAL_PROGRESS
+      : uiProgress <= HIDDEN_EPSILON
+  );
 
   const headingRevealConfig = $derived({
-    progress: uiProgress,
-    from: 'start' as const,
-    duration: 0.82,
-    stagger: 0.014
+    progress: headingUiProgress,
+    ...timing.headingMotion
   });
 
-  const paragraphRevealOptions = $derived({
-    progress: paragraphUiProgress,
-    duration: 1.05,
+  const primaryCopyRevealOptions = $derived({
+    progress: primaryCopyProgress,
+    duration: timing.copyDuration,
     scrubProgressPower: 1.14,
     wordOffsetY: '0.5em',
     wordOffsetX: 0
+  });
+
+  const secondaryCopyRevealOptions = $derived({
+    ...primaryCopyRevealOptions,
+    progress: secondaryCopyProgress
   });
 </script>
 
@@ -40,16 +54,16 @@
   </div>
 
   <div class="about__desc section-reveal-paragraph">
-    <p use:textReveal={paragraphRevealOptions}>
+    <p use:textReveal={primaryCopyRevealOptions}>
         Coordination is the hardest problem on the internet. We design and build the systems that solve it for network economies.
     </p>
 
-    <p use:textReveal={paragraphRevealOptions}>
+    <p use:textReveal={secondaryCopyRevealOptions}>
         DeFi, DAOs, open-source AI tooling and protocols — engineered end to end.
     </p>
   </div>
 
-  <IconPlus top={['10%', '5rem']} left={['1.2rem', '0.625rem']} hidden={isHidden} />
+  <IconPlus top={['10%', '5rem']} left={['1.2rem', '0.625rem']} hidden={isIconHidden} />
 </div>
 
 <style lang="scss">

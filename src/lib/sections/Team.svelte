@@ -3,61 +3,46 @@
 	import Heading from '$lib/components/Heading.svelte';
 	import IconPlus from '$lib/components/IconPlus.svelte';
 	import ForestCard from '$lib/components/ForestCard.svelte';
+	import { SUPPORTING_UI_REVEAL_PROGRESS, TEAM_UI_TIMING } from '$lib/config/revealTiming';
 	import { vacancies } from '$lib/store.svelte';
-	import { clamp01, smoothstep } from '$lib/utils/animations/uiProgress';
+	import { clamp01, getBeatProgress } from '$lib/utils/animations/uiProgress';
 
-	let { progress } = $props();
+	let { progress, isMobileTiming = false } = $props();
 	const HIDDEN_EPSILON = 0.001;
-	const REVEAL_END = 0.22;
-	const REVERSE_AT = 0.3;
-	// Heading finishes hiding by here; stays hidden through the rest of the section.
-	const REVERSE_END = 0.5;
-
-	const REVEAL_START = 0.05;
-	const CARDS_REVEAL_END = 0.18;
-	const CYCLE_START = 0.18;
-	const CYCLE_END = 0.92;
 	const DESKTOP_MIN_SCALE = 0.45;
 	const DESKTOP_MAX_ROTATION_DEG = -8;
-	const SMOOTHING_MS = 120;
 	const MOBILE_CROSSFADE_FALLOFF = 1.8;
 	const MOBILE_SNAP_FALLOFF = 2.5;
 	const MOBILE_SNAP_SCALE = 0.018;
 	const MOBILE_PRESS_SCALE = 0.015;
+	let timing = $derived(isMobileTiming ? TEAM_UI_TIMING.mobile : TEAM_UI_TIMING.desktop);
 
 	let sectionProgress = $derived(clamp01(progress));
 	let headingUiProgress = $derived(getTeamHeadingProgress(sectionProgress));
-	let isSectionHidden = $derived(headingUiProgress <= HIDDEN_EPSILON);
+	let isIconHidden = $derived(
+		isMobileTiming
+			? headingUiProgress < SUPPORTING_UI_REVEAL_PROGRESS
+			: headingUiProgress <= HIDDEN_EPSILON
+	);
 
-	// Single continuous reveal → hold → hide curve so the heading always scrubs
-	// with scroll. (Previously it toggled scrub ↔ RAF play/reverse at thresholds,
-	// which stuck/jumped when scrubbing back and forth across them.)
 	function getTeamHeadingProgress(p: number) {
-		const v = clamp01(p);
-		const reveal = smoothstep(clamp01(v / Math.max(REVEAL_END, Number.EPSILON)));
-		const hide = smoothstep(
-			clamp01((v - REVERSE_AT) / Math.max(REVERSE_END - REVERSE_AT, Number.EPSILON))
-		);
+		const reveal = getBeatProgress(p, timing.beats.headingReveal);
+		const hide = getBeatProgress(p, timing.beats.headingHide);
 		return reveal * (1 - hide);
 	}
 
 	const teamHeadingRevealConfig = $derived({
 		progress: headingUiProgress,
-		duration: 0.58,
-		stagger: 0.01
+		...timing.headingMotion
 	});
 
 	const cardCount = vacancies.length;
 	let revealOpacity = $derived(
-		smoothstep(
-			clamp01(
-				(sectionProgress - REVEAL_START) / Math.max(CARDS_REVEAL_END - REVEAL_START, Number.EPSILON)
-			)
-		)
+		getBeatProgress(sectionProgress, timing.beats.cardsReveal)
 	);
 	let activeFloatTarget = $derived(
 		Math.max(0, cardCount - 1) *
-			clamp01((sectionProgress - CYCLE_START) / Math.max(CYCLE_END - CYCLE_START, Number.EPSILON))
+			getBeatProgress(sectionProgress, timing.beats.cardsCycle)
 	);
 
 	let smoothedActiveFloat = $state(0);
@@ -174,7 +159,7 @@
 		if (!frameTime) frameTime = now;
 		const dt = Math.min(Math.max(now - frameTime, 0), 64);
 		frameTime = now;
-		const alpha = 1 - Math.exp(-dt / SMOOTHING_MS);
+		const alpha = 1 - Math.exp(-dt / timing.cardsSmoothingMs);
 		smoothedActiveFloat += (activeFloatTarget - smoothedActiveFloat) * alpha;
 		if (Math.abs(activeFloatTarget - smoothedActiveFloat) < 0.0005) {
 			smoothedActiveFloat = activeFloatTarget;
@@ -218,7 +203,7 @@
 			className="mobile-padded team-heading"
 			headingRevealConfig={teamHeadingRevealConfig}
 		/>
-		<IconPlus top={['0', '4.6rem']} left={['0']} desktopHide={true} hidden={isSectionHidden} />
+		<IconPlus top={['0', '4.6rem']} left={['0']} desktopHide={true} hidden={isIconHidden} />
 	</div>
 
 	<div class="team__cards" aria-hidden={revealOpacity < 0.05}>
@@ -237,6 +222,7 @@
 						total={cardCount}
 						title={vacancy.title}
 						description={vacancy.description}
+						itemRevealTiming={timing.cardItems}
 						revealProgress={revealOpacity}
 					/>
 				</div>

@@ -3,48 +3,53 @@
   import ContactForm from '$lib/components/ContactForm.svelte';
   import { headingReveal } from '$lib/utils/animations/headingReveal';
   import { hoverSound } from '$lib/utils/hoverSound';
-  import { clamp01 } from '$lib/utils/animations/uiProgress';
+  import { CONTACT_UI_TIMING } from '$lib/config/revealTiming';
+  import { clamp01, getLinearBeatProgress } from '$lib/utils/animations/uiProgress';
   import { textReveal } from '$lib/utils/animations/textReveal';
   import Socials from '$lib/components/Socials.svelte';
 
-  let { progress } = $props();
+  let { progress, isMobileTiming = false } = $props();
 
   const HIDDEN_EPSILON = 0.001;
-
-  const FOOTER_REVEAL_DURATION_S = 0.72;
-  const HEADING_REVEAL_DURATION_S = 0.5;
-  const HEADING_REVEAL_STAGGER_S = 0.05;
-  const REVEAL_WINDOW = 0.3;
+  let timing = $derived(isMobileTiming ? CONTACT_UI_TIMING.mobile : CONTACT_UI_TIMING.desktop);
 
   const easeOutCubic = (x: number) => 1 - (1 - clamp01(x)) ** 3;
   const easeOutQuart = (x: number) => 1 - (1 - clamp01(x)) ** 4;
   const lerp = (a: number, b: number, t: number) => a + (b - a) * clamp01(t);
-  const sliceOf = (clockValue: number, start: number, end: number) =>
-    clamp01((clockValue - start) / (end - start));
 
   let sectionProgress = $derived(clamp01(progress));
-  // Linear master clock; stays pinned at 1 past the window — last section never fades out.
-  let clock = $derived(clamp01(sectionProgress / REVEAL_WINDOW));
+  let clock = $derived(clamp01(sectionProgress / timing.revealWindow));
+  let panelProgress = $derived(
+    clamp01(sectionProgress / timing.panelRevealEnd)
+  );
 
-  // Row slices (clock-space), top → bottom. Same row → same onset.
-  let headingSlice = $derived(sliceOf(clock, 0.0, 0.42)); // row 1 (left)
-  let fieldsSlice = $derived(sliceOf(clock, 0.05, 0.55)); // row 1 (right): name / email
-  let leadSlice = $derived(sliceOf(clock, 0.15, 0.62)); // row 2 (left)
-  let messageSlice = $derived(sliceOf(clock, 0.15, 0.62)); // row 2 (right): message — staggers with the lead
-  let lynksenSlice = $derived(sliceOf(clock, 0.28, 0.74)); // row 3 (left)
-  let submitSlice = $derived(sliceOf(clock, 0.28, 0.8)); // row 3 (right)
-  let socialsSlice = $derived(sliceOf(clock, 0.42, 0.86)); // row 4 (left)
-  let footerSlice = $derived(sliceOf(clock, 0.42, 0.9)); // row 4 (right)
+  let headingSlice = $derived(getLinearBeatProgress(clock, timing.beats.heading));
+  let nameFieldSlice = $derived(
+    getLinearBeatProgress(clock, timing.beats.nameField)
+  );
+  let emailFieldSlice = $derived(
+    getLinearBeatProgress(clock, timing.beats.emailField)
+  );
+  let leadSlice = $derived(getLinearBeatProgress(clock, timing.beats.lead));
+  let messageSlice = $derived(getLinearBeatProgress(clock, timing.beats.message));
+  let submitSlice = $derived(getLinearBeatProgress(clock, timing.beats.submit));
+  let lynksenSlice = $derived(getLinearBeatProgress(clock, timing.beats.lynksen));
+  let socialsSlice = $derived(getLinearBeatProgress(clock, timing.beats.socials));
+  let footerPrimarySlice = $derived(
+    getLinearBeatProgress(clock, timing.beats.footerPrimary)
+  );
+  let footerSecondarySlice = $derived(
+    getLinearBeatProgress(clock, timing.beats.footerSecondary)
+  );
 
-  // Eased reveal amounts for the CSS-bound elements (opacity + slide-up + submit scaleX).
-  let panelShow = $derived(easeOutCubic(clock));
+  let panelShow = $derived(easeOutCubic(panelProgress));
   let headingShow = $derived(easeOutCubic(headingSlice));
   let leadShow = $derived(easeOutCubic(leadSlice));
-  let fieldsShow = $derived(easeOutCubic(fieldsSlice));
+  let nameFieldShow = $derived(easeOutCubic(nameFieldSlice));
+  let emailFieldShow = $derived(easeOutCubic(emailFieldSlice));
   let messageShow = $derived(easeOutCubic(messageSlice));
   let submitShow = $derived(easeOutQuart(submitSlice));
   let socialsShow = $derived(easeOutCubic(socialsSlice));
-  let footerShow = $derived(easeOutCubic(footerSlice));
 
   // Container scales up from its bottom edge (transform-origin set in CSS) as it fades in.
   let panelScale = $derived(lerp(0.955, 1, panelShow));
@@ -58,7 +63,6 @@
   let headingOffsetY = $derived((1 - headingShow) * 24);
   let introCopyOffsetY = $derived((1 - leadShow) * 28);
   let socialsOffsetY = $derived((1 - socialsShow) * 40);
-  let footerOffsetY = $derived((1 - footerShow) * 80);
 
   let headingEl = $state<HTMLHeadingElement | null>(null);
   let driftFrame: number | null = null;
@@ -75,22 +79,28 @@
     trigger: true,
     reversed: isSectionHidden,
     progress: headingSlice,
-    duration: HEADING_REVEAL_DURATION_S,
-    stagger: HEADING_REVEAL_STAGGER_S
+    ...timing.headingMotion
   });
 
-  const footerRevealOptions = $derived({
-    progress: footerSlice,
+  const footerPrimaryRevealOptions = $derived({
+    progress: footerPrimarySlice,
     split: false,
-    duration: FOOTER_REVEAL_DURATION_S,
-    scrubProgressPower: 1.25
+    duration: timing.footerDuration,
+    scrubProgressPower: 1.25,
+    wordOffsetY: 72
+  });
+
+  const footerSecondaryRevealOptions = $derived({
+    ...footerPrimaryRevealOptions,
+    progress: footerSecondarySlice,
+    wordOffsetY: 80
   });
 
   // "Website by Lynksen" rides row 3 (with the submit button); slides up like the rest.
   const lynksenRevealOptions = $derived({
     progress: lynksenSlice,
     split: false,
-    duration: FOOTER_REVEAL_DURATION_S,
+    duration: timing.footerDuration,
     scrubProgressPower: 1.25,
     wordOffsetY: 32
   });
@@ -192,7 +202,8 @@
 
 <div
   class="contact section__wrap"
-  style:--contact-fields-progress={fieldsShow}
+  style:--contact-name-progress={nameFieldShow}
+  style:--contact-email-progress={emailFieldShow}
   style:--contact-message-progress={messageShow}
   style:--contact-submit-progress={submitShow}
 >
@@ -243,15 +254,14 @@
       </div>
 
       <div class="contact__right">
-        <!-- Form rows reveal independently (driven via CSS vars below): top inputs (row 1),
-             Message (row 2), submit (row 3) — see the :global rules in <style>. -->
+        <!-- Form controls reveal in reading order through the CSS vars below. -->
         <div class="contact__form">
           <ContactForm />
         </div>
 
-        <footer class="contact__footer" style:transform={`translate3d(0, ${footerOffsetY}px, 0)`}>
-          <p use:textReveal={footerRevealOptions}>© 2026. All rights reserved.</p>
-          <p use:textReveal={footerRevealOptions}>
+        <footer class="contact__footer">
+          <p use:textReveal={footerPrimaryRevealOptions}>© 2026. All rights reserved.</p>
+          <p use:textReveal={footerSecondaryRevealOptions}>
             <a class="contact__footer-link" use:hoverSound href="/privacy-policy">Privacy Policy</a>
           </p>
         </footer>
@@ -500,11 +510,14 @@
     }
   }
 
-  /* Form reveals in row beats driven from Contact.svelte (default 1 keeps it visible without JS). */
-  /* Row 1 — the Name / Email row. */
-  :global(.contact .contact-form__row) {
-    opacity: var(--contact-fields-progress, 1);
-    transform: translate3d(0, calc((1 - var(--contact-fields-progress, 1)) * 24px), 0);
+  :global(.contact .contact-form__cell:first-child) {
+    opacity: var(--contact-name-progress, 1);
+    transform: translate3d(0, calc((1 - var(--contact-name-progress, 1)) * 24px), 0);
+  }
+
+  :global(.contact .contact-form__cell:nth-child(2)) {
+    opacity: var(--contact-email-progress, 1);
+    transform: translate3d(0, calc((1 - var(--contact-email-progress, 1)) * 24px), 0);
   }
 
   /* Row 2 — the Message field (the only `.input-field` that's a direct child of the form). */
@@ -514,9 +527,8 @@
   }
 
   /* Row 3 — the submit button. */
-  :global(.contact .contact-form button[type='submit']) {
+  :global(.contact .contact-form__submit) {
     opacity: var(--contact-submit-progress, 1);
-    transform: scaleX(var(--contact-submit-progress, 1));
-    transform-origin: left center;
+    clip-path: inset(0 calc((1 - var(--contact-submit-progress, 1)) * 100%) 0 0);
   }
 </style>

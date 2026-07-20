@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { browser } from '$app/environment';
+	import {
+		HERO_INTRO_DELAY_MS,
+		HERO_INTRO_PHASE,
+		HERO_INTRO_PHASE_MOBILE
+	} from '$lib/config/revealTiming';
 	import { sceneRangeState } from '$lib/config/sceneBoundaryStore.svelte';
 	import type { ProgressData } from '$lib/scene/MainScene';
 	import type { PageProps } from './$types';
@@ -31,10 +36,17 @@
 	// these disagreed — desktop-UA tablets, narrow windows, devtools emulation — the
 	// hero ran the mobile intro on a short desktop-length scroll and the title
 	// scrubbed out within half a screen.
-	const IS_MOBILE_DEVICE = browser
-		? detectMob() || window.matchMedia('(max-width: 1024px)').matches
+	const IS_MOBILE_LAYOUT = browser ? window.matchMedia('(max-width: 1024px)').matches : false;
+	const IS_MOBILE_DEVICE = browser ? detectMob() || IS_MOBILE_LAYOUT : false;
+	const IS_PHONE_LAYOUT = browser ? window.matchMedia('(max-width: 766px)').matches : false;
+	const IS_CONTACT_STACKED_LAYOUT = browser
+		? window.matchMedia('(max-width: 1255px)').matches
 		: false;
-	const PAGE_PIPELINE = createPagePipeline(IS_MOBILE_DEVICE);
+	const PAGE_PIPELINE = createPagePipeline(
+		IS_MOBILE_DEVICE,
+		IS_MOBILE_LAYOUT,
+		IS_CONTACT_STACKED_LAYOUT
+	);
 	virtualScrollHeight.h = PAGE_PIPELINE.virtualScrollHeight;
 
 	const SECTIONS: Section[] = PAGE_PIPELINE.sections;
@@ -47,24 +59,11 @@
 	let pageProgress = $state<ProgressData>({ step: 0, globalProgress: 0, value: 0 });
 	let introPhase = $state(0);
 	let introTimers: number[] = [];
-	let isMobileIntro = $state(false);
+	let isMobileIntro = $state(IS_MOBILE_LAYOUT);
 	let introMediaQuery: MediaQueryList | null = null;
 	let introMediaHandler: ((event: MediaQueryListEvent) => void) | null = null;
 	let phoneViewportQuery: MediaQueryList | null = null;
 	let phoneViewportHandler: ((event: MediaQueryListEvent) => void) | null = null;
-	const INTRO_PHASE_DELAY_DESKTOP = {
-		revealUiGroup: 160,
-		revealMenuButtons: 240,
-		revealTextAndLine: 380,
-		revealHeading: 560
-	} as const;
-	const INTRO_PHASE_DELAY_MOBILE = {
-		revealButtons: 160,
-		revealTextAndLine: 340,
-		revealHeading: 520,
-		revealScrollIndicator: 780
-	} as const;
-
 	let sceneContainer = $state<HTMLElement | null>(null);
 	let scrollWrapper = $state<HTMLElement | null>(null);
 	let scrollContainer = $state<HTMLElement | null>(null);
@@ -73,11 +72,20 @@
 	let scrollProgress = $state(0);
 	let siteRuntime = $state<SiteRuntime | null>(null);
 	let runtimeDestroyed = false;
-	const { scrollToSection } = useScrollToSection();
+	const { scrollToSection } = useScrollToSection(
+		IS_MOBILE_LAYOUT,
+		IS_CONTACT_STACKED_LAYOUT
+	);
 	let { data }: PageProps = $props();
 	let activeSectionLabel = $derived(SECTIONS[pageProgress.step]?.label ?? '');
 	let isContactActive = $derived(pageProgress.step === CONTACT_SECTION_INDEX);
 	let introRevealReady = $derived(data.sceneHidden || $introTransitionEnded);
+	let isPeripheralUiIntroVisible = $derived(
+		introRevealReady &&
+			(isMobileIntro
+				? introPhase >= HERO_INTRO_PHASE_MOBILE.scrollIndicator
+				: introPhase >= HERO_INTRO_PHASE.uiGroup)
+	);
 
 	// ── DEBUG: scroll → section / scene-progress trace ──────────────────────────
 	// Logs on each ~0.2% scroll move so you can pause on any frame and read where
@@ -222,7 +230,7 @@
 
 	$effect(() => {
 		if (data.uiHidden) {
-			introPhase = 5;
+			introPhase = HERO_INTRO_PHASE.heading;
 			return;
 		}
 
@@ -233,19 +241,33 @@
 			return;
 		}
 
-		introPhase = 1;
+		introPhase = HERO_INTRO_PHASE.logo;
 		if (isMobileIntro) {
-			scheduleIntroPhase(2, INTRO_PHASE_DELAY_MOBILE.revealButtons);
-			scheduleIntroPhase(3, INTRO_PHASE_DELAY_MOBILE.revealTextAndLine);
-			scheduleIntroPhase(4, INTRO_PHASE_DELAY_MOBILE.revealHeading);
-			scheduleIntroPhase(5, INTRO_PHASE_DELAY_MOBILE.revealScrollIndicator);
+			scheduleIntroPhase(HERO_INTRO_PHASE_MOBILE.buttons, HERO_INTRO_DELAY_MS.mobile.buttons);
+			scheduleIntroPhase(
+				HERO_INTRO_PHASE_MOBILE.primaryText,
+				HERO_INTRO_DELAY_MS.mobile.primaryText
+			);
+			scheduleIntroPhase(
+				HERO_INTRO_PHASE_MOBILE.secondaryText,
+				HERO_INTRO_DELAY_MS.mobile.secondaryText
+			);
+			scheduleIntroPhase(HERO_INTRO_PHASE_MOBILE.heading, HERO_INTRO_DELAY_MS.mobile.heading);
+			scheduleIntroPhase(
+				HERO_INTRO_PHASE_MOBILE.scrollIndicator,
+				HERO_INTRO_DELAY_MS.mobile.scrollIndicator
+			);
 			return;
 		}
 
-		scheduleIntroPhase(2, INTRO_PHASE_DELAY_DESKTOP.revealUiGroup);
-		scheduleIntroPhase(3, INTRO_PHASE_DELAY_DESKTOP.revealMenuButtons);
-		scheduleIntroPhase(4, INTRO_PHASE_DELAY_DESKTOP.revealTextAndLine);
-		scheduleIntroPhase(5, INTRO_PHASE_DELAY_DESKTOP.revealHeading);
+		scheduleIntroPhase(HERO_INTRO_PHASE.uiGroup, HERO_INTRO_DELAY_MS.desktop.uiGroup);
+		scheduleIntroPhase(HERO_INTRO_PHASE.menuButtons, HERO_INTRO_DELAY_MS.desktop.menuButtons);
+		scheduleIntroPhase(HERO_INTRO_PHASE.primaryText, HERO_INTRO_DELAY_MS.desktop.primaryText);
+		scheduleIntroPhase(
+			HERO_INTRO_PHASE.secondaryText,
+			HERO_INTRO_DELAY_MS.desktop.secondaryText
+		);
+		scheduleIntroPhase(HERO_INTRO_PHASE.heading, HERO_INTRO_DELAY_MS.desktop.heading);
 	});
 
 	$effect(() => {
@@ -311,20 +333,20 @@
 		sectionTimelines={SECTION_TIMELINES}
 		sectionRevealProgresses={SCROLL_INDICATOR_SECTION_REVEAL_PROGRESSES}
 		sectionLabels={PAGE_PIPELINE.scrollIndicatorLabels}
-		introVisible={introRevealReady && (isMobileIntro ? introPhase >= 5 : introPhase >= 2)}
+		introVisible={isPeripheralUiIntroVisible}
 	/>
 
 	{#if !data.uiHidden}
 		<Scrollbar
 			progress={scrollProgress}
 			onProgressDrag={scrollToProgress}
-			introVisible={introRevealReady && (isMobileIntro ? introPhase >= 5 : introPhase >= 2)}
+			introVisible={isPeripheralUiIntroVisible}
 		/>
 	{/if}
 
 	{#if !data.uiHidden}
 		<AudioVisualiser
-			introVisible={introRevealReady && (isMobileIntro ? introPhase >= 5 : introPhase >= 2)}
+			introVisible={isPeripheralUiIntroVisible}
 			mobileHidden={isContactActive}
 		/>
 	{/if}
@@ -350,11 +372,19 @@
 						{:else if i === COLLABORATION_SECTION_INDEX}
 							<section.component
 								progress={getSectionProgress(i, pageProgress.step, pageProgress.value)}
+								isMobileTiming={IS_MOBILE_LAYOUT}
+								isPhoneTiming={IS_PHONE_LAYOUT}
 								onGetInTouch={navigateToContactForm}
+							/>
+						{:else if i === CONTACT_SECTION_INDEX}
+							<section.component
+								progress={getSectionProgress(i, pageProgress.step, pageProgress.value)}
+								isMobileTiming={IS_CONTACT_STACKED_LAYOUT}
 							/>
 						{:else}
 							<section.component
 								progress={getSectionProgress(i, pageProgress.step, pageProgress.value)}
+								isMobileTiming={IS_MOBILE_LAYOUT}
 							/>
 						{/if}
 					{/if}
