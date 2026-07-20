@@ -3,8 +3,7 @@
 	import Heading from '$lib/components/Heading.svelte';
 	import IconPlus from '$lib/components/IconPlus.svelte';
 	import { COLLABORATION_UI_WINDOW } from '$lib/config/revealTiming';
-	import { headingReveal } from '$lib/utils/animations/headingReveal';
-	import { isMobileMotionContext } from '$lib/utils/animations/motion';
+	import { textReveal } from '$lib/utils/animations/textReveal';
 	import { clamp01, getPhaseProgress, getUiProgress } from '$lib/utils/animations/uiProgress';
 
 	type Props = {
@@ -29,7 +28,6 @@
 
 	let isSectionHidden = $derived(uiProgress <= HIDDEN_EPSILON);
 
-	let subtitleOffsetY = $derived((1 - subtitleUiProgress) * 28);
 	let headingOffsetY = $derived((1 - headingUiProgress) * 20);
 
 	const headingRevealConfig = $derived({
@@ -38,14 +36,10 @@
 		stagger: 0.01
 	});
 
-	// Mobile: reveal the subtitle as one line instead of ~70 char spans — the
-	// char-layer raster spike lands exactly on the Services → Collaboration
-	// hand-off, on top of the scrim fade and the Ventures mount.
 	const subtitleRevealOptions = $derived({
 		progress: subtitleUiProgress,
-		duration: 0.55,
-		stagger: 0.01,
-		split: !isMobileMotionContext()
+		duration: 0.72,
+		scrubProgressPower: 1.12
 	});
 
 	const buttonClipPath = $derived(`inset(0 ${(1 - buttonUiProgress) * 100}% 0 0)`);
@@ -84,21 +78,15 @@
 		</div>
 	</div>
 
-	<div
-		class="collaboration__subtitle"
-		style:transform={`translate3d(0, ${subtitleOffsetY}px, 0)`}
-		use:headingReveal={subtitleRevealOptions}
-	>
+	<div class="collaboration__subtitle" use:textReveal={subtitleRevealOptions}>
 		<span class="text-line">
-		    We work through <span class="highlight">interdependence</span> — your goals become our requirements.
+			We work through <span class="highlight">interdependence</span> — your goals become our requirements.
 		</span>
 	</div>
-
 </div>
 
 <style lang="scss">
 	@use '$lib/styles/variables' as *;
-
 
 	.collaboration {
 		position: relative;
@@ -224,7 +212,6 @@
 			filter:
 				drop-shadow(0 2px 4px rgba(4, 7, 13, 0.26))
 				drop-shadow(0 8px 20px rgba(4, 7, 13, 0.2));
-			will-change: transform; /* Added to prep GPU for transform scrub */
 
 			:global(.text-line) {
 				display: block;

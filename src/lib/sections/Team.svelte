@@ -221,7 +221,7 @@
 		<IconPlus top={['0', '4.6rem']} left={['0']} desktopHide={true} hidden={isSectionHidden} />
 	</div>
 
-	<div class="team__cards" style:opacity={revealOpacity} aria-hidden={revealOpacity < 0.05}>
+	<div class="team__cards" aria-hidden={revealOpacity < 0.05}>
 		<div class="team__slider" bind:this={sliderEl} style:transform={stripTransform}>
 			{#each vacancies as vacancy, index (index)}
 				<div
@@ -237,6 +237,7 @@
 						total={cardCount}
 						title={vacancy.title}
 						description={vacancy.description}
+						revealProgress={revealOpacity}
 					/>
 				</div>
 			{/each}
@@ -283,7 +284,6 @@
 			right: 0;
 			bottom: 0;
 			pointer-events: none;
-			transition: opacity 0.4s cubic-bezier(0.22, 0.61, 0.36, 1);
 			z-index: 3;
 
 			@include breakpoint(desktop) {
