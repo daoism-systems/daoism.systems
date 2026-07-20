@@ -38,7 +38,12 @@
 	// heading out mid-section and back in while hiding — a double show/hide.
 	const VISIBLE_THRESHOLD = 0.5;
 	let isVisible = $derived(effectiveProgress >= VISIBLE_THRESHOLD);
-	let isReducedHeading = $state(false);
+	// Seeded eagerly (not in onMount) so a low-tier Heading mounted mid-scroll
+	// never builds the char pipeline only to throw it away a frame later.
+	// Headings stay per-char on mobile: at ~8–15 chars each they're affordable —
+	// the mobile perf levers are block-mode paragraphs (textReveal) and the
+	// filter-free char keyframes, not the heading char count.
+	let isReducedHeading = $state(typeof window !== 'undefined' && isLowPerformanceTier());
 	let headingEl = $state<HTMLHeadingElement | null>(null);
 	let driftFrame: number | null = null;
 	let currentDriftX = 0;

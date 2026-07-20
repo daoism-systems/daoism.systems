@@ -38,6 +38,11 @@ export class PyramidInstancedParticles extends BaseParticleSystem {
 	private static readonly _tempScale = new THREE.Vector3();
 	private static readonly _tempMatrix = new THREE.Matrix4();
 	private static readonly _tempWorldPos = new THREE.Vector3();
+	/** World scale below which a source mesh counts as display-gated off (rest
+	 * scale of a displayed mesh is ~0.01, collapsed is exactly 0). */
+	private static readonly MIN_FORMED_SCALE = 1e-4;
+	/** Object-local offset that parks a never-bound dot far outside the frustum. */
+	private static readonly UNBOUND_HIDDEN_OFFSET = 1e9;
 
 	private particleSlots: ParticleSlot[] = [];
 	private sourceMeshes: THREE.Mesh[] = [];
@@ -431,6 +436,11 @@ export class PyramidInstancedParticles extends BaseParticleSystem {
 		for (let i = 0; i < this.particleSlots.length; i++) {
 			const slot = this.particleSlots[i];
 			const ms = meshScale.get(slot.sourceMesh) ?? 0;
+			// A collapsed source mesh (display gate at scale 0) piles all its verts
+			// onto its pivot — every dot would bind to whichever single object sits
+			// nearest that point. Never accept such a frame; a slot that stays
+			// unbound across all candidates is hidden in finalizeVatBinding.
+			if (ms < PyramidInstancedParticles.MIN_FORMED_SCALE) continue;
 			if (ms <= bestScale[i]) continue; // a better (more-formed) frame already bound it
 			rest.copy(slot.localPosition).applyMatrix4(bindMatrix.get(slot.sourceMesh)!);
 			const o = nearestObj(rest.x, rest.y, rest.z);
@@ -448,6 +458,20 @@ export class PyramidInstancedParticles extends BaseParticleSystem {
 	public finalizeVatBinding(): void {
 		const vat = this.bindVat;
 		if (!vat || !this.ridingObj || !this.ridingLocal || !this.instancedMesh) return;
+		// Slots whose source mesh never formed at any candidate (e.g. the mobile
+		// bake's permanently-collapsed second pyramid) have no meaningful ride
+		// target — park them far outside the frustum instead of letting them
+		// default to object 0 at offset (0,0,0), which renders as a dot blob
+		// glued to one block.
+		if (this.bindBestScale) {
+			for (let i = 0; i < this.particleSlots.length; i++) {
+				if (this.bindBestScale[i] <= 0) {
+					this.ridingLocal[i * 3 + 0] = PyramidInstancedParticles.UNBOUND_HIDDEN_OFFSET;
+					this.ridingLocal[i * 3 + 1] = PyramidInstancedParticles.UNBOUND_HIDDEN_OFFSET;
+					this.ridingLocal[i * 3 + 2] = PyramidInstancedParticles.UNBOUND_HIDDEN_OFFSET;
+				}
+			}
+		}
 		this.ridingVat = vat;
 		this.bindVat = null;
 		this.bindBestScale = null;

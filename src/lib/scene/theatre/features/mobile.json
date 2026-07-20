@@ -6,7 +6,8 @@
           "PostProcessing": {
             "chromaticScale": 0,
             "chromaticStrength": 0,
-            "chromaticExclusionRadius": 0.27848101265822794
+            "chromaticExclusionRadius": 0.27848101265822794,
+            "chromaticBreathingAmount": 1.2
           },
           "Particles": {
             "octagonSize": 0.6329113924050636,
@@ -1120,7 +1121,7 @@
                 "keyframes": [
                   {
                     "id": "fSWTu_lK37",
-                    "position": 0.067,
+                    "position": 0,
                     "connectedRight": true,
                     "handles": [
                       0.5,
@@ -1139,7 +1140,7 @@
                 "keyframes": [
                   {
                     "id": "Up-ghSjjEn",
-                    "position": 0.067,
+                    "position": 0,
                     "connectedRight": true,
                     "handles": [
                       0.5,
@@ -1168,9 +1169,9 @@
                     ],
                     "type": "bezier",
                     "value": {
-                      "r": 0.5098039215686274,
-                      "g": 0.5098039215686274,
-                      "b": 0.5098039215686274,
+                      "r": 1,
+                      "g": 1,
+                      "b": 1,
                       "a": 1
                     }
                   }
@@ -1510,7 +1511,7 @@
                       0
                     ],
                     "type": "hold",
-                    "value": 1
+                    "value": 0.9
                   },
                   {
                     "id": "rgbs1kf0002",
@@ -2444,6 +2445,25 @@
                     "value": 0.35
                   }
                 ]
+              },
+              "OkKVY_soX-": {
+                "type": "BasicKeyframedTrack",
+                "__debugName": "PostProcessing:[\"chromaticBreathingAmount\"]",
+                "keyframes": [
+                  {
+                    "id": "sls-tv51WZ",
+                    "position": 0,
+                    "connectedRight": true,
+                    "handles": [
+                      0.5,
+                      1,
+                      0.5,
+                      0
+                    ],
+                    "type": "bezier",
+                    "value": 0.5
+                  }
+                ]
               }
             },
             "trackIdByPropPath": {
@@ -2467,7 +2487,8 @@
               "[\"vignetteWidth\"]": "4GvqIKbLC-",
               "[\"vignetteCenter\"]": "KRJawJF6vI",
               "[\"chromaticCenterY\"]": "CA9EQGKTFr",
-              "[\"chromaticCenterX\"]": "OYGyLKzKvG"
+              "[\"chromaticCenterX\"]": "OYGyLKzKvG",
+              "[\"chromaticBreathingAmount\"]": "OkKVY_soX-"
             }
           },
           "Transition": {
@@ -4052,6 +4073,8 @@
   },
   "definitionVersion": "0.4.0",
   "revisionHistory": [
+    "CVy6zceonYj0tpoV",
+    "OMtq3ntauwRrG30r",
     "n99uQf1T0adg3IcS",
     "DE0wo2kK9rTtjcTd",
     "uHXHBvGdVDSULnEc",
@@ -4099,8 +4122,6 @@
     "0wQLHThaGbAdzpZI",
     "THxD99FBsY_hzbbB",
     "AwcczL522EjPRxiU",
-    "xafIXcSfnaaPD1p9",
-    "gAkQHXxVgJCyP_Tq",
-    "moV5d9tN9AE4j3Zd"
+    "xafIXcSfnaaPD1p9"
   ]
 }

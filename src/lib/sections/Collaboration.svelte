@@ -4,6 +4,7 @@
 	import IconPlus from '$lib/components/IconPlus.svelte';
 	import { COLLABORATION_UI_WINDOW } from '$lib/config/revealTiming';
 	import { headingReveal } from '$lib/utils/animations/headingReveal';
+	import { isMobileMotionContext } from '$lib/utils/animations/motion';
 	import { clamp01, getPhaseProgress, getUiProgress } from '$lib/utils/animations/uiProgress';
 
 	type Props = {
@@ -37,10 +38,14 @@
 		stagger: 0.01
 	});
 
+	// Mobile: reveal the subtitle as one line instead of ~70 char spans — the
+	// char-layer raster spike lands exactly on the Services → Collaboration
+	// hand-off, on top of the scrim fade and the Ventures mount.
 	const subtitleRevealOptions = $derived({
 		progress: subtitleUiProgress,
 		duration: 0.55,
-		stagger: 0.01
+		stagger: 0.01,
+		split: !isMobileMotionContext()
 	});
 
 	const buttonClipPath = $derived(`inset(0 ${(1 - buttonUiProgress) * 100}% 0 0)`);
@@ -136,6 +141,10 @@
 				// over the next section during the cross-fade.
 				opacity: var(--collab-scrim-opacity, 1);
 				background: linear-gradient(180deg, rgba(238, 237, 236, 0) 0%, #eeedec 19.166%);
+				// Own compositor layer: the opacity is scrubbed every frame during the
+				// section hand-off, and without it this near-viewport-sized gradient
+				// repaints on each of those frames.
+				will-change: opacity;
 			}
 		}
 
@@ -155,7 +164,7 @@
 
 			@include breakpoint(phone) {
 				position: absolute;
-				bottom: 20px;
+				bottom: 0;
 				left: 0;
 				width: 100%;
 				z-index: 1; // keep the CTA above the readability scrim
@@ -199,6 +208,7 @@
 			position: relative;
 			z-index: 1;
 			margin: auto 0 0 auto;
+			padding-bottom: 3.5rem;
 			// em, not ch: KH Interference isn't monospace, so em is the unit that
 			// keeps the measure proportional across the font-size steps below.
 			max-width: 22em;

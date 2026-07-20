@@ -1,5 +1,5 @@
 import { splitText, type SplitResult } from '../splitText';
-import { clamp } from './helpers';
+import { clamp, clearStyles } from './helpers';
 import { scaleMotionDuration, useMotionBlur } from './motion';
 import { AnimationTimeline } from './helpers/animationTimeline';
 
@@ -9,6 +9,8 @@ type HeadingRevealParams = {
 	trigger?: boolean;
 	reversed?: boolean;
 	progress?: number;
+	/** false → no char splitting: animate whole `.text-line`s (mobile perf mode). */
+	split?: boolean;
 	reverseSpeedMultiplier?: number;
 	onMidpoint?: () => void;
 	onBeforeRevealEnd?: () => void;
@@ -27,12 +29,21 @@ const POWER3_OUT_BEZIER = 'cubic-bezier(0.215, 0.61, 0.355, 1)';
 
 // Composed in GSAP's transform order: translate3d → rotateX → scale.
 const HIDDEN_TRANSFORM = 'translate3d(0, 100%, 0) rotateX(-85deg) scale(0.96)';
+// Line mode has no per-char overflow mask to crop the 100% slide, and rotateX
+// reads as a squash on a full line — a plain rise + fade instead.
+const HIDDEN_TRANSFORM_LINE = 'translate3d(0, 32px, 0)';
 const VISIBLE_TRANSFORM = 'translate3d(0, 0, 0) rotateX(0deg) scale(1)';
+
+// Only hint `filter` when the blur actually animates — otherwise every char gets
+// a promoted layer for a property that never changes.
+const revealWillChange = () =>
+	useMotionBlur() ? 'transform, opacity, filter' : 'transform, opacity';
 
 class HeadingRevealController {
 	private timeline: AnimationTimeline | null = null;
 	private splits: SplitResult[] = [];
 	private chars: HTMLElement[] = [];
+	private lineMode = false;
 	private destroyed = false;
 	private hasRevealed = false;
 	private resizeObserver: ResizeObserver | null = null;
@@ -91,6 +102,7 @@ class HeadingRevealController {
 
 	update(nextParams: HeadingRevealParams) {
 		const shouldRebuild =
+			nextParams.split !== this.params.split ||
 			nextParams.duration !== this.params.duration ||
 			nextParams.stagger !== this.params.stagger ||
 			nextParams.onMidpoint !== this.params.onMidpoint ||
@@ -120,11 +132,12 @@ class HeadingRevealController {
 	}
 
 	private setHiddenState() {
-		const blur = useMotionBlur() ? 'blur(8px)' : 'none';
+		const applyBlur = useMotionBlur();
+		const hiddenTransform = this.lineMode ? HIDDEN_TRANSFORM_LINE : HIDDEN_TRANSFORM;
 		for (const char of this.chars) {
 			char.style.opacity = '0';
-			char.style.transform = HIDDEN_TRANSFORM;
-			char.style.filter = blur;
+			char.style.transform = hiddenTransform;
+			if (applyBlur) char.style.filter = 'blur(8px)';
 		}
 	}
 
@@ -135,6 +148,13 @@ class HeadingRevealController {
 	}
 
 	private clearSplits() {
+		// Line mode animates existing elements in place (no split to revert), so
+		// the inline styles it wrote have to be cleaned off explicitly.
+		if (this.lineMode) {
+			for (const line of this.chars) {
+				clearStyles(line, ['transform', 'opacity', 'filter', 'will-change']);
+			}
+		}
 		this.splits.forEach((s) => s.revert());
 		this.splits = [];
 		this.chars = [];
@@ -153,8 +173,14 @@ class HeadingRevealController {
 		const lines = Array.from(this.node.querySelectorAll<HTMLElement>('.text-line'));
 		const targets = lines.length ? lines : [this.node];
 
-		this.splits = targets.map((line) => splitText(line, { mask: true }));
-		this.chars = this.splits.flatMap((s) => s.chars);
+		this.lineMode = this.params.split === false;
+		if (this.lineMode) {
+			this.splits = [];
+			this.chars = targets;
+		} else {
+			this.splits = targets.map((line) => splitText(line, { mask: true }));
+			this.chars = this.splits.flatMap((s) => s.chars);
+		}
 		this.setHiddenState();
 		this.setWillChange('auto');
 
@@ -168,12 +194,12 @@ class HeadingRevealController {
 		this.appliedProgress = -1;
 		this.willChangeActive = false;
 
-		const blur = useMotionBlur() ? 'blur(8px)' : 'none';
+		const applyBlur = useMotionBlur();
 		const durationMs = this.getRevealDurationMs();
 
 		const tl = new AnimationTimeline({
 			onStart: () => {
-				this.setWillChange('transform, opacity, filter');
+				this.setWillChange(revealWillChange());
 				this.hasRevealed = true;
 			},
 			onComplete: () => {
@@ -185,16 +211,21 @@ class HeadingRevealController {
 			}
 		});
 
+		// Only animate `filter` when the blur actually runs — a filter keyframe
+		// (even none→none) classifies every char animation as filter-animating and
+		// knocks it off the pure transform/opacity compositor path.
 		const fromKf: Keyframe = {
 			opacity: 0,
-			transform: HIDDEN_TRANSFORM,
-			filter: blur
+			transform: this.lineMode ? HIDDEN_TRANSFORM_LINE : HIDDEN_TRANSFORM
 		};
 		const toKf: Keyframe = {
 			opacity: 1,
-			transform: VISIBLE_TRANSFORM,
-			filter: 'none'
+			transform: VISIBLE_TRANSFORM
 		};
+		if (applyBlur) {
+			fromKf.filter = 'blur(8px)';
+			toKf.filter = 'none';
+		}
 
 		const staggerEachMs = this.getStaggerEachMs();
 		const totalChars = this.chars.length;
@@ -278,12 +309,12 @@ class HeadingRevealController {
 	private setScrubWillChange(active: boolean) {
 		if (active === this.willChangeActive) return;
 		this.willChangeActive = active;
-		this.setWillChange(active ? 'transform, opacity, filter' : 'auto');
+		this.setWillChange(active ? revealWillChange() : 'auto');
 	}
 
 	private playReveal() {
 		if (!this.timeline) return;
-		this.setWillChange('transform, opacity, filter');
+		this.setWillChange(revealWillChange());
 		this.timeline.timeScale = 1;
 		this.timeline.play();
 	}
@@ -294,7 +325,7 @@ class HeadingRevealController {
 			this.setHiddenState();
 			return;
 		}
-		this.setWillChange('transform, opacity, filter');
+		this.setWillChange(revealWillChange());
 		this.timeline.timeScale = speedMultiplier;
 		this.timeline.reverse();
 	}

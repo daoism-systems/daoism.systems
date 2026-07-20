@@ -23,33 +23,29 @@ import {
 
 const cloneLook = (look: TransitionLookParams): TransitionLookParams => ({ ...look });
 
-const readLook = (
-	source: Record<string, any> | undefined,
-	fallback: TransitionLookParams
-): TransitionLookParams => {
-	if (!source) return cloneLook(fallback);
-	const pick = (key: keyof TransitionLookParams): number =>
-		typeof source[key] === 'number' ? source[key] : fallback[key];
-	const axis = pick('axisIndex');
-	return {
-		smearStrength: pick('smearStrength'),
-		caStrength: pick('caStrength'),
-		maskSoftness: pick('maskSoftness'),
-		axisIndex: axis >= 0.5 ? 1 : 0,
-		noiseScaleX: pick('noiseScaleX'),
-		noiseScaleY: pick('noiseScaleY'),
-		noiseScrollSpeed: pick('noiseScrollSpeed'),
-		maskNoiseStrength: pick('maskNoiseStrength'),
-		detailNoiseAmount: pick('detailNoiseAmount'),
-		radialStrength: pick('radialStrength'),
-		radialOriginX: pick('radialOriginX'),
-		radialOriginY: pick('radialOriginY'),
-		radialRadius: pick('radialRadius'),
-		radialSpreadX: pick('radialSpreadX'),
-		pixelStrength: pick('pixelStrength'),
-		pixelBlockSize: pick('pixelBlockSize'),
-		pixelGlitchAmount: pick('pixelGlitchAmount')
-	};
+// Canonical field list, derived from the default look so it can't drift from
+// TransitionLookParams.
+const LOOK_KEYS = Object.keys(TRANSITION_LOOK_PROCEDURAL) as Array<keyof TransitionLookParams>;
+
+/**
+ * Copies authored numeric fields from `source` into `target` in place; fields
+ * missing from `source` keep their current value. Hot path — applyConfig fires
+ * every Theatre tick during a transition scroll, so this must not allocate.
+ */
+const readLookInto = (
+	target: TransitionLookParams,
+	source: Record<string, any> | undefined
+): void => {
+	if (!source) return;
+	// All look fields are numeric; axisIndex's 0|1 narrowing is restored by the
+	// snap below, so the generic write is safe.
+	const writable = target as Record<keyof TransitionLookParams, number>;
+	for (let i = 0; i < LOOK_KEYS.length; i++) {
+		const key = LOOK_KEYS[i];
+		const value = source[key];
+		if (typeof value === 'number') writable[key] = value;
+	}
+	target.axisIndex = target.axisIndex >= 0.5 ? 1 : 0;
 };
 
 type LookState = Record<TransitionPairId, TransitionLookParams>;
@@ -111,8 +107,8 @@ export class Transition implements Inspectable {
 			}
 		}
 
-		this.looks.procedural = readLook(config.procedural, this.looks.procedural);
-		this.looks.swarm = readLook(config.swarm, this.looks.swarm);
+		readLookInto(this.looks.procedural, config.procedural);
+		readLookInto(this.looks.swarm, config.swarm);
 		this.pushLookToRenderer('procedural');
 		this.pushLookToRenderer('swarm');
 	}
