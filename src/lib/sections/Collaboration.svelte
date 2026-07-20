@@ -88,28 +88,35 @@
 		</div>
 
 		<IconPlus top={['0', '4.75rem']} left={['0']} desktopHide={true} hidden={isIconHidden} />
-		<div
-			class="collaboration__button"
-			style:clip-path={buttonClipPath}
-			style:opacity={buttonUiProgress}
-			style:transform={`scaleX(${buttonUiProgress})`}
-		>
-			<Button
-				label="Connect now"
-				type="button"
-				onclick={handleGetInTouch}
-				ontouchstart={handleGetInTouch}
-				data-cursor-text-label="Proceed"
-			/>
-		</div>
+		{@render cta()}
 	</div>
 
-	<div class="collaboration__subtitle" use:textReveal={subtitleRevealOptions}>
-		<span class="text-line">
-			We work through <span class="highlight">interdependence</span> — your goals become our requirements.
-		</span>
+	<div class="collaboration__footer">
+		<div class="collaboration__subtitle" use:textReveal={subtitleRevealOptions}>
+			<span class="text-line">
+				We work through <span class="highlight">interdependence</span> — your goals become our requirements.
+			</span>
+		</div>
+		{@render cta()}
 	</div>
 </div>
+
+{#snippet cta()}
+	<div
+		class="collaboration__button"
+		style:clip-path={buttonClipPath}
+		style:opacity={buttonUiProgress}
+		style:transform={`scaleX(${buttonUiProgress})`}
+	>
+		<Button
+			label="Connect now"
+			type="button"
+			onclick={handleGetInTouch}
+			ontouchstart={handleGetInTouch}
+			data-cursor-text-label="Proceed"
+		/>
+	</div>
+{/snippet}
 
 <style lang="scss">
 	@use '$lib/styles/variables' as *;
@@ -176,12 +183,26 @@
 			// collapses the box, so this doesn't capture stray clicks.
 			pointer-events: auto;
 
-			@include breakpoint(phone) {
-				position: absolute;
-				bottom: 0;
-				left: 0;
-				width: 100%;
-				z-index: 1; // keep the CTA above the readability scrim
+			// The CTA is rendered twice — once under the heading (in the wrap) and
+			// once in the bottom footer group — so it can sit beneath the heading on
+			// desktop/tablet yet share a flex container with the subtitle on phone.
+			// Only the copy that belongs to the current breakpoint is shown.
+			.collaboration__wrap & {
+				@include breakpoint(phone) {
+					display: none;
+				}
+			}
+
+			.collaboration__footer & {
+				@include breakpoint(not-phone) {
+					display: none;
+				}
+
+				@include breakpoint(phone) {
+					width: 100%;
+					position: relative; // keep the CTA above the readability scrim
+					z-index: 1;
+				}
 			}
 		}
 
@@ -215,6 +236,20 @@
 
 			@include breakpoint(tablet) {
 				position: relative;
+			}
+		}
+
+		&__footer {
+			flex: 1;
+			display: flex;
+			flex-direction: column;
+			min-height: 0;
+
+			@include breakpoint(phone) {
+				position: relative;
+				z-index: 1; // lift the group above the readability scrim
+				justify-content: flex-end;
+				gap: 1.5rem;
 			}
 		}
 
@@ -291,6 +326,11 @@
 					color: $color-grey-100;
 					text-shadow: none;
 				}
+			}
+
+			@include breakpoint(phone) {
+				margin-top: 0;
+				padding-bottom: 0;
 			}
 		}
 	}

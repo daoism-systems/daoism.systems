@@ -19,7 +19,8 @@
           "TrainSlider": {
             "exitDistance": 9.620253164556964,
             "exitProgressStart": 0.8354430379746833,
-            "colorIntensity": 0.3544303797468358
+            "colorIntensity": 0.3544303797468358,
+            "layoutGap": -0.2
           },
           "Transition": {
             "shaderEdgeBlur": 2.088627662455206,
@@ -502,7 +503,7 @@
                   {
                     "id": "35d39557dd",
                     "position": 0,
-                    "value": 0.85,
+                    "value": 1.1,
                     "handles": [
                       0.5,
                       1,
@@ -520,7 +521,7 @@
                   {
                     "id": "273909845a",
                     "position": 0,
-                    "value": -16.45358748909323,
+                    "value": -20,
                     "handles": [
                       0.5,
                       1,
@@ -790,6 +791,25 @@
                     "value": 0.3
                   }
                 ]
+              },
+              "JdqsBmG6_L": {
+                "type": "BasicKeyframedTrack",
+                "__debugName": "TrainSlider:[\"layoutGap\"]",
+                "keyframes": [
+                  {
+                    "id": "Zb5w_M9Kju",
+                    "position": 0,
+                    "connectedRight": true,
+                    "handles": [
+                      0.5,
+                      1,
+                      0.5,
+                      0
+                    ],
+                    "type": "bezier",
+                    "value": -0.2
+                  }
+                ]
               }
             },
             "trackIdByPropPath": {
@@ -804,7 +824,8 @@
               "[\"harmonicaSpeed\"]": "SvVCB-6WUQ",
               "[\"harmonicaBands\"]": "4J4f5h6iF0",
               "[\"harmonicaAmplitude\"]": "sOLlccIJDq",
-              "[\"colorIntensity\"]": "Q6H-zzSiJa"
+              "[\"colorIntensity\"]": "Q6H-zzSiJa",
+              "[\"layoutGap\"]": "JdqsBmG6_L"
             }
           },
           "MousePhysics": {
@@ -4073,6 +4094,9 @@
   },
   "definitionVersion": "0.4.0",
   "revisionHistory": [
+    "jQ4kOQpvlTY93KKT",
+    "rZodinbBp32KD2s3",
+    "j2jkCVSTV5kjLk4o",
     "CVy6zceonYj0tpoV",
     "OMtq3ntauwRrG30r",
     "n99uQf1T0adg3IcS",
@@ -4119,9 +4143,6 @@
     "ACgF8eJqPEtS0yUD",
     "a3b8DpBRsf5qq9a5",
     "B-vMN7HVIucutc17",
-    "0wQLHThaGbAdzpZI",
-    "THxD99FBsY_hzbbB",
-    "AwcczL522EjPRxiU",
-    "xafIXcSfnaaPD1p9"
+    "0wQLHThaGbAdzpZI"
   ]
 }

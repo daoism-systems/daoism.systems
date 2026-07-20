@@ -116,14 +116,12 @@
   <button
     class="preloader-sound-toggle"
     class:preloader-sound-toggle--on={isEnterWithSound}
-        onpointerenter={handleStartPointerEnter}
+    onpointerenter={handleStartPointerEnter}
     onpointerleave={handleStartPointerLeave}
     onclick={handleStart}
     aria-label="start"
   >
-    <span class="preloader-sound-toggle__text">
-      Start
-    </span>
+    <span class="preloader-sound-toggle__text">Start</span>
   </button>
 </div>
 
@@ -131,7 +129,10 @@
   @use '$lib/styles/variables' as *;
 
   .preloader-btn-with-sound {
+    // Shared easing curves — used across every transition/animation below.
     --cta-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --cta-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+
     position: absolute;
     top: 50%;
     left: 50%;
@@ -149,46 +150,69 @@
     opacity: 0;
     pointer-events: none;
     will-change: opacity, transform;
+
+    &.preloader-btn-with-sound--ready {
+      pointer-events: auto;
+      animation: preloader-with-sound-wrap-in 0.86s var(--preloader-btn-ease)
+        var(--preloader-with-sound-stagger) forwards;
+
+      .start {
+        transform: scale(1);
+        transition:
+          transform 0.6s var(--cta-bounce) var(--preloader-with-sound-stagger),
+          background 0.42s var(--cta-smooth),
+          border-color 0.42s var(--cta-smooth),
+          box-shadow 0.42s var(--cta-smooth),
+          filter 0.32s ease;
+      }
+
+      .preloader-with-sound-label-wrap:nth-child(1) .preloader-with-sound-label {
+        animation: preloader-with-sound-label-reveal 0.75s var(--cta-bounce)
+          calc(var(--preloader-with-sound-stagger) + 0.1s) forwards;
+      }
+
+      .preloader-with-sound-label-wrap:nth-child(2) .preloader-with-sound-label {
+        animation: preloader-with-sound-label-reveal 0.75s var(--cta-bounce)
+          calc(var(--preloader-with-sound-stagger) + 0.2s) forwards;
+      }
+
+      .preloader-sound-toggle {
+        animation: preloader-sound-toggle-reveal 0.75s var(--cta-bounce)
+          calc(var(--preloader-with-sound-stagger) + 0.3s) forwards;
+      }
+    }
+
+    &.preloader-btn-with-sound--exit {
+      pointer-events: none;
+      animation: preloader-with-sound-wrap-out 0.6s var(--preloader-btn-ease) forwards;
+
+      .start {
+        animation: preloader-with-sound-button-out 0.54s var(--preloader-btn-ease) forwards;
+      }
+
+      .preloader-with-sound-label {
+        animation: preloader-with-sound-label-hide 0.5s var(--preloader-btn-ease) forwards;
+      }
+
+      .preloader-sound-toggle {
+        animation: preloader-sound-toggle-hide 0.45s var(--preloader-btn-ease) forwards;
+      }
+    }
   }
 
-
-  .preloader-btn-with-sound.preloader-btn-with-sound--ready {
-    pointer-events: auto;
-    animation: preloader-with-sound-wrap-in 0.86s var(--preloader-btn-ease)
-      var(--preloader-with-sound-stagger) forwards;
-  }
-
-  .preloader-btn-with-sound.preloader-btn-with-sound--exit {
-    animation: preloader-with-sound-wrap-out 0.6s var(--preloader-btn-ease) forwards;
-    pointer-events: none;
-  }
-
-  .preloader-btn-with-sound.preloader-btn-with-sound--exit .start {
-    animation: preloader-with-sound-button-out 0.54s var(--preloader-btn-ease) forwards;
-  }
-
-  .preloader-btn-with-sound.preloader-btn-with-sound--exit .preloader-with-sound-label {
-    animation: preloader-with-sound-label-hide 0.5s var(--preloader-btn-ease) forwards;
-  }
-
-  .preloader-btn-with-sound.preloader-btn-with-sound--exit .preloader-sound-toggle {
-    animation: preloader-sound-toggle-hide 0.45s var(--preloader-btn-ease) forwards;
-  }
-
+  // Circular sound toggle (mute / unmute) that houses the audio visualizer.
   .preloader-btn-with-sound button.start {
     position: relative;
     isolation: isolate;
     width: 56px;
     height: 56px;
     border-radius: 50%;
-    /* Ring is drawn by ::after box-shadow, not this border, to avoid the
-       arc-join seam that border-radius:50% borders show at top/bottom. */
+    // Ring is drawn by ::after box-shadow, not this border, to avoid the
+    // arc-join seam that border-radius:50% borders show at top/bottom.
     --ring-color: rgba(222, 230, 244, 0.35);
     background:
       radial-gradient(80% 80% at 50% 24%, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 100%),
       linear-gradient(180deg, rgba(0, 0, 0, 0.85) 0%, rgba(180, 20, 20, 0.9) 100%);
-
-
     transform: scale(0.74);
     cursor: pointer;
     display: flex;
@@ -196,10 +220,10 @@
     align-items: center;
     will-change: transform, background, border-color, box-shadow, filter;
     transition:
-      transform 0.42s cubic-bezier(0.16, 1, 0.3, 1),
-      background 0.42s cubic-bezier(0.16, 1, 0.3, 1),
-      border-color 0.42s cubic-bezier(0.16, 1, 0.3, 1),
-      box-shadow 0.42s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.42s var(--cta-smooth),
+      background 0.42s var(--cta-smooth),
+      border-color 0.42s var(--cta-smooth),
+      box-shadow 0.42s var(--cta-smooth),
       filter 0.32s ease;
 
     &::before {
@@ -210,11 +234,13 @@
       border: 1px solid rgba(255, 255, 255, 0.12);
       opacity: 0;
       transform: scale(0.88);
-      transition: transform 0.42s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.42s ease;
+      transition:
+        transform 0.42s var(--cta-smooth),
+        opacity 0.42s ease;
       pointer-events: none;
     }
 
-    /* The visible 1px ring — a single continuous shadow, no corner-arc seam. */
+    // The visible 1px ring — a single continuous shadow, no corner-arc seam.
     &::after {
       content: '';
       position: absolute;
@@ -222,7 +248,7 @@
       border-radius: 50%;
       box-shadow: inset 0 0 0 1px var(--ring-color);
       pointer-events: none;
-      transition: box-shadow 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: box-shadow 0.42s var(--cta-smooth);
     }
 
     .start-canvas {
@@ -260,10 +286,6 @@
       &:hover {
         transform: scale(1.08);
         --ring-color: rgba(255, 255, 255, 0.62);
-        /* box-shadow:
-          0 18px 42px rgba(0, 0, 0, 0.5),
-          0 0 22px rgba(255, 255, 255, 0.08),
-          inset 0 1px 0 rgba(255, 255, 255, 0.25); */
 
         &::before {
           opacity: 1;
@@ -283,6 +305,7 @@
       }
     }
 
+    // Press feedback must come after :hover so it wins while hovering.
     &.pressed,
     &:active {
       transform: scale(0.95);
@@ -340,30 +363,7 @@
     will-change: transform, opacity;
   }
 
-  .preloader-btn-with-sound.preloader-btn-with-sound--ready .start {
-    transform: scale(1);
-    transition:
-      transform 0.6s var(--cta-bounce) var(--preloader-with-sound-stagger),
-      background 0.42s cubic-bezier(0.16, 1, 0.3, 1),
-      border-color 0.42s cubic-bezier(0.16, 1, 0.3, 1),
-      box-shadow 0.42s cubic-bezier(0.16, 1, 0.3, 1),
-      filter 0.32s ease;
-  }
-
-  .preloader-btn-with-sound.preloader-btn-with-sound--ready
-    .preloader-with-sound-label-wrap:nth-child(1)
-    .preloader-with-sound-label {
-    animation: preloader-with-sound-label-reveal 0.75s var(--cta-bounce)
-      calc(var(--preloader-with-sound-stagger) + 0.1s) forwards;
-  }
-
-  .preloader-btn-with-sound.preloader-btn-with-sound--ready
-    .preloader-with-sound-label-wrap:nth-child(2)
-    .preloader-with-sound-label {
-    animation: preloader-with-sound-label-reveal 0.75s var(--cta-bounce)
-      calc(var(--preloader-with-sound-stagger) + 0.2s) forwards;
-  }
-
+  // The "Start" action button that enters the experience.
   .preloader-sound-toggle {
     display: inline-flex;
     align-items: center;
@@ -384,7 +384,7 @@
     cursor: pointer;
     will-change: transform, opacity, border-color, background-color, color, box-shadow;
     transition:
-      transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.3s var(--cta-smooth),
       border-color 0.3s ease,
       color 0.3s ease,
       background 0.3s ease,
@@ -397,30 +397,26 @@
         0 0 0 2px rgba(255, 255, 255, 0.2),
         0 0 0 4px rgba(230, 71, 73, 0.2);
     }
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        transform: translateY(-1px) scale(1.04);
+        border-color: rgba(255, 255, 255, 0.56);
+        color: rgba(235, 241, 252, 0.95);
+        box-shadow: 0 12px 26px rgba(0, 0, 0, 0.4);
+      }
+
+      &.preloader-sound-toggle--on:hover {
+        border-color: rgba(255, 178, 178, 0.68);
+        color: rgba(255, 225, 225, 0.98);
+        box-shadow:
+          0 12px 28px rgba(0, 0, 0, 0.42),
+          0 0 24px rgba(230, 71, 73, 0.2);
+      }
+    }
   }
 
-  .preloader-sound-toggle__icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .preloader-sound-toggle svg {
-    width: 15px;
-    height: 15px;
-    display: block;
-  }
-
-  .preloader-sound-toggle svg path {
-    stroke: currentColor;
-    transition: stroke 0.3s ease;
-  }
-
-  .preloader-btn-with-sound.preloader-btn-with-sound--ready .preloader-sound-toggle {
-    animation: preloader-sound-toggle-reveal 0.75s var(--cta-bounce)
-      calc(var(--preloader-with-sound-stagger) + 0.3s) forwards;
-  }
-
+  // Sound-on tint (desktop). The mobile pill below intentionally overrides this.
   .preloader-sound-toggle--on {
     border-color: rgba(230, 71, 73, 0.52);
     background: linear-gradient(180deg, rgba(230, 71, 73, 0.26) 0%, rgba(88, 36, 42, 0.74) 100%);
@@ -428,20 +424,39 @@
     box-shadow: 0 8px 24px rgba(230, 71, 73, 0.14);
   }
 
-  @media (hover: hover) and (pointer: fine) {
-    .preloader-sound-toggle:hover {
-      transform: translateY(-1px) scale(1.04);
-      border-color: rgba(255, 255, 255, 0.56);
-      color: rgba(235, 241, 252, 0.95);
-      box-shadow: 0 12px 26px rgba(0, 0, 0, 0.4);
+  // Mobile + tablet "Start" pill (Figma node 2000-5194). Triggers up to the
+  // project's mobile/tablet ceiling (1024px, matching detectMob and the layout
+  // breakpoint below) OR on any touch device (covers landscape tablets > 1024).
+  // Glassy + neutral in both sound states; the two-class selector wins over
+  // .preloader-sound-toggle and .preloader-sound-toggle--on by specificity.
+  @media (max-width: 1024px), (pointer: coarse) {
+    .preloader-btn-with-sound .preloader-sound-toggle {
+      // Fixed pill dimensions from the Figma "Pagination Item" component
+      // (120 x 48, text centered) — not a hug-the-text button. box-sizing is
+      // border-box (Tailwind preflight), so the height includes padding.
+      box-sizing: border-box;
+      min-width: 120px;
+      height: 48px;
+      padding: 0.375rem 1rem;
+      border-radius: 54px;
+      border: 0.5px solid rgba(168, 174, 188, 0.3);
+      background: rgba(43, 44, 48, 0.6);
+      -webkit-backdrop-filter: blur(50px);
+      backdrop-filter: blur(50px);
+      color: #a8aebc;
+      font-size: 14px;
+      letter-spacing: normal;
+      box-shadow: none;
     }
 
-    .preloader-sound-toggle.preloader-sound-toggle--on:hover {
-      border-color: rgba(255, 178, 178, 0.68);
-      color: rgba(255, 225, 225, 0.98);
-      box-shadow:
-        0 12px 28px rgba(0, 0, 0, 0.42),
-        0 0 24px rgba(230, 71, 73, 0.2);
+    // Sound-on: tint the mobile pill red to match the active mic button, while
+    // keeping the glassy blur from the neutral base above. The three-class
+    // selector (0,3,0) beats the neutral base (0,2,0) so it wins inside here.
+    .preloader-btn-with-sound .preloader-sound-toggle.preloader-sound-toggle--on {
+      border-color: rgba(230, 71, 73, 0.5);
+      background: rgba(88, 36, 42, 0.5);
+      color: rgba(255, 199, 199, 0.94);
+      box-shadow: 0 8px 24px rgba(230, 71, 73, 0.14);
     }
   }
 
@@ -459,7 +474,6 @@
 
   @media (max-width: 1024px) {
     .preloader-btn-with-sound {
-      top: 50%;
       gap: 5px;
       font-size: 0.82rem;
       width: min(90vw, 300px);
@@ -474,7 +488,6 @@
 
   @media (max-width: 640px) {
     .preloader-btn-with-sound {
-      top: 50%;
       font-size: 0.7rem;
       width: min(88vw, 250px);
       line-height: 135%;
@@ -489,12 +502,6 @@
         height: 18px;
       }
     }
-
-    .preloader-sound-toggle {
-      padding: 0.34rem 0.58rem;
-      font-size: 0.54rem;
-      letter-spacing: 0.1em;
-    }
   }
 
   @media (max-width: 555px) {
@@ -504,15 +511,6 @@
       p:last-of-type {
         display: none;
       }
-    }
-
-    //.preloader-sound-toggle__text {
-    //  display: none;
-    //}
-
-    .preloader-sound-toggle {
-      //padding: 0.42rem;
-      //margin-top: 0;
     }
   }
 

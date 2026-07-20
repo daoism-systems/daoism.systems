@@ -87,27 +87,6 @@
 				: introPhase >= HERO_INTRO_PHASE.uiGroup)
 	);
 
-	// ── DEBUG: scroll → section / scene-progress trace ──────────────────────────
-	// Logs on each ~0.2% scroll move so you can pause on any frame and read where
-	// each section label lands vs the 3D content — e.g. to align '02 Services' /
-	// '05 Partners' to the new model. `scene` is content-progress (= Theatre
-	// position/100, the vignette clock); the spotlight/eyes window is 0.132→0.296.
-	// Set SCROLL_DEBUG = false to silence.
-	// const SCROLL_DEBUG = true;
-	// let lastScrollLogged = -1;
-	// $effect(() => {
-	// 	if (!SCROLL_DEBUG) return;
-	// 	const scrollPct = pageProgress.globalProgress * 100;
-	// 	if (lastScrollLogged >= 0 && Math.abs(scrollPct - lastScrollLogged) < 0.2) return;
-	// 	lastScrollLogged = scrollPct;
-	// 	const scene = PAGE_PIPELINE.mapGlobalProgressToSceneProgress(pageProgress.globalProgress);
-	// 	const step = pageProgress.step;
-	// 	console.log(
-	// 		`[scroll] ${scrollPct.toFixed(2)}%  §${step} ${SECTIONS[step]?.label ?? ''}  ` +
-	// 			`scene=${scene.toFixed(4)} (manifest ${Math.round(scene * 2801)})`
-	// 	);
-	// });
-
 	function clearIntroTimers() {
 		introTimers.forEach((id) => clearTimeout(id));
 		introTimers = [];
@@ -129,7 +108,10 @@
 			isMobileIntro = event.matches;
 		};
 		introMediaQuery.addEventListener('change', introMediaHandler);
-		phoneViewportQuery = window.matchMedia('(max-width: 1024px)');
+		// Phone-only: tablets (767–1024px) keep the CircleBackground, matching the
+		// component's `breakpoint(phone) { display: none }` rule. Kept in sync with
+		// the SCSS `phone` breakpoint (max-width: 767px).
+		phoneViewportQuery = window.matchMedia('(max-width: 767px)');
 		isPhoneViewport = phoneViewportQuery.matches;
 		phoneViewportHandler = (event: MediaQueryListEvent) => {
 			isPhoneViewport = event.matches;
@@ -304,14 +286,6 @@
 				debugGlobalProgress={pageProgress.globalProgress}
 			/>
 		{/if}
-
-		<ScrollTracker
-			number={pageProgress.step}
-			label={activeSectionLabel}
-			sectionLabels={TRACKER_SECTION_LABELS}
-			globalProgress={scrollProgress}
-			sectionStarts={TRACKER_SECTION_STARTS}
-		/>
 	{/if}
 
 	<div
@@ -345,10 +319,20 @@
 	{/if}
 
 	{#if !data.uiHidden}
-		<AudioVisualiser
-			introVisible={isPeripheralUiIntroVisible}
-			mobileHidden={isContactActive}
-		/>
+		<div class="mobile-dock">
+			<ScrollTracker
+				number={pageProgress.step}
+				label={activeSectionLabel}
+				sectionLabels={TRACKER_SECTION_LABELS}
+				globalProgress={scrollProgress}
+				sectionStarts={TRACKER_SECTION_STARTS}
+			/>
+
+			<AudioVisualiser
+				introVisible={isPeripheralUiIntroVisible}
+				mobileHidden={isContactActive}
+			/>
+		</div>
 	{/if}
 
 	{#if !data.uiHidden}
@@ -433,6 +417,35 @@
 		inset: 0;
 		z-index: 1;
 		background: #000;
+	}
+
+	.mobile-dock {
+		display: contents;
+
+		@include breakpoint(not-desktop) {
+			position: fixed;
+			left: $offset-x-phone;
+			right: $offset-x-phone;
+			bottom: 1.25rem;
+			z-index: 101;
+			display: flex;
+			align-items: flex-end;
+			justify-content: space-between;
+			gap: 1rem;
+			pointer-events: none;
+
+			:global(.scroll-tracker) {
+				position: static;
+				inset: auto;
+				pointer-events: auto;
+			}
+
+			/* relative (not static) keeps the button's ::before ring anchored to it. */
+			:global(#audio-visualiser.audio-visualiser--mobile) {
+				position: relative;
+				inset: auto;
+			}
+		}
 	}
 
 	.sections {

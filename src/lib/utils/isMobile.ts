@@ -18,7 +18,19 @@ export function detectMob() {
 		/Windows Phone/i
 	];
 
-	return toMatch.some((toMatchItem) => toMatchItem.test(ua));
+	if (toMatch.some((toMatchItem) => toMatchItem.test(ua))) {
+		return true;
+	}
+
+	if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+		const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+		const shortEdge = Math.min(window.innerWidth, window.innerHeight);
+		if (coarsePointer && shortEdge <= 1024) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 export function detectSafari(): boolean {

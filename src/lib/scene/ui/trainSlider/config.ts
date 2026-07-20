@@ -118,18 +118,21 @@ export const PERFORMANCE_PRESETS: Record<GraphicsTier, PerformancePreset> = {
 	}
 };
 
+export const PHONE_MAX_WIDTH = 768;
+export const TABLET_MAX_WIDTH = 1024;
+
 export function getViewportScale(viewportWidth: number): number {
-	if (!viewportWidth || viewportWidth >= 768) return 1;
+	if (!viewportWidth || viewportWidth > TABLET_MAX_WIDTH) return 1;
 	if (viewportWidth < 420) return 0.34;
 	if (viewportWidth < 560) return 0.42;
 	return 0.62;
 }
 
 export function getMobileCurveScale(viewportWidth: number): number {
-	if (!viewportWidth || viewportWidth >= 1024) return 1;
+	if (!viewportWidth || viewportWidth > TABLET_MAX_WIDTH) return 1;
 	if (viewportWidth < 420) return 0.4;
 	if (viewportWidth < 560) return 0.46;
-	if (viewportWidth < 768) return 0.52;
+	if (viewportWidth < PHONE_MAX_WIDTH) return 0.52;
 	return 0.58;
 }
 

@@ -42,28 +42,30 @@
 	style:transform={surfaceTransform}
 	style:will-change={!isSettled && surfaceProgress > SETTLED_EPSILON ? 'transform, opacity' : 'auto'}
 >
-	<div
-		class="forest-card__index"
-		aria-hidden="true"
-		style:opacity={indexProgress}
-		style:transform={indexProgress >= 1 - SETTLED_EPSILON
-			? 'none'
-			: `translate3d(${(1 - indexProgress) * 12}px, 0, 0)`}
-	>
-		{String(index + 1).padStart(2, '0')}
-	</div>
-	<div
-		class="forest-card__title"
-		style:opacity={titleProgress}
-		style:transform={titleProgress >= 1 - SETTLED_EPSILON
-			? 'none'
-			: `translate3d(0, ${(1 - titleProgress) * 14}px, 0)`}
-	>
-		{title}
+	<div class="forest-card__header">
+		<div
+			class="forest-card__title"
+			style:opacity={titleProgress}
+			style:transform={titleProgress >= 1 - SETTLED_EPSILON
+				? 'none'
+				: `translate3d(0, ${(1 - titleProgress) * 14}px, 0)`}
+		>
+			{title}
+		</div>
+		<div
+			class="forest-card__index"
+			aria-hidden="true"
+			style:opacity={indexProgress}
+			style:transform={indexProgress >= 1 - SETTLED_EPSILON
+				? 'none'
+				: `translate3d(${(1 - indexProgress) * 12}px, 0, 0)`}
+		>
+			{String(index + 1).padStart(2, '0')}
+		</div>
 	</div>
 	<div
 		class="forest-card__desc"
-		style:opacity={descriptionProgress}
+		style:opacity={descriptionProgress * 0.7}
 		style:transform={descriptionProgress >= 1 - SETTLED_EPSILON
 			? 'none'
 			: `translate3d(0, ${(1 - descriptionProgress) * 18}px, 0)`}
@@ -79,67 +81,62 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
+		gap: 0.5rem; /* 8px */
 		width: 100%;
-		padding: 1rem;
-		padding-right: 3rem;
-		border-radius: 10px;
-		background:
-			linear-gradient(145deg, rgba(255, 255, 255, 0.055), transparent 44%),
-			rgba(43, 44, 48, 0.84);
-		border: 1px solid rgba(255, 255, 255, 0.06);
+		padding: 0.75rem 0.75rem 1.25rem; /* 12px 12px 20px */
+		border-radius: 0.75rem; /* 12px */
+		background: $color-grey-600; /* rgba(43, 44, 48, 0.60) */
 		font-family: $font-main;
-		color: #fff;
+		color: $color-grey-500;
+
 		contain: layout style paint;
 		transform-origin: center bottom;
 		backface-visibility: hidden;
 
-		&__index {
-			position: absolute;
-			top: 0.875rem;
-			right: 1rem;
-			font-size: 0.75rem;
-			line-height: 1;
+		&__header {
+			display: flex;
+			align-items: flex-start;
+			justify-content: space-between;
+			gap: 0.5rem;
+			font-size: 0.9375rem; /* 15px */
+			line-height: 1.2;
+		}
+
+		&__title {
+			min-width: 0;
+			color: #fff;
 			font-weight: 400;
-			color: $color-grey-300;
-			letter-spacing: 0.04em;
+			word-spacing: $word-spacing;
+			backface-visibility: hidden;
+		}
+
+		&__index {
+			flex-shrink: 0;
+			color: #bfbfc0;
+			font-weight: 400;
 			font-variant-numeric: tabular-nums;
 			pointer-events: none;
 			user-select: none;
 			backface-visibility: hidden;
 		}
 
-		&__title {
-			font-size: 15px;
-			line-height: 1.25;
-			font-weight: 400;
-			color: #fff;
-			word-spacing: $word-spacing;
-			backface-visibility: hidden;
-		}
-
 		&__desc {
-			font-size: 13px;
-			line-height: 1.45;
-			font-weight: 400;
-			color: $color-grey-300;
+			color: $color-grey-500;
 			word-spacing: $word-spacing;
 			backface-visibility: hidden;
+
+			font-size: 0.75rem; /* 12px */
+			font-style: normal;
+			font-weight: 500;
+			line-height: 1.2;
 		}
 
 		@include breakpoint(desktop) {
 			padding: 1rem 1.25rem 1.5rem;
-			padding-right: 3.25rem;
 			gap: 1rem;
 			border: none;
 
-			&__index {
-				top: 1rem;
-				right: 1.25rem;
-				font-size: 0.875rem;
-			}
-
-			&__title {
+			&__header {
 				font-size: 1.125rem;
 			}
 
@@ -157,9 +154,13 @@
 		}
 
 		.forest-card__index,
-		.forest-card__title,
-		.forest-card__desc {
+		.forest-card__title {
 			opacity: 1 !important;
+			transform: none !important;
+		}
+
+		.forest-card__desc {
+			opacity: 0.7 !important;
 			transform: none !important;
 		}
 

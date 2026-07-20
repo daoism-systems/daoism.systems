@@ -532,11 +532,9 @@
 	#audio-visualiser.audio-visualiser--mobile {
 		top: auto;
 		left: auto;
-		right: $offset-x-phone;
-		bottom: calc(1.2rem + env(safe-area-inset-bottom, 0px));
 		z-index: 101;
-		width: 48px;
-		height: 48px;
+		width: 3rem;
+		height: 3rem;
 		border-radius: 50%;
 		border: 1px solid rgba(168, 174, 188, 0.42);
 		background:
