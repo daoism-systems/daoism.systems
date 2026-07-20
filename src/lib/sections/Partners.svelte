@@ -3,47 +3,47 @@
   import Heading from '$lib/components/Heading.svelte';
   import IconPlus from '$lib/components/IconPlus.svelte';
   import { onMount } from 'svelte';
-  import { clamp01, getPhaseProgress, getUiProgress } from '$lib/utils/animations/uiProgress';
+  import { PARTNERS_UI_TIMING, SUPPORTING_UI_REVEAL_PROGRESS } from '$lib/config/revealTiming';
+  import { clamp01, getBeatProgress, getUiProgress } from '$lib/utils/animations/uiProgress';
   import { textReveal } from '$lib/utils/animations/textReveal';
 
-  let { progress } = $props();
+  let { progress, isMobileTiming = false } = $props();
 
   const HIDDEN_EPSILON = 0.001;
-  const HEADING_HIDE_START = 0.86;
-  const HEADING_HIDE_END = 0.98;
-  const CARDS_REVEAL_START = 0.02;
-  const CARDS_REVEAL_END = 0.17;
-  const CARDS_MOVE_START = 0.2;
-  const CARDS_MOVE_END = 0.94;
-  const CARDS_SMOOTHING_MS = 170;
-
-  function getCardsMoveProgress(value: number): number {
-    return clamp01((value - CARDS_MOVE_START) / (CARDS_MOVE_END - CARDS_MOVE_START));
-  }
+  let timing = $derived(
+    isMobileTiming ? PARTNERS_UI_TIMING.mobile : PARTNERS_UI_TIMING.desktop
+  );
 
   let sectionProgress = $derived(clamp01(progress));
-  let uiProgress = $derived(getUiProgress(sectionProgress));
+  let uiProgress = $derived(getUiProgress(sectionProgress, timing.window));
   let headingUiProgress = $derived(
-    getUiProgress(sectionProgress, { hideStart: HEADING_HIDE_START, hideEnd: HEADING_HIDE_END })
+    getBeatProgress(uiProgress, timing.beats.heading)
   );
-  let paragraphUiProgress = $derived(getPhaseProgress(uiProgress, 0.08, 0.82));
-  let lineUiProgress = $derived(getPhaseProgress(uiProgress, 0.04, 0.86));
+  let paragraphUiProgress = $derived(
+    getBeatProgress(uiProgress, timing.beats.paragraph)
+  );
+  let lineUiProgress = $derived(getBeatProgress(uiProgress, timing.beats.divider));
   let cardsRevealProgress = $derived(
-    getPhaseProgress(sectionProgress, CARDS_REVEAL_START, CARDS_REVEAL_END - CARDS_REVEAL_START)
+    getBeatProgress(sectionProgress, timing.beats.cardsReveal)
   );
-  let cardsMoveProgress = $derived(getCardsMoveProgress(sectionProgress));
-  let isSectionHidden = $derived(uiProgress <= HIDDEN_EPSILON);
+  let cardsMoveProgress = $derived(
+    getBeatProgress(sectionProgress, timing.beats.cardsMove)
+  );
+  let isIconHidden = $derived(
+    isMobileTiming
+      ? paragraphUiProgress < SUPPORTING_UI_REVEAL_PROGRESS
+      : uiProgress <= HIDDEN_EPSILON
+  );
   let paragraphOffsetY = $derived((1 - paragraphUiProgress) * 24);
 
   const headingRevealConfig = $derived({
     progress: headingUiProgress,
-    duration: 0.58,
-    stagger: 0.01
+    ...timing.headingMotion
   });
 
   const paragraphRevealOptions = $derived({
     progress: paragraphUiProgress,
-    duration: 1.1,
+    duration: timing.copyDuration,
     scrubProgressPower: 1.25
   });
 
@@ -99,7 +99,7 @@
       cardsFrameTime = now;
       const alpha = prefersReducedMotion
         ? 1
-        : 1 - Math.exp(-frameDeltaMs / CARDS_SMOOTHING_MS);
+        : 1 - Math.exp(-frameDeltaMs / timing.cardsSmoothingMs);
       smoothedCardsMoveProgress +=
         (cardsMoveProgress - smoothedCardsMoveProgress) * alpha;
       if (Math.abs(cardsMoveProgress - smoothedCardsMoveProgress) < 0.0001) {
@@ -155,7 +155,7 @@
       style:transform={`scale3d(${lineUiProgress}, 1, 1)`}
     ></div>
 
-    <IconPlus top={['1rem', '0.2rem']} left={['0']} hidden={isSectionHidden} />
+    <IconPlus top={['1rem', '0.2rem']} left={['0']} hidden={isIconHidden} />
   </div>
 </div>
 
@@ -175,6 +175,7 @@
       type={card.type}
       iconScale={card.iconScale ?? 1}
       index={index}
+      total={Cards.length}
     />
   {/each}
 </div>

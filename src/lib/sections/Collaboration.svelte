@@ -2,43 +2,69 @@
 	import Button from '$lib/components/Button.svelte';
 	import Heading from '$lib/components/Heading.svelte';
 	import IconPlus from '$lib/components/IconPlus.svelte';
-	import { COLLABORATION_UI_WINDOW } from '$lib/config/revealTiming';
+	import {
+		COLLABORATION_UI_TIMING,
+		SUPPORTING_UI_REVEAL_PROGRESS
+	} from '$lib/config/revealTiming';
 	import { textReveal } from '$lib/utils/animations/textReveal';
-	import { clamp01, getPhaseProgress, getUiProgress } from '$lib/utils/animations/uiProgress';
+	import { clamp01, getBeatProgress, getUiProgress } from '$lib/utils/animations/uiProgress';
 
 	type Props = {
 		progress: number;
 		onGetInTouch?: () => void | Promise<void>;
 	};
 
-	let { progress, onGetInTouch = () => {} }: Props = $props();
+	let {
+		progress,
+		isMobileTiming = false,
+		isPhoneTiming = false,
+		onGetInTouch = () => {}
+	}: Props & {
+		isMobileTiming?: boolean;
+		isPhoneTiming?: boolean;
+	} = $props();
 
 	const HIDDEN_EPSILON = 0.001;
+	let timing = $derived(
+		isPhoneTiming
+			? COLLABORATION_UI_TIMING.phone
+			: isMobileTiming
+				? COLLABORATION_UI_TIMING.mobile
+				: COLLABORATION_UI_TIMING.desktop
+	);
 
 	let sectionProgress = $derived(clamp01(progress));
-	let revealProgress = $derived(getUiProgress(sectionProgress, { hideStart: 1 }));
-	let uiProgress = $derived(getUiProgress(progress, COLLABORATION_UI_WINDOW));
-	// The readability scrim retires as soon as the section ends (progress 1 → 1.1),
-	// a touch ahead of the text hold-over, so it never bleeds a white panel through
-	// the incoming Ventures section during the cross-fade.
-	let scrimOpacity = $derived(revealProgress * (1 - getPhaseProgress(progress, 1, 0.1)));
-	let headingUiProgress = $derived(uiProgress);
-	let subtitleUiProgress = $derived(getPhaseProgress(uiProgress, 0.06, 0.74));
-	let buttonUiProgress = $derived(getPhaseProgress(uiProgress, 0.1, 0.78));
+	let uiProgress = $derived(getUiProgress(progress, timing.window));
+	let scrimOpacity = $derived(
+		getBeatProgress(sectionProgress, timing.beats.scrimIn) *
+			(1 - getBeatProgress(progress, timing.beats.scrimOut))
+	);
+	let headingUiProgress = $derived(
+		getBeatProgress(uiProgress, timing.beats.heading)
+	);
+	let subtitleUiProgress = $derived(
+		getBeatProgress(uiProgress, timing.beats.subtitle)
+	);
+	let buttonUiProgress = $derived(
+		getBeatProgress(uiProgress, timing.beats.button)
+	);
 
-	let isSectionHidden = $derived(uiProgress <= HIDDEN_EPSILON);
+	let isIconHidden = $derived(
+		isMobileTiming
+			? headingUiProgress < SUPPORTING_UI_REVEAL_PROGRESS
+			: uiProgress <= HIDDEN_EPSILON
+	);
 
 	let headingOffsetY = $derived((1 - headingUiProgress) * 20);
 
 	const headingRevealConfig = $derived({
 		progress: headingUiProgress,
-		duration: 0.58,
-		stagger: 0.01
+		...timing.headingMotion
 	});
 
 	const subtitleRevealOptions = $derived({
 		progress: subtitleUiProgress,
-		duration: 0.72,
+		duration: timing.subtitleDuration,
 		scrubProgressPower: 1.12
 	});
 
@@ -61,7 +87,7 @@
 			/>
 		</div>
 
-		<IconPlus top={['0', '4.75rem']} left={['0']} desktopHide={true} hidden={isSectionHidden} />
+		<IconPlus top={['0', '4.75rem']} left={['0']} desktopHide={true} hidden={isIconHidden} />
 		{@render cta()}
 	</div>
 

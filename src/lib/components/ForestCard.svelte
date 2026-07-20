@@ -1,22 +1,32 @@
 <script lang="ts">
-	import { clamp01, smoothstep } from '$lib/utils/animations/uiProgress';
+	import { getBeatProgress, type ProgressBeat } from '$lib/utils/animations/uiProgress';
+
+	type ItemRevealTiming = Readonly<{
+		surface: ProgressBeat;
+		edge: ProgressBeat;
+		index: ProgressBeat;
+		title: ProgressBeat;
+		description: ProgressBeat;
+	}>;
 
 	export let index: number;
 	export let total: number;
 	export let title: string;
 	export let description: string;
+	export let itemRevealTiming: ItemRevealTiming;
 	export let revealProgress = 1;
 
 	const SETTLED_EPSILON = 0.001;
 
-	function getLayerProgress(progress: number, start: number, span: number) {
-		return smoothstep(clamp01((progress - start) / span));
+	function getLayerProgress(progress: number, beat: ProgressBeat) {
+		return getBeatProgress(progress, beat);
 	}
 
-	$: surfaceProgress = getLayerProgress(revealProgress, 0, 0.68);
-	$: indexProgress = getLayerProgress(revealProgress, 0.12, 0.62);
-	$: titleProgress = getLayerProgress(revealProgress, 0.18, 0.64);
-	$: descriptionProgress = getLayerProgress(revealProgress, 0.28, 0.68);
+	$: surfaceProgress = getLayerProgress(revealProgress, itemRevealTiming.surface);
+	$: edgeProgress = getLayerProgress(revealProgress, itemRevealTiming.edge);
+	$: indexProgress = getLayerProgress(revealProgress, itemRevealTiming.index);
+	$: titleProgress = getLayerProgress(revealProgress, itemRevealTiming.title);
+	$: descriptionProgress = getLayerProgress(revealProgress, itemRevealTiming.description);
 	$: isSettled = surfaceProgress >= 1 - SETTLED_EPSILON;
 	$: surfaceTransform = isSettled
 		? 'none'
@@ -27,7 +37,7 @@
 	class="forest-card"
 	data-index={index}
 	data-total={total}
-	style:--forest-edge-progress={getLayerProgress(revealProgress, 0.14, 0.7)}
+	style:--forest-edge-progress={edgeProgress}
 	style:opacity={surfaceProgress}
 	style:transform={surfaceTransform}
 	style:will-change={!isSettled && surfaceProgress > SETTLED_EPSILON ? 'transform, opacity' : 'auto'}

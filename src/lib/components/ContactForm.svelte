@@ -177,13 +177,15 @@
 	{#if errors.message}
 		<p class="field-error">{errors.message}</p>
 	{/if}
-	<Button
-		label={status.submitting ? 'Submitting...' : status.submitted ? 'Submitted' : 'Submit'}
-		data-cursor-text-label={status.submitting ? 'Please wait...' : status.submitted ? 'Done' : 'Initialize handshake protocol'}
-		color="red"
-		type="submit"
-		{...status.submitting ? { disabled: true } : {}}
-	/>
+	<div class="contact-form__submit">
+		<Button
+			label={status.submitting ? 'Submitting...' : status.submitted ? 'Submitted' : 'Submit'}
+			data-cursor-text-label={status.submitting ? 'Please wait...' : status.submitted ? 'Done' : 'Initialize handshake protocol'}
+			color="red"
+			type="submit"
+			{...status.submitting ? { disabled: true } : {}}
+		/>
+	</div>
 	{#if status.info.error && status.info.msg}
 		<div class="form-status error" class:hidden={statusMessage}>
 			Error: {status.info.msg}

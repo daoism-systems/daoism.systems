@@ -1,46 +1,59 @@
 <script lang="ts">
 	import Heading from '$lib/components/Heading.svelte';
 	import IconPlus from '$lib/components/IconPlus.svelte';
-	import { clamp01, getUiProgress, smoothstep } from '$lib/utils/animations/uiProgress';
+	import {
+		SERVICES_UI_TIMING,
+		SUPPORTING_UI_REVEAL_PROGRESS
+	} from '$lib/config/revealTiming';
+	import {
+		clamp01,
+		getBeatProgress,
+		getUiProgress,
+		smoothstep
+	} from '$lib/utils/animations/uiProgress';
 
-	let { progress } = $props();
+	let { progress, isMobileTiming = false } = $props();
 
 	const SERVICES_CARDS = [
 		{
 			id: 1,
 			title: 'We Develop',
 			items: [
-				'Smart Contracts',
-				'User Interfaces',
-				'Interoperability Solutions',
-				'AI agents tooling',
-				'AI agents workflows'
+				'- Smart Contracts',
+				'- User Interfaces',
+				'- Interoperability Solutions',
+				'- AI agents tooling',
+				'- AI agents workflows'
 			]
 		},
 		{
 			id: 2,
 			title: 'We Design',
 			items: [
-				'Tokenomics',
-				'Governance systems',
-				'Treasury management solutions',
-				'Liquidity allocation strategies',
-				'Protocol architectures'
+				'- Tokenomics',
+				'- Governance systems',
+				'- Treasury management solutions',
+				'- Liquidity allocation strategies',
+				'- Protocol architectures'
 			]
 		}
 	];
 
 	const HIDDEN_EPSILON = 0.001;
-	const CARD_STAGGER = 0.08;
-	const CARD_PHASE_SPAN = 0.42;
 	const CARD_LIFT_PX = 52;
 	const CARD_OVERFLOW_ALLOWANCE_PX = CARD_LIFT_PX + 4;
 	const CARD_TILT_DEG = 6;
 	const CARD_START_SCALE = 0.965;
+	let timing = $derived(
+		isMobileTiming ? SERVICES_UI_TIMING.mobile : SERVICES_UI_TIMING.desktop
+	);
 
 	function getCardProgress(index: number, scrubProgress: number) {
-		const start = 0.18 + index * CARD_STAGGER;
-		return smoothstep(clamp01((scrubProgress - start) / CARD_PHASE_SPAN));
+		const beat =
+			timing.beats.cards[
+				Math.min(index, timing.beats.cards.length - 1)
+			];
+		return getBeatProgress(scrubProgress, beat);
 	}
 
 	function getLayerProgress(cardProgress: number, start: number, span: number) {
@@ -48,13 +61,19 @@
 	}
 
 	let sectionProgress = $derived(clamp01(progress));
-	let uiProgress = $derived(getUiProgress(sectionProgress));
-	let headingUiProgress = $derived(uiProgress);
-	let isSectionHidden = $derived(uiProgress <= HIDDEN_EPSILON);
+	let uiProgress = $derived(getUiProgress(sectionProgress, timing.window));
+	let headingUiProgress = $derived(
+		getBeatProgress(uiProgress, timing.beats.heading)
+	);
+	let firstCardProgress = $derived(getCardProgress(0, uiProgress));
+	let isIconHidden = $derived(
+		isMobileTiming
+			? headingUiProgress < SUPPORTING_UI_REVEAL_PROGRESS
+			: uiProgress <= HIDDEN_EPSILON
+	);
 	let headingRevealConfig = $derived({
 		progress: headingUiProgress,
-		duration: 0.58,
-		stagger: 0.014
+		...timing.headingMotion
 	});
 </script>
 
@@ -68,12 +87,12 @@
 		className="mobile-padded services-heading"
 	/>
 
-	<IconPlus bottom="1.2rem" left={['-1.68rem', '0']} desktopHide={true} hidden={isSectionHidden} />
+	<IconPlus bottom="1.2rem" left={['-1.68rem', '0']} desktopHide={true} hidden={isIconHidden} />
 
 	<div
 		class="services__cards"
 		style:--card-overflow-allowance={`${CARD_OVERFLOW_ALLOWANCE_PX}px`}
-		style:pointer-events={uiProgress > 0.18 ? 'auto' : 'none'}
+		style:pointer-events={firstCardProgress > 0.24 ? 'auto' : 'none'}
 	>
 		{#each SERVICES_CARDS as card, i (card.id)}
 			{@const cardProgress = getCardProgress(i, uiProgress)}

@@ -1,17 +1,19 @@
 <script lang="ts">
 	import { canScroll } from '$lib/store.svelte';
+	import {
+		HERO_INTRO_PHASE,
+		HERO_INTRO_PHASE_MOBILE,
+		HERO_UI_TIMING,
+		SUPPORTING_UI_REVEAL_PROGRESS
+	} from '$lib/config/revealTiming';
 	import { headingReveal } from '$lib/utils/animations/headingReveal';
 	import { textReveal } from '$lib/utils/animations/textReveal';
-	import { DURATIONS } from '$lib/utils/animations/constants/durations';
+	import { getBeatProgress } from '$lib/utils/animations/uiProgress';
 	import IconPlus from '$lib/components/IconPlus.svelte';
 	import { pauseWhenHidden } from '$lib/utils/animations/pauseWhenHidden';
 
-	let { progress, introPhase = 5, isMobileIntro = false } = $props();
+	let { progress, introPhase = HERO_INTRO_PHASE.heading, isMobileIntro = false } = $props();
 	const HIDDEN_EPSILON = 0.001;
-	// Fraction of the hero's (short, ~5–7% of total scroll) section progress where the
-	// title stays fully visible before it scrubs out. Held longer than the 0.3 default
-	// so the title doesn't vanish within the first half-screen of scroll.
-	const STATIC_REVEAL_END_AT = 0.5;
 	const UTC_OFFSET_HOURS = 1;
 	const TIME_REFRESH_MS = 10_000;
 	const TOP_LINE_TRANSFORM_ORIGIN = 'center';
@@ -20,12 +22,26 @@
 
 	// State
 	let time = $state(getOffsetUtcTime(UTC_OFFSET_HOURS));
-	let textRevealPhase = $derived(isMobileIntro ? 3 : 4);
-	let headingRevealPhase = $derived(isMobileIntro ? 4 : 5);
-	let isTextRevealPhaseActive = $derived(introPhase >= textRevealPhase);
+	let primaryTextRevealPhase = $derived(
+		isMobileIntro ? HERO_INTRO_PHASE_MOBILE.primaryText : HERO_INTRO_PHASE.primaryText
+	);
+	let secondaryTextRevealPhase = $derived(
+		isMobileIntro ? HERO_INTRO_PHASE_MOBILE.secondaryText : HERO_INTRO_PHASE.secondaryText
+	);
+	let headingRevealPhase = $derived(
+		isMobileIntro ? HERO_INTRO_PHASE_MOBILE.heading : HERO_INTRO_PHASE.heading
+	);
+	let isPrimaryTextPhaseActive = $derived(introPhase >= primaryTextRevealPhase);
+	let isSecondaryTextPhaseActive = $derived(introPhase >= secondaryTextRevealPhase);
 	let isHeadingPhaseActive = $derived(introPhase >= headingRevealPhase);
 	let sectionProgress = $derived(clamp01(progress));
 	let scrollRevealProgress = $derived(getHeroUiProgress(sectionProgress));
+	let secondaryScrollRevealProgress = $derived(
+		getBeatProgress(scrollRevealProgress, HERO_UI_TIMING.scrollBeats.secondaryText)
+	);
+	let headingScrollRevealProgress = $derived(
+		getBeatProgress(scrollRevealProgress, HERO_UI_TIMING.scrollBeats.heading)
+	);
 	// Scrub mode follows the GLOBAL unlocked state, not a per-mount flag. Hero is
 	// section 0 with a ±1 mount window, so scrolling past section 1 unmounts it and
 	// scrolling back remounts a fresh instance. Keying off local state replayed the
@@ -34,27 +50,37 @@
 	// unlocks and stays true, so a remounted Hero resumes scrubbing immediately.
 	let isScrubMode = $derived($canScroll);
 	let isHidden = $derived(isScrubMode ? scrollRevealProgress <= HIDDEN_EPSILON : false);
-	let isIconHidden = $derived(!isScrubMode || isHidden);
+	let isIconHidden = $derived(
+		!isScrubMode ||
+		(isMobileIntro
+			? headingScrollRevealProgress < SUPPORTING_UI_REVEAL_PROGRESS
+			: isHidden)
+	);
 	let topLine = $state<HTMLElement | null>(null);
 
-	const textRevealOptions = $derived({
-		trigger: isScrubMode ? undefined : isTextRevealPhaseActive,
+	const primaryTextRevealOptions = $derived({
+		trigger: isScrubMode ? undefined : isPrimaryTextPhaseActive,
 		reversed: isScrubMode ? undefined : false,
 		progress: isScrubMode ? scrollRevealProgress : undefined,
 		scrubProgressPower: isScrubMode ? 1.25 : undefined,
-		duration: 0.55
+		duration: HERO_UI_TIMING.textDuration
 	});
 
-	const timeRevealOptions = $derived({ ...textRevealOptions, split: false });
+	const secondaryTextRevealOptions = $derived({
+		...primaryTextRevealOptions,
+		trigger: isScrubMode ? undefined : isSecondaryTextPhaseActive,
+		progress: isScrubMode ? secondaryScrollRevealProgress : undefined
+	});
+
+	const timeRevealOptions = $derived({ ...secondaryTextRevealOptions, split: false });
 
 	const headingRevealOptions = $derived({
 		trigger: isScrubMode ? undefined : isHeadingPhaseActive,
 		reversed: isScrubMode ? undefined : false,
-		// Soften the heading hide curve (was ** 2.0) so it fades close to the line/text
-		// rate instead of snapping out ahead of them.
-		progress: isScrubMode ? scrollRevealProgress ** 1.2 : undefined,
-		duration: Math.max(0.6, DURATIONS.MOTION_REVEAL_DURATION / 1000),
-		stagger: 0.02
+		progress: isScrubMode ? headingScrollRevealProgress ** 1.12 : undefined,
+		...HERO_UI_TIMING.headingMotion,
+		onBeforeRevealEnd: unlockScroll,
+		beforeRevealEndOffset: HERO_UI_TIMING.unlockBeforeHeadingEnd
 	});
 
 	// Time Logic
@@ -69,8 +95,10 @@
 
 	function getHeroUiProgress(sectionProgress: number) {
 		const p = clamp01(sectionProgress);
-		if (p <= STATIC_REVEAL_END_AT) return 1;
-		const hideTimelineProgress = clamp01((p - STATIC_REVEAL_END_AT) / (1 - STATIC_REVEAL_END_AT));
+		if (p <= HERO_UI_TIMING.scrollHoldEnd) return 1;
+		const hideTimelineProgress = clamp01(
+			(p - HERO_UI_TIMING.scrollHoldEnd) / (1 - HERO_UI_TIMING.scrollHoldEnd)
+		);
 		return 1 - smoothstep(hideTimelineProgress);
 	}
 
@@ -109,7 +137,7 @@
 			return () => setTopLineProgress(0);
 		}
 
-		if (!isTextRevealPhaseActive) {
+		if (!isPrimaryTextPhaseActive) {
 			setTopLineProgress(0);
 			return () => setTopLineProgress(0);
 		}
@@ -120,13 +148,10 @@
 				{ transform: 'translate3d(-50%, 0, 0) scaleX(0)' },
 				{ transform: 'translate3d(-50%, 0, 0) scaleX(1)' }
 			],
-			{ duration: 1100, easing: POWER2_OUT_BEZIER, fill: 'both' }
+			{ duration: HERO_UI_TIMING.topLineDurationMs, easing: POWER2_OUT_BEZIER, fill: 'both' }
 		);
-		const handleFinish = () => unlockScroll();
-		tween.addEventListener('finish', handleFinish);
 
 		return () => {
-			tween.removeEventListener('finish', handleFinish);
 			tween.cancel();
 			setTopLineProgress(0);
 		};
@@ -136,22 +161,22 @@
 <div class="hero">
 	<div class="hero__top text-[15px]  md:text-base min-[1181px]:text-lg min-[2245px]:text-2xl!">
 		<div class="hidden lg:flex">
-			<p use:textReveal={textRevealOptions}>
+			<p use:textReveal={primaryTextRevealOptions}>
 			    Web3 studio serving self-sovereign internet
 			</p>
-			<p use:textReveal={textRevealOptions}>Berlin, DE</p>
+			<p use:textReveal={secondaryTextRevealOptions}>Berlin, DE</p>
 		</div>
 
 		<div class="flex">
-			<p use:textReveal={textRevealOptions}>Founded in 2022</p>
-			<!--<p use:textReveal={textRevealOptions} class="lg:hidden">
+			<p use:textReveal={primaryTextRevealOptions}>Founded in 2022</p>
+			<!--<p use:textReveal={primaryTextRevealOptions} class="lg:hidden">
 				Scroll
 			</p>-->
 			<p class="flex gap-2">
 				<!-- split: false — splitting would detach the text node Svelte updates,
 				     freezing the clock at its first rendered value. -->
 				<span class="font-medium" use:textReveal={timeRevealOptions}>{time}</span>
-				<span use:textReveal={textRevealOptions}>UTC+1</span>
+				<span use:textReveal={secondaryTextRevealOptions}>UTC+1</span>
 			</p>
 		</div>
 
