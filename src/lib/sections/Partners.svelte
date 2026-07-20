@@ -304,7 +304,7 @@
     }
 
     @include breakpoint(phone) {
-      top: 29%;
+      top: 24%;
     }
 
     @include breakpoint(small-phone) {

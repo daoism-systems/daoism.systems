@@ -19,22 +19,22 @@
 			id: 1,
 			title: 'We Develop',
 			items: [
-				'- Smart Contracts',
-				'- User Interfaces',
-				'- Interoperability Solutions',
-				'- AI agents tooling',
-				'- AI agents workflows'
+				'Smart Contracts',
+				'User Interfaces',
+				'Interoperability Solutions',
+				'AI agents tooling',
+				'AI agents workflows'
 			]
 		},
 		{
 			id: 2,
 			title: 'We Design',
 			items: [
-				'- Tokenomics',
-				'- Governance systems',
-				'- Treasury management solutions',
-				'- Liquidity allocation strategies',
-				'- Protocol architectures'
+				'Tokenomics',
+				'Governance systems',
+				'Treasury management solutions',
+				'Liquidity allocation strategies',
+				'Protocol architectures'
 			]
 		}
 	];
