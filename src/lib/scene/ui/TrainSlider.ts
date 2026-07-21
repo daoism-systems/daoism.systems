@@ -28,6 +28,17 @@ import { SCENE_LAYERS } from '../sceneLayers';
 
 export type { ScrollDriver };
 
+/**
+ * How long the first load attempt may hold up `whenReady()` (and therefore the
+ * loading gate) before the slide mounts with the fallback. The real texture is
+ * still awaited in the background and swapped in by `ensureSlideTexture`.
+ */
+const INITIAL_TEXTURE_BUDGET_MS = 4000;
+/** Extra attempts after the first rejection, with exponential backoff between them. */
+const TEXTURE_LOAD_RETRIES = 4;
+const TEXTURE_RETRY_BASE_DELAY_MS = 500;
+const TEXTURE_RETRY_MAX_DELAY_MS = 8000;
+
 type Props = {
 	renderer: WebGPURenderer;
 	aspect?: number;
@@ -75,6 +86,8 @@ class TrainSlider implements Inspectable {
 	private pointerIsDown = false;
 	private interactionEnabled = false;
 	private listenerCleanup: Array<() => void> = [];
+	private disposed = false;
+	private fallbackTexture: THREE.Texture | null = null;
 
 	private activePointerId: number | null = null;
 	/** Drag-to-scrub is desktop-only; touch pointers are never eligible. */
@@ -244,48 +257,101 @@ class TrainSlider implements Inspectable {
 		animate();
 	}
 
-	private async loadTexture(src: string): Promise<THREE.Texture> {
-		return new Promise((resolve) => {
-			let settled = false;
-			const finish = (texture: THREE.Texture) => {
-				if (settled) return;
-				settled = true;
-				resolve(texture);
-			};
-			const timeoutId =
-				typeof window !== 'undefined'
-					? window.setTimeout(() => finish(this.createFallbackTexture()), 4000)
-					: null;
+	/** One load attempt. Resolves the configured texture, or null if the load failed. */
+	private async attemptTextureLoad(src: string): Promise<THREE.Texture | null> {
+		try {
+			const texture = await TextureCache.load(src);
+			this.configureSlideTexture(texture);
+			return texture;
+		} catch {
+			return null;
+		}
+	}
 
-			TextureCache.load(src)
-				.then((texture) => {
-					this.configureSlideTexture(texture);
-					if (timeoutId !== null) window.clearTimeout(timeoutId);
-					finish(texture);
-				})
-				.catch(() => {
-					if (timeoutId !== null) window.clearTimeout(timeoutId);
-					finish(this.createFallbackTexture());
-				});
+	/**
+	 * First attempt, capped at `INITIAL_TEXTURE_BUDGET_MS` so one slow texture can't
+	 * stall the loading gate. Null means "not ready yet" — either the load failed or
+	 * it is still in flight; `ensureSlideTexture` picks it up from there.
+	 */
+	private loadTextureWithinBudget(src: string): Promise<THREE.Texture | null> {
+		const load = this.attemptTextureLoad(src);
+		if (typeof window === 'undefined') return load;
+
+		return new Promise((resolve) => {
+			const timeoutId = window.setTimeout(() => resolve(null), INITIAL_TEXTURE_BUDGET_MS);
+			void load.then((texture) => {
+				window.clearTimeout(timeoutId);
+				resolve(texture);
+			});
 		});
 	}
 
-	private createFallbackTexture(): THREE.Texture {
+	/**
+	 * Retry loop for a slide still showing the fallback. A load that merely missed
+	 * the initial budget resolves on the very next attempt — TextureCache dedupes to
+	 * the same in-flight promise — while a rejected load is re-issued with backoff.
+	 */
+	private async ensureSlideTexture(slideIndex: number): Promise<void> {
+		const src = this.slideData[slideIndex]?.imageSrc;
+		if (!src) return;
+
+		for (let attempt = 0; attempt <= TEXTURE_LOAD_RETRIES; attempt++) {
+			const texture = await this.attemptTextureLoad(src);
+			if (this.disposed) return;
+			if (texture) {
+				this.applySlideTexture(slideIndex, texture);
+				return;
+			}
+			if (attempt === TEXTURE_LOAD_RETRIES) break;
+			await this.delay(
+				Math.min(TEXTURE_RETRY_BASE_DELAY_MS * 2 ** attempt, TEXTURE_RETRY_MAX_DELAY_MS)
+			);
+			if (this.disposed) return;
+		}
+
+		console.warn(
+			`[TrainSlider] slide ${slideIndex} kept its fallback texture: "${src}" failed ${TEXTURE_LOAD_RETRIES + 1} attempts`
+		);
+	}
+
+	private delay(ms: number): Promise<void> {
+		return new Promise((resolve) => setTimeout(resolve, ms));
+	}
+
+	/** Rebuilds the slide material against the real texture (the TSL graph bakes it in). */
+	private applySlideTexture(slideIndex: number, texture: THREE.Texture): void {
+		const slide = this.slides[slideIndex];
+		if (!slide || slide.userData.mainTexture === texture) return;
+
+		slide.userData.mainTexture = texture;
+		const replacement = this.createSlideMaterial(
+			texture,
+			slideIndex,
+			slide.userData.titleTexture,
+			slide.userData.focusUniform
+		);
+		this.prepareSlideMaterial(replacement);
+		this.disposeSlideMaterial(slide);
+		slide.material = replacement;
+	}
+
+	/** Shared grey placeholder every not-yet-loaded slide mounts with. */
+	private getFallbackTexture(): THREE.Texture {
+		if (this.fallbackTexture) return this.fallbackTexture;
+
 		const canvas = document.createElement('canvas');
 		canvas.width = canvas.height = 512;
 		const ctx = canvas.getContext('2d');
-		if (!ctx) {
-			const texture = new THREE.Texture(canvas);
-			texture.needsUpdate = true;
-			return texture;
+		if (ctx) {
+			const gradient = ctx.createLinearGradient(0, 0, 512, 512);
+			gradient.addColorStop(0, '#4a5568');
+			gradient.addColorStop(1, '#2d3748');
+			ctx.fillStyle = gradient;
+			ctx.fillRect(0, 0, 512, 512);
 		}
-		const gradient = ctx.createLinearGradient(0, 0, 512, 512);
-		gradient.addColorStop(0, '#4a5568');
-		gradient.addColorStop(1, '#2d3748');
-		ctx.fillStyle = gradient;
-		ctx.fillRect(0, 0, 512, 512);
 		const texture = new THREE.Texture(canvas);
 		this.configureSlideTexture(texture);
+		this.fallbackTexture = texture;
 		return texture;
 	}
 
@@ -312,16 +378,27 @@ class TrainSlider implements Inspectable {
 		const geometry = this.createSharedSlideGeometry();
 
 		const textures = await Promise.all(
-			this.slideData.map((slide) => this.loadTexture(slide.imageSrc))
+			this.slideData.map((slide) => this.loadTextureWithinBudget(slide.imageSrc))
 		);
+		if (this.disposed) {
+			geometry.dispose();
+			return;
+		}
 
 		for (let i = 0; i < this.props.slideCount; i++) {
-			const mesh = this.createSlideMesh(i, textures[i], geometry);
+			const mesh = this.createSlideMesh(i, textures[i] ?? this.getFallbackTexture(), geometry);
 			this.slides.push(mesh);
 			this.group.add(mesh);
 		}
 
 		this.updateSlideTransforms(true);
+
+		// Slides that mounted on the fallback keep trying in the background and swap
+		// their real texture in as soon as it lands.
+		for (let i = 0; i < this.props.slideCount; i++) {
+			if (textures[i]) continue;
+			void this.ensureSlideTexture(i);
+		}
 	}
 
 	private createSharedSlideGeometry(): THREE.PlaneGeometry {
@@ -1377,6 +1454,7 @@ class TrainSlider implements Inspectable {
 	}
 
 	dispose() {
+		this.disposed = true;
 		for (const cleanup of this.listenerCleanup) cleanup();
 		this.listenerCleanup = [];
 		this.resetTapTooltip();
@@ -1392,6 +1470,10 @@ class TrainSlider implements Inspectable {
 
 		this.slides = [];
 		this.group.clear();
+
+		// Slide `mainTexture`s belong to TextureCache; the fallback canvas is ours.
+		this.fallbackTexture?.dispose();
+		this.fallbackTexture = null;
 	}
 
 	private disposeSlideResources(slide: SlideMesh): void {
