@@ -22,46 +22,11 @@ import {
 	updateSlideTransforms as applySlideTransforms
 } from './trainSlider/layout';
 import { createSlideMaterial } from './trainSlider/materials';
+import { SliderDragController, type ScrollDriver } from './trainSlider/dragController';
 import type { Inspectable } from '../debug/Inspectable';
 import { SCENE_LAYERS } from '../sceneLayers';
 
-const DRAG_AXIS_LOCK_PX = 12;
-const DRAG_COMMIT_FRACTION = 0.35;
-const DRAG_VELOCITY_WINDOW_MS = 80;
-const INERTIA_TAU_SEC = 0.55;
-const INERTIA_MIN_DURATION_SEC = 0.35;
-const INERTIA_MAX_DURATION_SEC = 1.4;
-const EDGE_RUBBER_BAND_FRAC = 0.18;
-const VISIBLE_CARDS_DESKTOP = 2.5;
-const VISIBLE_CARDS_MOBILE = 1.3;
-const SNAP_ON_RELEASE_DEFAULT = true;
-
-type SliderTimingConfig = {
-	snapOnRelease: boolean;
-	dragCommitFraction: number;
-	inertiaProjectionSec: number;
-	inertiaMinDurationSec: number;
-	inertiaMaxDurationSec: number;
-	inertiaDurationScale: number;
-};
-
-const DEFAULT_TIMING_CONFIG: SliderTimingConfig = {
-	snapOnRelease: SNAP_ON_RELEASE_DEFAULT,
-	dragCommitFraction: DRAG_COMMIT_FRACTION,
-	inertiaProjectionSec: INERTIA_TAU_SEC,
-	inertiaMinDurationSec: INERTIA_MIN_DURATION_SEC,
-	inertiaMaxDurationSec: INERTIA_MAX_DURATION_SEC,
-	inertiaDurationScale: 1
-};
-
-export type ScrollDriver = {
-	getScroll: () => number;
-	setScrollImmediate: (px: number) => void;
-	setScrollAnimated: (px: number, durationSec: number) => void;
-	cancelAnimatedScroll: () => void;
-	getVenturesPixelRange: () => { startPx: number; endPx: number };
-	isDriverActive: () => boolean;
-};
+export type { ScrollDriver };
 
 type Props = {
 	renderer: WebGPURenderer;
@@ -111,13 +76,10 @@ class TrainSlider implements Inspectable {
 	private interactionEnabled = false;
 	private listenerCleanup: Array<() => void> = [];
 
-	private scrollDriver: ScrollDriver | null = null;
-	private dragSamples: Array<{ t: number; scrollPx: number }> = [];
-	private dragActive = false;
-	private dragAxisLocked: 'horizontal' | 'vertical' | null = null;
-	private dragStartScrollPx = 0;
 	private activePointerId: number | null = null;
-	private timing: SliderTimingConfig = { ...DEFAULT_TIMING_CONFIG };
+	/** Drag-to-scrub is desktop-only; touch pointers are never eligible. */
+	private dragPointerEligible = false;
+	private drag = new SliderDragController(() => this.props.slideCount);
 
 	private config: SliderConfig = { ...DEFAULT_SLIDER_CONFIG };
 
@@ -591,16 +553,16 @@ class TrainSlider implements Inspectable {
 	enableFluidInteraction() {
 		const handleMouseMove = (event: MouseEvent) => {
 			if (this.isOverlayInteractionTarget(event.target)) {
-				if (!this.dragActive) {
+				if (!this.drag.isActive) {
 					this.dispatchCursorMode(null);
 					this.clearHoverOverOverlay();
 				}
 				return;
 			}
-			if (this.interactionEnabled && !this.dragActive) {
+			if (this.interactionEnabled && !this.drag.isActive) {
 				this.dispatchCursorMode('grab');
 			}
-			if (this.dragActive) return;
+			if (this.drag.isActive) return;
 			this.isMouseOver = true;
 			this.lastMouseMoveTime = performance.now();
 			if (!this.camera) return;
@@ -620,7 +582,7 @@ class TrainSlider implements Inspectable {
 			this.animateHarmonicaCenter(0, 500);
 			this.currentInteractionSlide = -1;
 			if (typeof window !== 'undefined') this._dispatchCursor(null, null);
-			if (!this.dragActive) this.dispatchCursorMode(null);
+			if (!this.drag.isActive) this.dispatchCursorMode(null);
 		};
 
 		window.addEventListener('mousemove', handleMouseMove);
@@ -632,21 +594,21 @@ class TrainSlider implements Inspectable {
 	}
 
 	public setScrollDriver(driver: ScrollDriver | null): void {
-		this.scrollDriver = driver;
+		this.drag.setDriver(driver);
 		if (!driver) {
-			this.resetDragLifecycleState();
+			this.resetPointerState();
 		}
 	}
 
 	public setSnapOnRelease(snap: boolean): void {
-		this.timing.snapOnRelease = snap;
+		this.drag.setSnapOnRelease(snap);
 	}
 
 	enablePointerInteraction() {
 		const onPointerDown = (event: PointerEvent) => {
 			if (event.button !== undefined && event.button !== 0) return;
 			if (this.activePointerId !== null) return;
-			if (!this.scrollDriver?.isDriverActive()) return;
+			if (!this.drag.canBegin()) return;
 			const target = event.target as Element | null;
 			if (target?.closest('a, button, input, textarea, select, [role="button"], [tabindex]')) {
 				return;
@@ -659,11 +621,12 @@ class TrainSlider implements Inspectable {
 			this.pointerDownTime = performance.now();
 			this.pointerDownClientX = event.clientX;
 			this.pointerDownClientY = event.clientY;
-			this.dragStartScrollPx = this.scrollDriver?.getScroll() ?? 0;
-			this.dragSamples = [{ t: this.pointerDownTime, scrollPx: this.dragStartScrollPx }];
-			this.dragActive = false;
-			this.dragAxisLocked = null;
 			this.updatePointerPosition(event.clientX, event.clientY);
+
+			// Touch pointers stay tap-only: the slider advances with native vertical
+			// scrolling there, so no horizontal drag layer competes with it.
+			this.dragPointerEligible = event.pointerType !== 'touch';
+			if (this.dragPointerEligible) this.drag.arm(event.clientX, event.clientY);
 
 			if (event.pointerType === 'touch') {
 				this.isTouchInteraction = true;
@@ -684,57 +647,42 @@ class TrainSlider implements Inspectable {
 			this.updatePointerPosition(event.clientX, event.clientY);
 
 			if (!this.pointerIsDown || event.pointerId !== this.activePointerId) return;
-			const driver = this.scrollDriver;
-			if (!driver || !driver.isDriverActive()) {
-				if (this.dragActive) {
-					this.releaseDragInertia(0);
-					this.resetDragLifecycleState();
-				}
-				return;
+			if (!this.dragPointerEligible) return;
+
+			switch (this.drag.handlePointerMove(event.clientX, event.clientY)) {
+				case 'idle':
+					return;
+				case 'ended':
+					this.resetPointerState();
+					return;
+				case 'started':
+					this._dispatchCursor(null, null);
+					this.dispatchCursorMode('grabbing');
+					break;
 			}
 
-			const dx = event.clientX - this.pointerDownClientX;
-			const dy = event.clientY - this.pointerDownClientY;
-
-			if (this.dragAxisLocked === null) {
-				if (Math.hypot(dx, dy) >= DRAG_AXIS_LOCK_PX) {
-					this.dragAxisLocked = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical';
-					if (this.dragAxisLocked === 'horizontal') {
-						this.dragActive = true;
-						driver.cancelAnimatedScroll();
-						this.dragStartScrollPx = driver.getScroll();
-						this.pointerDownClientX = event.clientX;
-						this.pointerDownClientY = event.clientY;
-						this.dragSamples = [{ t: performance.now(), scrollPx: this.dragStartScrollPx }];
-						this._dispatchCursor(null, null);
-						this.dispatchCursorMode('grabbing');
-					}
-				}
-			}
-
-			if (this.dragAxisLocked !== 'horizontal') return;
+			// Suppress the native text/image drag that would otherwise fight the scrub.
 			if (event.cancelable) event.preventDefault();
-			this.applyDragMove(dx);
 		};
 
 		const onPointerUp = (event: PointerEvent) => {
 			this.updatePointerPosition(event.clientX, event.clientY);
 			if (!this.pointerIsDown || event.pointerId !== this.activePointerId) return;
 
-			const wasDragActive = this.dragActive;
 			const elapsedMs = performance.now() - this.pointerDownTime;
-			const dx = event.clientX - this.pointerDownClientX;
-			const dy = event.clientY - this.pointerDownClientY;
-			const movedDistance = Math.hypot(dx, dy);
+			const movedDistance = Math.hypot(
+				event.clientX - this.pointerDownClientX,
+				event.clientY - this.pointerDownClientY
+			);
 
-			if (wasDragActive) {
-				this.releaseDragInertia();
-				this.resetDragLifecycleState();
+			if (this.drag.isActive) {
+				this.drag.release();
+				this.resetPointerState();
 				this.dispatchCursorMode(this.interactionEnabled && this.isMouseOver ? 'grab' : null);
 				return;
 			}
 
-			this.resetDragLifecycleState();
+			this.resetPointerState();
 			const isTap =
 				elapsedMs <= this.tapDurationThresholdMs && movedDistance <= this.tapMoveThresholdPx;
 			if (!isTap) return;
@@ -747,9 +695,8 @@ class TrainSlider implements Inspectable {
 
 		const onPointerCancel = (event: PointerEvent) => {
 			if (event.pointerId !== this.activePointerId) return;
-			const wasDragActive = this.dragActive;
-			if (wasDragActive) this.releaseDragInertia(0);
-			this.resetDragLifecycleState();
+			if (this.drag.isActive) this.drag.release(0);
+			this.resetPointerState();
 			this.dispatchCursorMode(this.interactionEnabled && this.isMouseOver ? 'grab' : null);
 		};
 
@@ -786,114 +733,11 @@ class TrainSlider implements Inspectable {
 		});
 	}
 
-	private applyDragMove(dx: number): void {
-		const driver = this.scrollDriver;
-		if (!driver) return;
-		const ventures = driver.getVenturesPixelRange();
-		const slideCount = this.props.slideCount;
-		const viewportWidth = typeof window !== 'undefined' ? window.innerWidth || 1 : 1;
-		const isMobile = viewportWidth <= TABLET_MAX_WIDTH;
-		const visibleCards = isMobile ? VISIBLE_CARDS_MOBILE : VISIBLE_CARDS_DESKTOP;
-		const perSlideDragPx = Math.max(140, viewportWidth / visibleCards);
-		const sectionPx = Math.max(0, ventures.endPx - ventures.startPx);
-		const scrollPxPerSlide = sectionPx / Math.max(1, slideCount - 1);
-		const sensitivity = scrollPxPerSlide / Math.max(perSlideDragPx, 1);
-
-		const rawTarget = this.dragStartScrollPx - sensitivity * dx;
-		const rubber = Math.max(scrollPxPerSlide * EDGE_RUBBER_BAND_FRAC, 1);
-		let target = rawTarget;
-		if (target < ventures.startPx) {
-			const overshoot = ventures.startPx - target;
-			target = ventures.startPx - rubber * (1 - Math.exp(-overshoot / rubber));
-		} else if (target > ventures.endPx) {
-			const overshoot = target - ventures.endPx;
-			target = ventures.endPx + rubber * (1 - Math.exp(-overshoot / rubber));
-		}
-
-		driver.setScrollImmediate(target);
-
-		const now = performance.now();
-		this.dragSamples.push({ t: now, scrollPx: target });
-		const cutoff = now - DRAG_VELOCITY_WINDOW_MS;
-		while (this.dragSamples.length > 1 && this.dragSamples[0].t < cutoff) {
-			this.dragSamples.shift();
-		}
-	}
-
-	private releaseDragInertia(velocityOverride?: number): void {
-		const driver = this.scrollDriver;
-		if (!driver) return;
-		const ventures = driver.getVenturesPixelRange();
-		const slideCount = this.props.slideCount;
-		const sectionPx = Math.max(0, ventures.endPx - ventures.startPx);
-		const scrollPxPerSlide = sectionPx / Math.max(1, slideCount - 1);
-
-		const releaseTime = performance.now();
-		const cutoff = releaseTime - DRAG_VELOCITY_WINDOW_MS;
-		while (this.dragSamples.length > 1 && this.dragSamples[0].t < cutoff) {
-			this.dragSamples.shift();
-		}
-
-		let velocityPxPerSec = velocityOverride ?? 0;
-		if (velocityOverride === undefined && this.dragSamples.length >= 2) {
-			const first = this.dragSamples[0];
-			const last = this.dragSamples[this.dragSamples.length - 1];
-			const dt = (last.t - first.t) / 1000;
-			if (dt > 0.001) {
-				velocityPxPerSec = (last.scrollPx - first.scrollPx) / dt;
-			}
-		}
-
-		const reduceMotion =
-			typeof window !== 'undefined' &&
-			typeof window.matchMedia === 'function' &&
-			window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-		const tau = reduceMotion ? 0 : Math.max(0, this.timing.inertiaProjectionSec);
-
-		const currentScrollPx = driver.getScroll();
-		const projectedPx = currentScrollPx + velocityPxPerSec * tau;
-
-		let target: number;
-		if (this.timing.snapOnRelease && scrollPxPerSlide > 0) {
-			const startSlide = Math.round((this.dragStartScrollPx - ventures.startPx) / scrollPxPerSlide);
-			const intentSlides = (projectedPx - this.dragStartScrollPx) / scrollPxPerSlide;
-			const dragCommitFraction = THREE.MathUtils.clamp(this.timing.dragCommitFraction, 0, 1);
-			let targetSlide: number;
-			if (Math.abs(intentSlides) < dragCommitFraction) {
-				targetSlide = startSlide;
-			} else {
-				const direction = intentSlides > 0 ? 1 : -1;
-				const stride = Math.max(1, Math.round(Math.abs(intentSlides)));
-				targetSlide = startSlide + direction * stride;
-			}
-			const clampedSlide = Math.max(0, Math.min(slideCount - 1, targetSlide));
-			target = ventures.startPx + clampedSlide * scrollPxPerSlide;
-		} else {
-			target = projectedPx;
-		}
-
-		target = Math.max(ventures.startPx, Math.min(ventures.endPx, target));
-		const distance = Math.abs(target - currentScrollPx);
-		const speed = Math.max(Math.abs(velocityPxPerSec), 1);
-		const minDuration = Math.max(0, this.timing.inertiaMinDurationSec);
-		const maxDuration = Math.max(minDuration, this.timing.inertiaMaxDurationSec);
-		const durationScale = Math.max(0, this.timing.inertiaDurationScale);
-		let duration = THREE.MathUtils.clamp(
-			(distance / speed) * durationScale,
-			minDuration,
-			maxDuration
-		);
-		if (reduceMotion) duration = minDuration;
-
-		driver.setScrollAnimated(target, duration);
-	}
-
-	private resetDragLifecycleState(): void {
+	private resetPointerState(): void {
 		this.pointerIsDown = false;
-		this.dragActive = false;
-		this.dragAxisLocked = null;
 		this.activePointerId = null;
-		this.dragSamples = [];
+		this.dragPointerEligible = false;
+		this.drag.reset();
 	}
 
 	private isOverlayInteractionTarget(target: EventTarget | null): boolean {
@@ -991,7 +835,7 @@ class TrainSlider implements Inspectable {
 			this.resetCursorState();
 			return;
 		}
-		if (this.dragActive) return;
+		if (this.drag.isActive) return;
 		if (!this.camera) return;
 
 		this.raycaster.setFromCamera(this.mouse, this.camera);
@@ -1154,7 +998,7 @@ class TrainSlider implements Inspectable {
 	private updateVisualProgress(dt: number): void {
 		const maxIndex = Math.max(0, this.props.slideCount - 1);
 		const visualTargetIndex = this.targetProgressValue * maxIndex;
-		if (this.dragActive) {
+		if (this.drag.isActive) {
 			this.currentVisualIndex = visualTargetIndex;
 		} else {
 			const snapAlpha = 1 - Math.exp(-dt * this.snapSettlingSpeed);
@@ -1233,7 +1077,7 @@ class TrainSlider implements Inspectable {
 		this.currentInteractionSlide = -1;
 		this.lastMouseMoveTime = 0;
 		this.lastHoverCheckTime = 0;
-		this.resetDragLifecycleState();
+		this.resetPointerState();
 		this.resetCursorState();
 		this.dispatchCursorMode(null);
 		this.resetTapTooltip();
@@ -1242,7 +1086,7 @@ class TrainSlider implements Inspectable {
 	getRefs(): any {
 		return {
 			config: this.config,
-			timing: this.timing,
+			timing: this.drag.timing,
 			uniforms: this.uniforms,
 			debugValues: this.debugValues,
 			setHarmonicaCenter: (v: number) => this.setHarmonicaCenter(v)
@@ -1280,7 +1124,7 @@ class TrainSlider implements Inspectable {
 				maxCurve: this.config.curveMaxCurve,
 				yInfluence: this.config.curveYInfluence
 			},
-			timing: { ...this.timing },
+			timing: this.drag.getTiming(),
 			exit: { ...this.config.exit }
 		};
 	}
@@ -1371,30 +1215,8 @@ class TrainSlider implements Inspectable {
 				this.uniforms.curveYInfluence.value = c.yInfluence;
 			}
 		}
-		const timing = config.timing;
-		if (timing) {
-			if (typeof timing.snapOnRelease === 'boolean') {
-				this.timing.snapOnRelease = timing.snapOnRelease;
-			}
-			if (typeof timing.dragCommitFraction === 'number') {
-				this.timing.dragCommitFraction = THREE.MathUtils.clamp(timing.dragCommitFraction, 0, 1);
-			}
-			if (typeof timing.inertiaProjectionSec === 'number') {
-				this.timing.inertiaProjectionSec = Math.max(0, timing.inertiaProjectionSec);
-			}
-			let minDuration = this.timing.inertiaMinDurationSec;
-			let maxDuration = this.timing.inertiaMaxDurationSec;
-			if (typeof timing.inertiaMinDurationSec === 'number') {
-				minDuration = Math.max(0, timing.inertiaMinDurationSec);
-			}
-			if (typeof timing.inertiaMaxDurationSec === 'number') {
-				maxDuration = Math.max(0, timing.inertiaMaxDurationSec);
-			}
-			this.timing.inertiaMinDurationSec = Math.min(minDuration, maxDuration);
-			this.timing.inertiaMaxDurationSec = Math.max(minDuration, maxDuration);
-			if (typeof timing.inertiaDurationScale === 'number') {
-				this.timing.inertiaDurationScale = Math.max(0, timing.inertiaDurationScale);
-			}
+		if (config.timing) {
+			this.drag.applyTimingPatch(config.timing);
 		}
 		const e = config.exit;
 		if (e) {
