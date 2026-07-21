@@ -29,12 +29,12 @@ export const SLIDES: SlideData[] = [
 	},
 	{
 		title: 'NinDAO: Chats as DAOs',
-		imageSrc: '/textures/slider/Ktx2/05.ktx2',
+		imageSrc: '/textures/slider/Ktx2/03.ktx2',
 		href: 'https://paragraph.com/@0013700/nindao-chats-as-daos'
 	},
 	{
 		title: 'All Hail Supreme',
-		imageSrc: '/textures/slider/Ktx2/03.ktx2',
+		imageSrc: '/textures/slider/Ktx2/05.ktx2',
 		href: 'https://paragraph.com/@0013700/all-hail-supreme'
 	},
 	{
