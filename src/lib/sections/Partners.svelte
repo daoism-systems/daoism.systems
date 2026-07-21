@@ -11,7 +11,7 @@
   let { progress, isMobileTiming = false } = $props();
 
   const HIDDEN_EPSILON = 0.001;
-  const PARTNERS_GSAP_SPLIT_REVEAL_EXPERIMENT_ENABLED = false;
+  const PARTNERS_GSAP_SPLIT_REVEAL_EXPERIMENT_ENABLED = true;
   let timing = $derived(
     isMobileTiming ? PARTNERS_UI_TIMING.mobile : PARTNERS_UI_TIMING.desktop
   );
