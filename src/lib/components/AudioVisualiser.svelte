@@ -544,6 +544,7 @@
 			0 14px 34px rgba(0, 0, 0, 0.45),
 			inset 0 1px 0 rgba(255, 255, 255, 0.08),
 			inset 0 -12px 22px rgba(230, 71, 73, 0.18);
+		background-clip: padding-box;
 		transform: translateY(10px) scale(0.92);
 		place-items: center;
 	}
