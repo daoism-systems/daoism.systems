@@ -19,7 +19,7 @@ export const SLIDES: SlideData[] = [
 	},
 	{
 		title: 'DoinGud: Building a DeSI Protocol with Multilevel Governance',
-		imageSrc: '/textures/slider/Ktx2/03.ktx2',
+		imageSrc: '/textures/slider/Ktx2/06.ktx2',
 		href: 'https://paragraph.com/@0013700/doingud-building-a-desi-protocol-with-multilevel-governance'
 	},
 	{
@@ -34,7 +34,7 @@ export const SLIDES: SlideData[] = [
 	},
 	{
 		title: 'All Hail Supreme',
-		imageSrc: '/textures/slider/Ktx2/06.ktx2',
+		imageSrc: '/textures/slider/Ktx2/03.ktx2',
 		href: 'https://paragraph.com/@0013700/all-hail-supreme'
 	},
 	{
