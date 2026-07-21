@@ -109,16 +109,24 @@ export class OctagonScene {
 		this.lights.setupLights();
 
 		this.renderer = new Renderer(this.graphicsOptions);
-		this.fluid = new FluidMouseField(this.renderer.webGPURenderer, {
-			resolution: getFluidResolutionForTier(this.tier),
-			splatRadius: 0.05,
-			splatForce: 500,
-			curlStrength: 22,
-			velocityDissipation: 0.85,
-			pressureDissipation: 0.919,
-			pressureIterations: 8
-		});
-		this.fluid.uAspectRatio.value = window.innerWidth / Math.max(1, window.innerHeight);
+		// Mirror MainScene.createGlobalFluidField: the sim only exists for the
+		// distortion pass or the particle physics — both platform-capped off on
+		// mobile (see applyMobileCaps), so mobile skips the FluidMouseField.
+		if (
+			this.graphicsOptions.postProcessing.fluidDistortion ||
+			this.graphicsOptions.enableOctagonPhysics
+		) {
+			this.fluid = new FluidMouseField(this.renderer.webGPURenderer, {
+				resolution: getFluidResolutionForTier(this.tier),
+				splatRadius: 0.05,
+				splatForce: 500,
+				curlStrength: 22,
+				velocityDissipation: 0.85,
+				pressureDissipation: 0.919,
+				pressureIterations: 8
+			});
+			this.fluid.uAspectRatio.value = window.innerWidth / Math.max(1, window.innerHeight);
+		}
 
 		await this.renderer.init({
 			scene: this.scene,
