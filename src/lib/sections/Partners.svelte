@@ -4,12 +4,14 @@
   import IconPlus from '$lib/components/IconPlus.svelte';
   import { onMount } from 'svelte';
   import { PARTNERS_UI_TIMING, SUPPORTING_UI_REVEAL_PROGRESS } from '$lib/config/revealTiming';
+  import { gsapSplitReveal } from '$lib/utils/animations/gsapSplitReveal';
   import { clamp01, getBeatProgress, getUiProgress } from '$lib/utils/animations/uiProgress';
   import { textReveal } from '$lib/utils/animations/textReveal';
 
   let { progress, isMobileTiming = false } = $props();
 
   const HIDDEN_EPSILON = 0.001;
+  const PARTNERS_GSAP_SPLIT_REVEAL_EXPERIMENT_ENABLED = false;
   let timing = $derived(
     isMobileTiming ? PARTNERS_UI_TIMING.mobile : PARTNERS_UI_TIMING.desktop
   );
@@ -45,6 +47,14 @@
     progress: paragraphUiProgress,
     duration: timing.copyDuration,
     scrubProgressPower: 1.25
+  });
+
+  const gsapParagraphRevealOptions = $derived({
+    enabled: PARTNERS_GSAP_SPLIT_REVEAL_EXPERIMENT_ENABLED,
+    progress: paragraphUiProgress,
+    progressPower: 1.25,
+    duration: timing.copyDuration,
+    split: 'chars' as const
   });
 
   // Cards Scroll Logic
@@ -142,13 +152,22 @@
   />
 
   <div class="partners__desc">
-    <p
-      class="section-reveal-paragraph"
-      style:transform={`translate3d(0, ${paragraphOffsetY}px, 0)`}
-      use:textReveal={paragraphRevealOptions}
-    >
+    {#if PARTNERS_GSAP_SPLIT_REVEAL_EXPERIMENT_ENABLED}
+      <p
+        class="section-reveal-paragraph"
+        use:gsapSplitReveal={gsapParagraphRevealOptions}
+      >
         Teams shaping decentralized web
-    </p>
+      </p>
+    {:else}
+      <p
+        class="section-reveal-paragraph"
+        style:transform={`translate3d(0, ${paragraphOffsetY}px, 0)`}
+        use:textReveal={paragraphRevealOptions}
+      >
+        Teams shaping decentralized web
+      </p>
+    {/if}
     <div
       class="partners__divider"
       style:opacity={lineUiProgress}
