@@ -243,12 +243,13 @@
 	.scroll-tracker {
 		position: fixed;
 		z-index: 101;
-		color: #c6c9d6;
-		font-family: inherit;
-		font-size: 0.7rem;
+		color: #A8AEBC;
+		font-size: 0.875rem;
 		word-spacing: $word-spacing;
 		font-weight: 400;
 		user-select: none;
+
+
 
 		@include breakpoint(desktop) {
 			bottom: $offset-x;
@@ -267,15 +268,17 @@
 		}
 
 		&__wrap {
-			display: flex;
-			align-items: center;
-			gap: 1rem;
 			background: $color-grey-600;
 			border: 0.5px solid rgba($color-grey-300, 0.3);
 			padding: 0.4rem 1rem;
 			box-shadow: 0 1px 8px rgba(0, 0, 0, 0.04);
 			border-radius: 0.25rem;
 			backdrop-filter: blur(50px);
+			display: flex;
+			height: 1.75rem;
+			padding: 0.375rem 1rem;
+			align-items: center;
+			gap: 1rem;
 
 			@include breakpoint(not-desktop) {
 				min-height: var(--mobile-tracker-height);
