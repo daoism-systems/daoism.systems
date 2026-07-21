@@ -1,10 +1,22 @@
 import { EASINGS } from './constants/easings';
 import { AnimationTimeline } from './helpers/animationTimeline';
 
+const OPEN_DURATION = 500;
+
+function measureBox(element: HTMLElement): { width: number; height: number } {
+	const bounds = element.getBoundingClientRect();
+	return {
+		width: Math.ceil(bounds.width),
+		height: Math.ceil(bounds.height)
+	};
+}
+
 export function createAnnotationRevealTimeline(root: HTMLElement): AnimationTimeline | null {
 	const button = root.querySelector<HTMLElement>('.hotspot__btn');
 	const panel = root.querySelector<HTMLElement>('.hotspot__desc');
-	const title = root.querySelector<HTMLElement>('.hotspot__title span:not(.info)');
+	const title = root.querySelector<HTMLElement>(
+		'.hotspot__summary .hotspot__title > span:first-child'
+	);
 	// Animate the mask wrapper, not .info itself — a WAAPI animation with
 	// fill:'both' would permanently override the CSS open/close transition
 	// on the inner element.
@@ -75,5 +87,38 @@ export function createAnnotationRevealTimeline(root: HTMLElement): AnimationTime
 		);
 	}
 
+	return timeline;
+}
+
+export function createAnnotationOpenTimeline(root: HTMLElement): AnimationTimeline | null {
+	const panel = root.querySelector<HTMLElement>('.hotspot__desc');
+	const summary = root.querySelector<HTMLElement>('.hotspot__summary');
+	const contentInner = root.querySelector<HTMLElement>('.hotspot__content-inner');
+
+	if (!panel || !summary || !contentInner) return null;
+
+	const collapsed = measureBox(panel);
+	const expanded = measureBox(contentInner);
+	if (!collapsed.width || !collapsed.height || !expanded.width || !expanded.height) return null;
+
+	const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+	const duration = reducedMotion ? 1 : OPEN_DURATION;
+	const timeline = new AnimationTimeline();
+
+	timeline.add(
+		panel,
+		[
+			{ width: `${collapsed.width}px`, height: `${collapsed.height}px` },
+			{ width: `${expanded.width}px`, height: `${expanded.height}px` }
+		],
+		{
+			duration,
+			easing: reducedMotion ? 'linear' : EASINGS.EASE_BACK_OUT_2,
+			reverseEasing: reducedMotion ? 'linear' : EASINGS.EASE_BACK_IN_2,
+			fill: 'both'
+		}
+	);
+
+	timeline.setProgress(0);
 	return timeline;
 }

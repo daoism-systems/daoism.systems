@@ -467,19 +467,16 @@ body::-webkit-scrollbar {
 	}
 
 	&__desc {
+		--hotspot-expanded-width: 27rem;
 		color: #fff;
 		position: absolute;
-		pointer-events: none;
+		pointer-events: auto;
 		left: 4.3rem;
 		top: 50%;
 		opacity: 1;
-		display: grid;
-		grid-template-rows: auto 1fr;
-		row-gap: 0.75rem;
-		width: max-content;
-		min-width: 25rem;
-		max-width: 27rem;
-		padding: 0.75rem 0.75rem 1.25rem 0.75rem;
+		width: fit-content;
+		height: fit-content;
+		overflow: clip;
 		border-radius: 0.75rem;
 		background: transparent;
 		transition: background 0.3s cubic-bezier(0.37, 0, 0.63, 1);
@@ -500,40 +497,25 @@ body::-webkit-scrollbar {
 		}
 
 		@media (max-width: 1439px) {
+			--hotspot-expanded-width: min(78vw, 19rem);
 			left: 50%;
 			right: auto;
 			top: calc(100% + 0.75rem);
 			transform: translateX(calc(-50% + var(--hotspot-magnet-x, 0px)));
-			min-width: 0;
-			text-align: left;
-			width: min(78vw, 19rem);
-			max-width: min(78vw, 19rem);
 			text-align: center;
-			pointer-events: auto;
 			cursor: pointer;
-			/* Mobile: idle card is visible, so here the description row does
-			   collapse and the card grows on open */
-			grid-template-rows: auto 0fr;
-			row-gap: 0;
-			/* Extra bottom padding reserves room for the absolutely-positioned
-			   "(Click to Read)" hint hanging below the title */
-			padding: 0.72rem 0.9rem calc(0.72rem + 1.4em);
 			border-radius: 0.95rem;
 			background: linear-gradient(165deg, rgba(28, 34, 46, 0.68) 0%, rgba(11, 15, 24, 0.52) 100%);
-			border: 1px solid rgba(255, 255, 255, 0.14);
 			box-shadow:
 				0 14px 32px rgba(3, 8, 18, 0.45),
+				inset 0 0 0 1px rgba(255, 255, 255, 0.14),
 				inset 0 1px 0 rgba(255, 255, 255, 0.18),
 				inset 0 -1px 0 rgba(255, 255, 255, 0.04);
 			backdrop-filter: blur(14px) saturate(130%);
 			-webkit-backdrop-filter: blur(14px) saturate(130%);
 			transition:
 				background 0.34s cubic-bezier(0.4, 0, 0.2, 1),
-				border-color 0.34s cubic-bezier(0.4, 0, 0.2, 1),
-				box-shadow 0.34s cubic-bezier(0.4, 0, 0.2, 1),
-				padding 0.34s cubic-bezier(0.4, 0, 0.2, 1),
-				grid-template-rows 0.4s cubic-bezier(0.37, 0, 0.63, 1),
-				row-gap 0.4s cubic-bezier(0.37, 0, 0.63, 1);
+				box-shadow 0.34s cubic-bezier(0.4, 0, 0.2, 1);
 			-webkit-text-stroke: 0;
 			text-shadow:
 				0 1px 1px rgba(4, 7, 12, 0.8),
@@ -577,8 +559,6 @@ body::-webkit-scrollbar {
 
 		p {
 			color: rgba(255, 255, 255, 0.8);
-			/* Spacing below the title comes from the animated row-gap,
-			   not margin — margin would leak into the collapsed 0fr row */
 			margin: 0;
 			text-wrap: pretty;
 			line-height: 1.4;
@@ -588,6 +568,52 @@ body::-webkit-scrollbar {
 				font-size: 0.78rem;
 				line-height: 1.3;
 			}
+		}
+	}
+
+	&__summary,
+	&__content-inner {
+		box-sizing: border-box;
+	}
+
+	&__summary {
+		position: relative;
+		width: max-content;
+		max-width: var(--hotspot-expanded-width);
+		padding: 0.75rem;
+		opacity: 1;
+		transition: opacity 400ms ease-in-out 300ms;
+
+		@media (max-width: 1439px) {
+			padding: 0.72rem 0.9rem;
+		}
+	}
+
+	&__content {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+	}
+
+	&__content-mask {
+		width: 100%;
+		height: 100%;
+		overflow: hidden;
+	}
+
+	&__content-inner {
+		display: grid;
+		grid-template-rows: auto auto;
+		row-gap: 0.25rem;
+		width: var(--hotspot-expanded-width);
+		padding: 0.75rem 0.75rem 1.25rem;
+		opacity: 0;
+		transition: opacity 300ms ease-in-out;
+
+		@media (max-width: 1439px) {
+			padding: 0.72rem 0.9rem;
 		}
 	}
 }
@@ -698,10 +724,8 @@ a:active,
 /* --- Annotation Reveal Styles --- */
 
 .hotspot .info-mask {
-	position: absolute;
-	top: 100%;
-	left: 0;
-	right: 0;
+	position: relative;
+	width: max-content;
 	height: 1.4em;
 	overflow: hidden;
 	pointer-events: none;
@@ -718,40 +742,23 @@ a:active,
 
 .hotspot .desc {
 	word-spacing: normal;
-	opacity: 0;
-	min-height: 0;
-	overflow: hidden;
-	visibility: hidden;
 	font-size: 0.85rem;
-	pointer-events: none;
-	/* Delay visibility flip until the row has collapsed */
-	transition:
-		opacity 0.3s cubic-bezier(0.37, 0, 0.63, 1),
-		visibility 0s 0.4s;
 }
 
-.hotspot.hotspot--active .info {
+.hotspot.hotspot--active .hotspot__summary {
 	opacity: 0;
-	transform: translateY(-120%);
-	transition:
-		transform 0.3s cubic-bezier(0.37, 0, 0.63, 1) 0.08s,
-		opacity 0.25s cubic-bezier(0.37, 0, 0.63, 1) 0.1s;
+	transition: opacity 50ms ease-in-out;
 }
 
-.hotspot.hotspot--active .desc {
+.hotspot.hotspot--active .hotspot__content-inner {
 	opacity: 1;
-	visibility: visible;
+}
+
+.hotspot.hotspot--active .hotspot__content {
 	pointer-events: auto;
-	transition:
-		opacity 0.3s cubic-bezier(0.37, 0, 0.63, 1),
-		visibility 0s 0s;
 }
 
 .hotspot.hotspot--active .hotspot__desc {
-	grid-template-rows: auto 1fr;
-	row-gap: 0.25rem;
-	border-color: rgba(255, 255, 255, 0.2);
-	padding-bottom: 0.72rem;
 	box-shadow:
 		0 16px 34px rgba(3, 8, 18, 0.5),
 		inset 0 1px 0 rgba(255, 255, 255, 0.24),
@@ -764,6 +771,14 @@ a:active,
 	text-shadow:
 		0 1px 2px rgba(4, 7, 12, 0.8),
 		0 6px 18px rgba(1, 3, 7, 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.hotspot__summary,
+	.hotspot__content-inner {
+		transition-duration: 1ms;
+		transition-delay: 0ms;
+	}
 }
 
 button {

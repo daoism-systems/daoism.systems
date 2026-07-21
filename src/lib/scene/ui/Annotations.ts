@@ -1,7 +1,10 @@
 import * as THREE from 'three/webgpu';
 import { vacancies } from '$lib/store.svelte';
 import { getScene07AnnotationRange } from '../animation/sceneManifest';
-import { createAnnotationRevealTimeline } from '$lib/utils/animations/annotationReveal';
+import {
+	createAnnotationOpenTimeline,
+	createAnnotationRevealTimeline
+} from '$lib/utils/animations/annotationReveal';
 import { AnimationTimeline } from '$lib/utils/animations/helpers/animationTimeline';
 import { fullScreenSmokeTransition } from '$lib/utils/fullScreenSmokeTransition';
 import type { Unsubscriber } from 'svelte/store';
@@ -64,6 +67,7 @@ export class Annotations {
 	private annotationEntries: Map<string, AnnotationEntry> = new Map();
 	private annotationOverlay?: HTMLElement;
 	private readonly annotationRevealTimelines = new Map<number, AnimationTimeline>();
+	private readonly annotationOpenTimelines = new Map<number, AnimationTimeline>();
 	private readonly pendingRevealIndices = new Set<number>();
 	private readonly pendingHideIndices = new Set<number>();
 	private readonly hidingIndices = new Set<number>();
@@ -196,12 +200,21 @@ export class Annotations {
 		}
 	}
 
-	private createAnnotationHTML(vacancy: any, index: number): string {
+	private createAnnotationHTML(vacancy: (typeof vacancies)[number], index: number): string {
 		const isLeft = vacancy.textPosition === 'left';
+		const buttonId = `hotspot-trigger-${index}`;
+		const contentId = `hotspot-content-${index}`;
 
 		return `
     <div class="hotspot${isLeft ? ' hotspot--left' : ''}" data-index="${index}">
-        <button class="hotspot__btn" aria-label="${vacancy.title}">
+        <button
+            id="${buttonId}"
+            class="hotspot__btn"
+            type="button"
+            aria-label="${vacancy.title}"
+            aria-controls="${contentId}"
+            aria-expanded="false"
+        >
             <svg viewBox="0 0 11 11" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M5 0H6V11H5V0Z" fill="currentColor" />
                 <path d="M4.3714e-08 6L0 5L11 5V6L4.3714e-08 6Z" fill="currentColor" />
@@ -213,49 +226,89 @@ export class Annotations {
         </button>
 
         <div class="hotspot__desc">
-            <h6 class="hotspot__title">
-                <span>${vacancy.title}</span>
-                <span class="info-mask"><span class="info">(Click to Read)</span></span>
-            </h6>
-            <p class="desc">
-                ${vacancy.description}
-            </p>
+            <div class="hotspot__summary">
+                <h6 class="hotspot__title">
+                    <span>${vacancy.title}</span>
+                    <span class="info-mask"><span class="info">(Click to Read)</span></span>
+                </h6>
+            </div>
+            <div
+                id="${contentId}"
+                class="hotspot__content"
+                role="region"
+                aria-labelledby="${buttonId}"
+                aria-hidden="true"
+            >
+                <div class="hotspot__content-mask">
+                    <div class="hotspot__content-inner">
+                        <h6 class="hotspot__title">${vacancy.title}</h6>
+                        <p class="desc">${vacancy.description}</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 `;
 	}
 
 	private setActiveAnnotation(index: number): void {
-		const wasActive = this.activeAnnotationIndex === index;
+		const previousIndex = this.activeAnnotationIndex;
+		const nextIndex = previousIndex === index ? -1 : index;
 
-		this.annotationElements.forEach((element) => {
-			if (element) {
-				const hotspot = element.querySelector('.hotspot') as HTMLElement;
-				if (hotspot) hotspot.classList.remove('hotspot--active');
-			}
-		});
+		if (previousIndex !== -1) {
+			this.setAnnotationExpanded(previousIndex, false, true);
+		}
 
-		if (!wasActive) {
-			this.activeAnnotationIndex = index;
-			const activeElement = this.annotationElements[index];
-
-			if (activeElement) {
-				const hotspot = activeElement.querySelector('.hotspot') as HTMLElement;
-				if (hotspot) hotspot.classList.add('hotspot--active');
-			}
-		} else {
-			this.activeAnnotationIndex = -1;
+		this.activeAnnotationIndex = nextIndex;
+		if (nextIndex !== -1) {
+			this.setAnnotationExpanded(nextIndex, true, true);
 		}
 	}
 
 	private resetAnnotationStates(): void {
-		this.annotationElements.forEach((element) => {
-			if (element) {
-				const hotspot = element.querySelector('.hotspot') as HTMLElement;
-				if (hotspot) hotspot.classList.remove('hotspot--active');
-			}
-		});
+		if (this.activeAnnotationIndex !== -1) {
+			this.setAnnotationExpanded(this.activeAnnotationIndex, false, false);
+		}
 		this.activeAnnotationIndex = -1;
+	}
+
+	private setAnnotationExpanded(index: number, expanded: boolean, animate: boolean): void {
+		const element = this.annotationElements[index];
+		if (!element) return;
+
+		const hotspot = element.querySelector<HTMLElement>('.hotspot');
+		const button = element.querySelector<HTMLButtonElement>('.hotspot__btn');
+		const content = element.querySelector<HTMLElement>('.hotspot__content');
+		hotspot?.classList.toggle('hotspot--active', expanded);
+		button?.setAttribute('aria-expanded', String(expanded));
+		content?.setAttribute('aria-hidden', String(!expanded));
+
+		const timeline = this.getOpenTimeline(index);
+		if (!timeline) return;
+
+		if (!animate) {
+			timeline.setProgress(expanded ? 1 : 0);
+			return;
+		}
+
+		if (expanded) {
+			timeline.play();
+		} else {
+			timeline.reverse();
+		}
+	}
+
+	private getOpenTimeline(index: number): AnimationTimeline | null {
+		const existing = this.annotationOpenTimelines.get(index);
+		if (existing) return existing;
+
+		const element = this.annotationElements[index];
+		if (!element) return null;
+		const timeline = createAnnotationOpenTimeline(element);
+		if (!timeline) return null;
+
+		this.annotationOpenTimelines.set(index, timeline);
+		return timeline;
 	}
 
 	private playRevealForIndex(index: number): void {
@@ -270,6 +323,7 @@ export class Annotations {
 			this.annotationRevealTimelines.set(index, timeline);
 		}
 
+		this.getOpenTimeline(index);
 		timeline.play(true);
 	}
 
@@ -505,6 +559,9 @@ export class Annotations {
 			let y = Math.round((-this._annotationNdc.y * 0.5 + 0.5) * h + top);
 
 			element.style.display = '';
+			if (index === this.activeAnnotationIndex && !this.annotationOpenTimelines.has(index)) {
+				this.getOpenTimeline(index)?.setProgress(1);
+			}
 
 			if (isMobile) {
 				const offset = this.mobilePositioning.perAnnotationOffset[index] ?? { x: 0, y: 0 };
@@ -583,6 +640,13 @@ export class Annotations {
 	public resize(width: number, height: number): void {
 		void width;
 		void height;
+		for (const timeline of this.annotationOpenTimelines.values()) {
+			timeline.destroy();
+		}
+		this.annotationOpenTimelines.clear();
+		if (this.activeAnnotationIndex !== -1) {
+			this.getOpenTimeline(this.activeAnnotationIndex)?.setProgress(1);
+		}
 		this._annotationPositionsDirty = true;
 		this._annotationsNeedFinalRender = true;
 	}
@@ -595,6 +659,10 @@ export class Annotations {
 		for (const index of this.annotationRevealTimelines.keys()) {
 			this.stopRevealForIndex(index);
 		}
+		for (const timeline of this.annotationOpenTimelines.values()) {
+			timeline.destroy();
+		}
+		this.annotationOpenTimelines.clear();
 		this.pendingRevealIndices.clear();
 		this.pendingHideIndices.clear();
 		this.hidingIndices.clear();
