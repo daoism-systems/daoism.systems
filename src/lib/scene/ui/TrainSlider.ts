@@ -334,7 +334,7 @@ class TrainSlider implements Inspectable {
 	 */
 	private configureSlideTexture(texture: THREE.Texture): void {
 		texture.colorSpace = THREE.SRGBColorSpace;
-		texture.magFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
 		texture.anisotropy = this.renderer.getMaxAnisotropy();
 
 		const hasMipChain = (texture.mipmaps?.length ?? 0) > 1;
@@ -1541,6 +1541,11 @@ class TrainSlider implements Inspectable {
 
 	getSlideCount(): number {
 		return this.props.slideCount;
+	}
+
+	/** Post-`resolveSliderProps` card width in world units (base width × viewport scale). */
+	getPlaneWidth(): number {
+		return this.props.planeWidth;
 	}
 
 	getRecommendedEndX(baseEndX = -150): number {
