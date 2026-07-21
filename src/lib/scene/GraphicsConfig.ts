@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { WebGPURenderer } from 'three/webgpu';
-import { detectMob } from '$lib/utils/isMobile';
+import { detectHighEndMob, detectMob } from '$lib/utils/isMobile';
 
 // ── Tier ────────────────────────────────────────────────────────────────────
 
@@ -55,12 +55,26 @@ function applyMobileCaps(options: GraphicsOptions): GraphicsOptions {
 
 	return {
 		...options,
-		maxResolution: {
-			width: options.maxResolution.width,
-			height: options.maxResolution.height
-		},
+		// Flagship phones render at native resolution (they also skip the DPR cap
+		// — see getMaxDevicePixelRatio — and land on the 'high' tier, so no tier
+		// clamp re-caps this). Everything else keeps the desktop caps, which the
+		// DPR cap of 1 undercuts anyway.
+		maxResolution: detectHighEndMob()
+			? { width: Infinity, height: Infinity }
+			: {
+					width: options.maxResolution.width,
+					height: options.maxResolution.height
+				},
 		resolutionScale: options.resolutionScale,
 		denoise: true,
+		// No shadow maps on mobile. MainScene already ships shadows off via the
+		// feature flags; capping here makes it a platform rule, so scenes that
+		// bypass the flag layer (OctagonScene) match.
+		shadowMapType: null,
+		// No FluidMouseField on mobile: together with fluidDistortion=false below,
+		// this zeroes both gates scenes check before creating the sim. Hard cap —
+		// ?sceneEnable=octagonFluid can no longer turn it on for mobile debugging.
+		enableOctagonPhysics: false,
 		postProcessing: {
 			...options.postProcessing,
 			// Off: a full-screen post pass mobile GPUs can't spare; at ~3x DPR the
@@ -134,8 +148,6 @@ export function createGraphicsOptionsForTier(
 	if (tier === 'high') return base;
 
 	if (tier === 'medium') {
-		const mediumShadowMapType = detectMob() ? THREE.PCFShadowMap : base.shadowMapType;
-
 		return {
 			...base,
 			maxResolution: {
@@ -144,19 +156,20 @@ export function createGraphicsOptionsForTier(
 			},
 			resolutionScale: 1,
 			denoise: false,
-			shadowMapType: mediumShadowMapType,
+			shadowMapType: base.shadowMapType,
 			enableOctagonParticles: base.enableOctagonParticles,
 			enableOctagonPhysics: base.enableOctagonPhysics,
 			postProcessing: {
 				...base.postProcessing,
 				bloom: true,
 				fxaa: true,
-				// Inherit, don't force on — applyMobileCaps disables CA and mobile is
-				// pinned to this tier, so an explicit `true` would undo the mobile cap.
+				// Inherit, don't force on — applyMobileCaps disables CA and non-flagship
+				// mobile is pinned to this tier, so an explicit `true` would undo the
+				// mobile cap.
 				chromaticAberration: base.postProcessing.chromaticAberration
 			},
-			// Mobile is pinned to this tier — keep it attenuation-free (see
-			// createDefaultGraphicsOptions); desktop demotion keeps its dimming.
+			// Non-flagship mobile is pinned to this tier — keep it attenuation-free
+			// (see createDefaultGraphicsOptions); desktop demotion keeps its dimming.
 			bloomMultiplier: isMobile ? 1 : 0.65,
 			bloomThresholdOffset: 0,
 			chromeStrengthMultiplier: isMobile ? 1 : 0.7,
@@ -284,8 +297,10 @@ export async function runGraphicsBenchmark(
 	options: BenchmarkOptions = {}
 ): Promise<BenchmarkResult> {
 	if (detectMob()) {
+		// The tiny benchmark scene holds 60 fps on nearly any phone, so measuring
+		// can't separate flagships from mid-range — classify by hardware instead.
 		return {
-			tier: 'medium',
+			tier: detectHighEndMob() ? 'high' : 'medium',
 			avgFrameMs: 20,
 			baselineFrameMs: 16.67,
 			p95FrameMs: 20,

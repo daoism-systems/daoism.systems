@@ -33,6 +33,30 @@ export function detectMob() {
 	return false;
 }
 
+/**
+ * Flagship-class phone: gets the uncapped render path (native DPR, no
+ * maxResolution clamp, 'high' graphics tier). iPhones are classified by panel
+ * density — DPR 3 means the X/12-and-later class, while SE-style models stay
+ * at 2. Androids by RAM (Chrome caps deviceMemory reporting at 8, so >= 8
+ * marks the 8 GB+ flagships), with a core-count + density fallback for
+ * browsers that hide deviceMemory.
+ */
+export function detectHighEndMob(): boolean {
+	if (!detectMob()) return false;
+	if (typeof window === 'undefined') return false;
+
+	const dpr = window.devicePixelRatio || 1;
+	if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+		return dpr >= 3;
+	}
+
+	const deviceMemory = (navigator as { deviceMemory?: number }).deviceMemory;
+	if (typeof deviceMemory === 'number') {
+		return deviceMemory >= 8;
+	}
+	return (navigator.hardwareConcurrency ?? 0) >= 8 && dpr >= 2.5;
+}
+
 export function detectSafari(): boolean {
 	if (typeof navigator === 'undefined') return false;
 
