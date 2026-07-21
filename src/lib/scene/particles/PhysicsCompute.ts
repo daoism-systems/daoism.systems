@@ -12,6 +12,7 @@ import {
 	deltaTime,
 	instanceIndex,
 	length,
+	min,
 	mix,
 	mx_noise_vec3,
 	pow,
@@ -164,6 +165,12 @@ export function createOctagonFluidPhysicsCompute(options: OctagonFluidComputeOpt
 		const pos = worldPositions.element(idx);
 		const vel = velocities.element(idx).toVar();
 
+		// TSL `deltaTime` is raw wall-clock between renders (NodeFrame.update) — a
+		// tab switch, GPU hitch or long GC pause hands us a multi-second value that
+		// the displacement term below turns into a world-unit teleport. Ceiling
+		// matches FluidMouseField.step(), which clamps for the same reason.
+		const dt = min(deltaTime, float(1 / 30)).toVar();
+
 		// 0. Project world position → screen UV and sample the shared FluidMouseField
 		// FIRST, so this particle's "wake" is driven by the fluid energy actually present
 		// under it. Off-cloud pointer motion splats elsewhere and leaves ~0 velocity here,
@@ -196,7 +203,7 @@ export function createOctagonFluidPhysicsCompute(options: OctagonFluidComputeOpt
 		// 2. Mouse fluid displacement (screen-space), gated by local activity. mouseVel is
 		// 0 when out of bounds, so this is a no-op for off-screen particles.
 		const displacement = uCamRight.mul(mouseVel.x).add(uCamUp.mul(mouseVel.y));
-		vel.xyz.addAssign(displacement.mul(deltaTime).mul(uMouseForce).mul(localActivity));
+		vel.xyz.addAssign(displacement.mul(dt).mul(uMouseForce).mul(localActivity));
 
 		const mouseDampening = float(1).sub(
 			clamp(length(mouseVel.xy).mul(uMouseDampScale), 0, uMouseDampMax)
@@ -211,7 +218,7 @@ export function createOctagonFluidPhysicsCompute(options: OctagonFluidComputeOpt
 		vel.xyz.addAssign(
 			originWorld
 				.sub(pos)
-				.mul(deltaTime)
+				.mul(dt)
 				.mul(uOriginSpring)
 				.mul(localActivity)
 				.mul(activeMouseDampening)
@@ -226,16 +233,16 @@ export function createOctagonFluidPhysicsCompute(options: OctagonFluidComputeOpt
 		const dist = length(toModel);
 		const falloff = smoothstep(0, uModelFalloffEdge, dist);
 		vel.xyz.addAssign(
-			toModel.mul(deltaTime.mul(60)).mul(falloff).mul(uModelAttraction).mul(activeMouseDampening)
+			toModel.mul(dt.mul(60)).mul(falloff).mul(uModelAttraction).mul(activeMouseDampening)
 		);
 
 		// 5. Damping + speed smoothing
-		vel.xyz.mulAssign(pow(uDamping, deltaTime.mul(60)));
+		vel.xyz.mulAssign(pow(uDamping, dt.mul(60)));
 		vel.w.assign(mix(vel.w, length(vel.xyz), uSpeedSmoothing));
 
 		velocities.element(idx).assign(vel);
 
 		// 6. Integrate position (no Y/XZ clamps — the octagon roams freely with the camera animation)
-		pos.addAssign(vel.xyz.mul(deltaTime));
+		pos.addAssign(vel.xyz.mul(dt));
 	})().compute(particleCount);
 }
