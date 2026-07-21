@@ -304,15 +304,23 @@ export class OctagonController {
 		// keeps moving even on frames where octagon compute is throttled by stride.
 		this.updateCameraUniforms();
 
+		// Submit every layer's compute pass in THIS frame. computeAsync resolves
+		// only after GPU completion, so awaiting layers sequentially staggered the
+		// later layers' submissions into subsequent frames — and a straggler could
+		// then land AFTER updateTransforms' CPU-pin buffer upload on the frame
+		// activity crossed idle, stomping the freshly pinned pose (which persisted,
+		// because the pin cache saw an unchanged matrix and skipped rewrites).
 		const renderer = this.deps.gpu.renderer;
+		const passes: Promise<void>[] = [];
 		if (this.primary?.isVisible() && this.primary.hasActiveFluidSimulation()) {
-			await this.primary.compute(renderer);
+			passes.push(this.primary.compute(renderer));
 		}
 		for (const layer of this.extras) {
 			if (layer.isVisible() && layer.hasActiveFluidSimulation()) {
-				await layer.compute(renderer);
+				passes.push(layer.compute(renderer));
 			}
 		}
+		await Promise.all(passes);
 	}
 
 	private updateCameraUniforms(): void {

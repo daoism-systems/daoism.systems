@@ -30,8 +30,10 @@ type Vector3Uniform = UniformNode<'vec3', THREE.Vector3>;
  */
 export interface OctagonFluidUniforms {
 	/** 0..1 interaction envelope (CPU-side). Master switch for whether the compute
-	 * runs at all and when CPU-pin re-engages; the per-particle motion gate is now
-	 * derived locally from the fluid field (see uActivityFloor/uActivityFull). */
+	 * runs at all and when CPU-pin re-engages. Also read by the kernel as a hard
+	 * ceiling on per-particle wake: the fluid texture is only a GPU-side estimate
+	 * that has held stale energy before (idle-skip freeze), so "no recent input"
+	 * must always win over whatever the field says. */
 	uActivity: FloatUniform;
 	uMouseForce: FloatUniform;
 	uCurlStrength: FloatUniform;
@@ -143,6 +145,7 @@ export function createOctagonFluidPhysicsCompute(options: OctagonFluidComputeOpt
 	} = options;
 
 	const {
+		uActivity,
 		uMouseForce,
 		uCurlStrength,
 		uCurlScale,
@@ -186,13 +189,25 @@ export function createOctagonFluidPhysicsCompute(options: OctagonFluidComputeOpt
 			.and(screenUV.y.greaterThanEqual(0))
 			.and(screenUV.y.lessThanEqual(1));
 
+		// CPU interaction envelope as a hard ceiling on wake. The field texture is
+		// only an estimate of "fluid under this particle" — it can hold stale or
+		// self-sustained energy (vorticity confinement re-injects some each step) —
+		// while uActivity is the authoritative "user actually interacted lately"
+		// (boosted on input, 0.65s half-life decay). Requiring BOTH means leftover
+		// texture energy can never hold the cloud open on its own: ~3s after the
+		// last input the envelope forces activity to 0 and the ungated model
+		// attraction below closes the shape, whatever the field says.
+		const inputEnvelope = smoothstep(float(0), float(0.05), uActivity);
+
 		const mouseVel = vec4(0).toVar();
 		const localActivity = float(0).toVar();
 		If(inBounds, () => {
 			mouseVel.assign(mouseVelocityNode.sample(screenUV));
 			// Per-particle activity from local fluid speed. The deadzone (uActivityFloor)
 			// ignores residual/advected-spillover velocity so idle particles stay put.
-			localActivity.assign(smoothstep(uActivityFloor, uActivityFull, length(mouseVel.xy)));
+			localActivity.assign(
+				smoothstep(uActivityFloor, uActivityFull, length(mouseVel.xy)).mul(inputEnvelope)
+			);
 		});
 
 		// 1. Curl-ish noise drift, gated by LOCAL activity so the cloud only swirls
