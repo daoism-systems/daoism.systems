@@ -199,8 +199,20 @@ export class FluidMouseField implements MouseField {
 	// and each step decays it by velocityDissipation. Once the TTL falls below
 	// epsilon we skip the whole pipeline until the next splat — this is a big
 	// win on slow GPUs where 19 RT-binds/frame add up even with nothing moving.
+	//
+	// The TTL is tracked in the SAME units the splat pass writes into the
+	// velocity texture (`vx * force * strength`, see runSplats) — an earlier
+	// version tracked raw pointer velocity, ~700x smaller than the field it was
+	// guarding, so the sim parked while the texture still held O(1) values.
+	// Those froze in place (no advection/dissipation runs while skipped) and the
+	// octagon particle kernel read them as permanent local activity — particles
+	// stayed bloomed off the shape with no pointer near them.
 	private activityEnergy = 0;
-	private readonly activityEpsilon = 1e-3;
+	// Must stay below OctagonFluidUniforms.uActivityFloor (0.1) — anything the
+	// particle kernel can still feel must not be left frozen in the texture.
+	private readonly activityEpsilon = 0.02;
+	/** True once the velocity targets have been zeroed for the current idle stretch. */
+	private idleFieldCleared = true;
 
 	// Some callers construct FluidMouseField before the WebGPU backend is
 	// initialized (renderer.init() not yet awaited). renderer.clear() throws
@@ -239,20 +251,23 @@ export class FluidMouseField implements MouseField {
 	// initial velocity/pressure fields gets amplified by vorticity confinement
 	// and produces "fluid all over the screen" without any input.
 	private clearAllRenderTargets(): void {
-		const renderer = this.renderer;
-		const prevRT = renderer.getRenderTarget();
-		const prevAutoClear = renderer.autoClear;
-		const prevAutoClearColor = renderer.autoClearColor;
-		renderer.autoClear = true;
-		renderer.autoClearColor = true;
-		const targets = [
+		this.clearRenderTargets([
 			this.velocityRead,
 			this.velocityWrite,
 			this.curlRT,
 			this.divergenceRT,
 			this.pressureRead,
 			this.pressureWrite
-		];
+		]);
+	}
+
+	private clearRenderTargets(targets: readonly RenderTarget[]): void {
+		const renderer = this.renderer;
+		const prevRT = renderer.getRenderTarget();
+		const prevAutoClear = renderer.autoClear;
+		const prevAutoClearColor = renderer.autoClearColor;
+		renderer.autoClear = true;
+		renderer.autoClearColor = true;
 		for (const rt of targets) {
 			renderer.setRenderTarget(rt);
 			renderer.clear(true, false, false);
@@ -418,12 +433,13 @@ export class FluidMouseField implements MouseField {
 			radius: options?.radius,
 			force: options?.force
 		});
-		// Reset the idle TTL — splat magnitude scales with vx/vy/strength, so
-		// take a coarse estimate. The exact value doesn't matter; we just need
-		// something well above activityEpsilon to keep the sim active for a
-		// while after the user stops interacting.
+		// Reset the idle TTL to this splat's peak contribution to the velocity
+		// texture — same expression runSplats feeds to uSplatColor, so the TTL
+		// decays in lockstep with the values consumers actually sample.
 		const mag = Math.abs(vx) + Math.abs(vy);
-		this.activityEnergy = Math.max(this.activityEnergy, 1 + mag * strength);
+		const force = options?.force ?? this.uSplatForce.value;
+		this.activityEnergy = Math.max(this.activityEnergy, mag * force * strength);
+		this.idleFieldCleared = false;
 	}
 
 	public step(deltaTime: number): void {
@@ -440,6 +456,15 @@ export class FluidMouseField implements MouseField {
 		// effectively decayed to zero. Saves ~19 RT-binds per frame on slow
 		// GPUs whenever the user isn't interacting.
 		if (this.splatQueue.length === 0 && this.activityEnergy < this.activityEpsilon) {
+			// Zero the velocity targets on the way into idle. Skipping stops
+			// dissipation, so whatever is left in the texture would otherwise sit
+			// there indefinitely; consumers that gate on field magnitude (the
+			// octagon particle kernel) must see a clean zero, not a frozen tail.
+			if (!this.idleFieldCleared) {
+				this.clearRenderTargets([this.velocityRead, this.velocityWrite]);
+				this.outputVelocityNode.value = this.velocityRead.texture;
+				this.idleFieldCleared = true;
+			}
 			return;
 		}
 

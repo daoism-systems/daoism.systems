@@ -476,6 +476,22 @@
 				rgba(0, 0, 0, 0.8) 68%,
 				rgba(0, 0, 0, 0.98) 100%
 			);
+
+			/* Same circle, stops pushed outward on phones. The radius is the diagonal
+			   (farthest-corner), so on a tall/narrow screen the 35% clear core is
+			   narrower than the half-width and the copy sits in the falloff band.
+			   Widening it to 48% puts the clear edge just past the screen's side
+			   edges; the darkening band still closes at 0.98 in the corners. */
+			@include breakpoint(phone) {
+				background: radial-gradient(
+					circle at center,
+					rgba(0, 0, 0, 0) 0%,
+					rgba(0, 0, 0, 0) 48%,
+					rgba(0, 0, 0, 0.4) 64%,
+					rgba(0, 0, 0, 0.8) 80%,
+					rgba(0, 0, 0, 0.98) 100%
+				);
+			}
 		}
 	}
 	.sections--contact {

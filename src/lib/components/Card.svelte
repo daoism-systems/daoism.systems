@@ -312,7 +312,7 @@
 
 		@include breakpoint(tablet) {
 			width: 48vw;
-			max-width: 320px;
+			max-width: 380px;
 			aspect-ratio: 320 / 329;
 		}
 

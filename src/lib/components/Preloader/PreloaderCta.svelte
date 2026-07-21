@@ -416,7 +416,8 @@
     }
   }
 
-  // Sound-on tint (desktop). The mobile pill below intentionally overrides this.
+  // Sound-on tint (desktop + phone). The tablet pill below intentionally
+  // overrides this.
   .preloader-sound-toggle--on {
     border-color: rgba(230, 71, 73, 0.52);
     background: linear-gradient(180deg, rgba(230, 71, 73, 0.26) 0%, rgba(88, 36, 42, 0.74) 100%);
@@ -424,12 +425,13 @@
     box-shadow: 0 8px 24px rgba(230, 71, 73, 0.14);
   }
 
-  // Mobile + tablet "Start" pill (Figma node 2000-5194). Triggers up to the
-  // project's mobile/tablet ceiling (1024px, matching detectMob and the layout
-  // breakpoint below) OR on any touch device (covers landscape tablets > 1024).
+  // Tablet-only "Start" pill (Figma node 2000-5194). Lower bound is the
+  // project's phone/tablet boundary (767px) so phones keep the desktop pill;
+  // upper bound is the tablet ceiling (1024px), with the coarse-pointer clause
+  // covering landscape tablets wider than that.
   // Glassy + neutral in both sound states; the two-class selector wins over
   // .preloader-sound-toggle and .preloader-sound-toggle--on by specificity.
-  @media (max-width: 1024px), (pointer: coarse) {
+  @media (min-width: 767px) and (max-width: 1024px), (min-width: 767px) and (pointer: coarse) {
     .preloader-btn-with-sound .preloader-sound-toggle {
       // Fixed pill dimensions from the Figma "Pagination Item" component
       // (120 x 48, text centered) — not a hug-the-text button. box-sizing is

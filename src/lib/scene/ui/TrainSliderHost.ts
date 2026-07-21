@@ -4,16 +4,36 @@ import TrainSlider, { type ScrollDriver } from './TrainSlider';
 import { FluidMouseField } from '../particles/FluidMouseField';
 import type { GraphicsTier } from '../GraphicsConfig';
 import { TRAIN_SLIDER_LAYOUT, VENTURES_SECTION_INDEX } from '../animation/sceneUiTiming';
-import { PHONE_MAX_WIDTH, TABLET_MAX_WIDTH } from './trainSlider/config';
+import { TABLET_MAX_WIDTH } from './trainSlider/config';
 
 /**
- * Group zoom for the tablet band (768–1024]. Tablets take the mobile single-focus
- * treatment, but the phone scale formula saturates at ~1.05 by 768 — a value tuned
- * to fill a narrow phone — which oversized the card on the wider tablet viewport
- * (see camera FOV 30 at this range). This pulls the single card back to leave the
- * neighbours peeking. Sole knob for tablet card size; lower = smaller card.
+ * Card width in world units per unit of viewport aspect ratio — the sole size knob
+ * for the mobile/tablet band; higher = bigger card.
+ *
+ * Below 1024 the camera fov is fixed, so the visible world width at the slider's
+ * depth is proportional to the viewport aspect. Holding this ratio constant
+ * therefore pins the card to the same fraction of screen width on every phone and
+ * tablet, which the previous stepped ladder did not: it jumped +24% at 420px, +48%
+ * at 560px and −21% at 769px, and swung the card's relative width ~1.5× across the
+ * phone band alone.
+ *
+ * Anchored to 390×844 (aspect 0.4621, card 3.1217 world units) so that reference
+ * viewport renders byte-identically to before; every other size now lines up with it.
  */
-const TABLET_SLIDER_SCALE = 0.85;
+const MOBILE_CARD_WIDTH_PER_ASPECT = 6.756;
+
+/**
+ * Aspect clamp for the law above.
+ *
+ * `max` caps landscape growth: past it the card keeps widening on viewports that are
+ * short, so it would start crowding them vertically. 0.78 sits just above tablet
+ * portrait (0.75, still continuous) and lands a 1024×768 tablet at 5.27 world units —
+ * the exact size the old flat tablet branch produced.
+ *
+ * `min` is a floor for degenerate ultra-tall aspects; no shipping portrait phone
+ * reaches it (the narrowest common device, 360×900, is 0.40).
+ */
+const MOBILE_ASPECT_RANGE = { min: 0.4, max: 0.78 };
 
 export interface TrainSliderHostDeps {
 	/**
@@ -123,18 +143,17 @@ export class TrainSliderHost {
 			return;
 		}
 
-		// Tablet (768–1024]: mobile single-focus treatment, but a dedicated flat scale
-		// instead of the phone formula's saturated ~1.05 max, which oversized the card.
-		if (viewportWidth > PHONE_MAX_WIDTH) {
-			sliderGroup.scale.setScalar(TABLET_SLIDER_SCALE);
-			return;
-		}
-
-		// Phone (≤768): original width/height-tuned scale, unchanged.
-		const widthT = Math.max(0, Math.min(1, (viewportWidth - 320) / (768 - 320)));
-		const heightT = Math.max(0, Math.min(1, (viewportHeight - 640) / (900 - 640)));
-		const mobileScale = (0.88 + (1.05 - 0.88) * widthT) * (0.95 + 0.08 * heightT);
-		sliderGroup.scale.setScalar(mobileScale);
+		// Phone + tablet (≤1024): one continuous size law, no breakpoints. Dividing by
+		// the live plane width absorbs whichever geometry scale `resolveSliderProps`
+		// baked in at construction, so this stays correct even when the viewport
+		// crosses a band the constructor never saw (desktop load → narrow resize).
+		const planeWidth = this.trainSlider.getPlaneWidth();
+		if (planeWidth <= 0) return;
+		const aspect = Math.max(
+			MOBILE_ASPECT_RANGE.min,
+			Math.min(MOBILE_ASPECT_RANGE.max, viewportWidth / Math.max(1, viewportHeight))
+		);
+		sliderGroup.scale.setScalar((MOBILE_CARD_WIDTH_PER_ASPECT * aspect) / planeWidth);
 	}
 
 	/**
