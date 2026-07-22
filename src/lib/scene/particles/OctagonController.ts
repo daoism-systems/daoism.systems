@@ -50,6 +50,9 @@ export class OctagonController {
 	private simulationActivity = 0;
 	private readonly computeStride: number;
 	private computeInFlight: Promise<void> | null = null;
+	/** Per-layer visibility from the previous tickTransforms (index matches
+	 * forEachLayer order: primary = 0, extras follow). */
+	private layerWasVisible: boolean[] = [];
 
 	constructor(private readonly deps: OctagonControllerDeps) {
 		this.computeStride = deps.isMobile ? 2 : 1;
@@ -269,14 +272,20 @@ export class OctagonController {
 	// ── Per-frame transforms + compute scheduling ──────────────────────────
 
 	public tickTransforms(): void {
-		if (this.primary?.isVisible()) {
-			this.primary.updateTransforms();
-		}
-		for (const layer of this.extras) {
-			if (layer.isVisible()) {
+		this.forEachLayer((layer, index) => {
+			const visible = layer.isVisible();
+			// Hidden layers skip updateTransforms/compute entirely, so their
+			// position buffers freeze at the pre-hide pose while the scroll scrub
+			// keeps animating the source mesh. On re-show, force a re-pin so the
+			// fluid sim resumes from the current pose instead of the stale one.
+			if (visible && this.layerWasVisible[index] === false) {
+				layer.markPoseStale();
+			}
+			this.layerWasVisible[index] = visible;
+			if (visible) {
 				layer.updateTransforms();
 			}
-		}
+		});
 	}
 
 	/** Schedule a compute pass when fluid is active and stride allows. No-op if a pass is already in flight. */
@@ -399,5 +408,6 @@ export class OctagonController {
 		this.cameraUniforms = null;
 		this.pointerInitialized = false;
 		this.simulationActivity = 0;
+		this.layerWasVisible = [];
 	}
 }
