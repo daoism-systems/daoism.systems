@@ -14,6 +14,11 @@ import {
 	setSceneBoundaries
 } from '$lib/config/sceneBoundaryStore.svelte';
 import { SCENE_MANIFEST } from '$lib/scene/animation/sceneManifest';
+import {
+	ANDROID_LENIS_TOUCH_CONFIG,
+	DESKTOP_LENIS_CONFIG,
+	MOBILE_LENIS_CONFIG
+} from '$lib/utils/lenis';
 import { version } from '$app/environment';
 
 /**
@@ -29,6 +34,8 @@ const SCENE_BOUNDARIES_OBJECT_KEY = 'Scene Boundaries';
  */
 const ANNOTATIONS_OBJECT_KEY = 'Annotations';
 
+const SCROLL_CONFIG_OBJECT_KEY = 'Scroll';
+
 /**
  * Sheet objects whose props are authored STATICALLY (no keyframes). They are
  * exempt from `stripUntrackedStaticOverrides` so Studio edits survive a reload
@@ -36,7 +43,8 @@ const ANNOTATIONS_OBJECT_KEY = 'Annotations';
  */
 const STATIC_PROP_OBJECT_KEYS: ReadonlySet<string> = new Set([
 	SCENE_BOUNDARIES_OBJECT_KEY,
-	ANNOTATIONS_OBJECT_KEY
+	ANNOTATIONS_OBJECT_KEY,
+	SCROLL_CONFIG_OBJECT_KEY
 ]);
 
 export interface ScrollConfigDeps {
@@ -1223,29 +1231,47 @@ export class TheatreController {
 
 		const lenisAtInit = scrollDeps.lenisInstance.instance;
 		const initialHeight = Math.round(scrollDeps.virtualScrollHeight.h || 5000);
+		const platformConfig = this.isMobile ? MOBILE_LENIS_CONFIG : DESKTOP_LENIS_CONFIG;
 
 		const obj = this.sheet.object(
-			'Scroll',
+			SCROLL_CONFIG_OBJECT_KEY,
 			{
-				lerp: types.number(lenisAtInit?.options.lerp ?? 0.055, { range: [0.01, 1] }),
-				syncTouchLerp: types.number(lenisAtInit?.options.syncTouchLerp ?? 0.055, {
-					range: [0.01, 1],
-					label: 'sync touch lerp'
+				lerp: types.number(lenisAtInit?.options.lerp ?? platformConfig.lerp, {
+					range: [0.01, 1]
 				}),
+				syncTouchLerp: types.number(
+					lenisAtInit?.options.syncTouchLerp ??
+						(this.isMobile
+							? ANDROID_LENIS_TOUCH_CONFIG.syncTouchLerp
+							: DESKTOP_LENIS_CONFIG.syncTouchLerp),
+					{
+						range: [0.01, 1],
+						label: 'sync touch lerp'
+					}
+				),
 				// wheelMultiplier only affects wheel events — meaningless on touch,
 				// so the mobile panel drops it (Lenis keeps its platform default).
 				...(this.isMobile
 					? {}
 					: {
-							wheelMultiplier: types.number(lenisAtInit?.options.wheelMultiplier ?? 0.62, {
-								range: [0.1, 5],
-								label: 'wheel mult'
-							})
+							wheelMultiplier: types.number(
+								lenisAtInit?.options.wheelMultiplier ?? DESKTOP_LENIS_CONFIG.wheelMultiplier,
+								{
+									range: [0.1, 5],
+									label: 'wheel mult'
+								}
+							)
 						}),
-				touchMultiplier: types.number(lenisAtInit?.options.touchMultiplier ?? 0.9, {
-					range: [0.1, 5],
-					label: 'touch mult'
-				}),
+				touchMultiplier: types.number(
+					lenisAtInit?.options.touchMultiplier ??
+						(this.isMobile
+							? ANDROID_LENIS_TOUCH_CONFIG.touchMultiplier
+							: DESKTOP_LENIS_CONFIG.touchMultiplier),
+					{
+						range: [0.1, 5],
+						label: 'touch mult'
+					}
+				),
 				scrollHeight: types.number(initialHeight, { range: [3000, 100000] })
 			},
 			{ reconfigure: true }
