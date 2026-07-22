@@ -24,7 +24,7 @@ export const SLIDES: SlideData[] = [
 	},
 	{
 		title: 'Summoning a Decentralised Safe Registry',
-		imageSrc: '/textures/slider/Ktx2/04.ktx2',
+		imageSrc: '/textures/slider/Ktx2/07.ktx2',
 		href: 'https://paragraph.com/@0013700/summoning-a-decentralised-safe-registry'
 	},
 	{
@@ -34,12 +34,12 @@ export const SLIDES: SlideData[] = [
 	},
 	{
 		title: 'All Hail Supreme',
-		imageSrc: '/textures/slider/Ktx2/05.ktx2',
+		imageSrc: '/textures/slider/Ktx2/04.ktx2',
 		href: 'https://paragraph.com/@0013700/all-hail-supreme'
 	},
 	{
 		title: 'dSafe SDK',
-		imageSrc: '/textures/slider/Ktx2/07.ktx2',
+		imageSrc: '/textures/slider/Ktx2/05.ktx2',
 		href: 'https://paragraph.com/@0013700/dsafe-sdk'
 	},
 ];
