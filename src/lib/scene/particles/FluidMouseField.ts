@@ -142,7 +142,7 @@ const RT_OPTIONS_R = {
 } as const;
 
 export class FluidMouseField implements MouseField {
-	private readonly renderer: WebGPURenderer;
+	private renderer: WebGPURenderer;
 	public readonly resolution: number;
 
 	// Velocity field is ping-ponged between two render targets
@@ -507,6 +507,27 @@ export class FluidMouseField implements MouseField {
 		renderer.autoClear = prevAutoClear;
 		renderer.autoClearColor = prevAutoClearColor;
 
+		this.outputVelocityNode.value = this.velocityRead.texture;
+	}
+
+	/**
+	 * Adopt a recreated WebGPURenderer after GPU-context recovery. The field
+	 * instance must survive recovery: consumers bake `outputVelocityNode` into
+	 * their TSL graphs (octagon physics kernels, train-slider materials, the
+	 * post-FX dispersion pass), so recreating the field would leave them all
+	 * sampling a disposed texture. Render targets and materials are
+	 * renderer-agnostic three.js objects the new backend lazily rebuilds; only
+	 * the RT *contents* are undefined on the new device, so queue the one-shot
+	 * clear and drop any stale splats/energy from before the recovery.
+	 */
+	public rebindRenderer(renderer: WebGPURenderer): void {
+		this.renderer = renderer;
+		this.pendingClear = true;
+		this.splatQueue.length = 0;
+		this.activityEnergy = 0;
+		// pendingClear zeroes every RT on the next step(), which is exactly the
+		// "cleared for the current idle stretch" state this flag records.
+		this.idleFieldCleared = true;
 		this.outputVelocityNode.value = this.velocityRead.texture;
 	}
 
