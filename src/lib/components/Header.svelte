@@ -59,6 +59,11 @@
 		onNavigateSection(7);
 	}
 
+	function handleLogoClick(event: MouseEvent) {
+		event.preventDefault();
+		onNavigateSection(0);
+	}
+
 	onMount(() => {
 		let lastProgress = 0;
 		// Use Lenis-driven scrollY store instead of native scroll events.
@@ -143,7 +148,12 @@
 
 <!-- The logo sits outside the fixed header: the header's stacking context would
      isolate mix-blend-mode, so blending with the scene only works from here. -->
-<a href="/" class="logo {isLogoRevealed ? 'logo--revealed' : ''}">
+<a
+	href="/"
+	class="logo {isLogoRevealed ? 'logo--revealed' : ''}"
+	aria-label="Return to the first section"
+	onclick={handleLogoClick}
+>
 	<img src="/icons/logo.svg" alt="daoism systems logo" height="48" />
 </a>
 
