@@ -33,8 +33,13 @@ const DEFAULT_STAGGER: Record<GsapSplitRevealMode, number> = {
 const DEFAULT_EASE = 'daoismSplitReveal';
 const DEFAULT_Y_PERCENT = 100;
 const WIDTH_CHANGE_EPSILON = 0.5;
+const CSS_CUBIC_BEZIER_PATTERN = /^cubic-bezier\(([^)]+)\)$/;
 
 let runtimePromise: Promise<GsapSplitTextRuntime> | null = null;
+
+function toCustomEaseData(easing: string): string {
+	return CSS_CUBIC_BEZIER_PATTERN.exec(easing.trim())?.[1] ?? easing;
+}
 
 function loadGsapSplitText(): Promise<GsapSplitTextRuntime> {
 	if (!runtimePromise) {
@@ -44,7 +49,7 @@ function loadGsapSplitText(): Promise<GsapSplitTextRuntime> {
 			import('gsap/CustomEase')
 		]).then(([{ gsap }, { SplitText }, { CustomEase }]) => {
 			gsap.registerPlugin(SplitText, CustomEase);
-			CustomEase.create(DEFAULT_EASE, EASINGS.EASE_POWER2_OUT);
+			CustomEase.create(DEFAULT_EASE, toCustomEaseData(EASINGS.EASE_POWER2_OUT));
 			return { gsap, SplitText };
 		});
 	}
