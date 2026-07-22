@@ -577,7 +577,6 @@ class MainScene {
 
 		try {
 			console.warn(`Recovering GPU (${reason}), attempt ${this._recoveryAttempts}`);
-			this.globalFluidEffect?.dispose();
 			await this.withTimeout(
 				this.renderer.recreateGpuContext({
 					ktx2Loader: this.ktx2Loader,
@@ -589,12 +588,18 @@ class MainScene {
 			this.gpu.renderer = this.renderer.webGPURenderer;
 			// Re-bake the pyramid environment against the recreated renderer.
 			SharedMaterials.initPyramidEnvironment(this.renderer.webGPURenderer);
-			this.globalFluidEffect = this.createGlobalFluidField();
-			this.renderer.fluidEffect = this.globalFluidEffect;
-			if (this.globalFluidEffect) {
-				this.globalFluidEffect.uAspectRatio.value =
-					window.innerWidth / Math.max(1, window.innerHeight);
-			}
+			// The fluid field instance must SURVIVE recovery — its velocity node is
+			// baked into TSL graphs everywhere (octagon physics kernels, train-slider
+			// materials, the post-FX dispersion pass recreateGpuContext just rebuilt),
+			// and MouseInteractions + Theatre's FluidSimulation hold the instance.
+			// Recreating it here used to leave all of them wired to a disposed field:
+			// particles read its frozen texture as permanent local activity (messed-up
+			// cloud until the idle re-pin) and pointer splats went to a dead end.
+			this.globalFluidEffect?.rebindRenderer(this.renderer.webGPURenderer);
+			// Octagon extras: the recreated device restored particle positions from
+			// stale CPU-side arrays, and a compute submitted against the dead context
+			// may never settle — re-pin each layer and drop the in-flight gate.
+			this.octagonController?.rebindFluidField(this.globalFluidEffect);
 			if (this.inspector) this.renderer.webGPURenderer.inspector = this.inspector;
 			if (this._sceneReady) {
 				const progress = this.progressPipeline.getLastProgress();

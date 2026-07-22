@@ -298,13 +298,19 @@ export class OctagonController {
 		const stride = Math.max(1, this.computeStride);
 		if (frameNumber % stride !== 0) return;
 
-		this.computeInFlight = this.runCompute()
+		// Clear the gate only if it still holds THIS pass — rebindFluidField
+		// resets it after GPU recovery, and a zombie pass from the dead context
+		// settling late must not clobber the gate for a newer in-flight pass.
+		const pass: Promise<void> = this.runCompute()
 			.catch((error) => {
 				console.error('Octagon compute update failed:', error);
 			})
 			.finally(() => {
-				this.computeInFlight = null;
+				if (this.computeInFlight === pass) {
+					this.computeInFlight = null;
+				}
 			});
+		this.computeInFlight = pass;
 	}
 
 	private async runCompute(): Promise<void> {
@@ -345,6 +351,24 @@ export class OctagonController {
 	}
 
 	// ── Lifecycle helpers ──────────────────────────────────────────────────
+
+	/**
+	 * Rewire to a new FluidMouseField after GPU-context recovery. The old field
+	 * is disposed (splats into it are dead ends and its velocity texture never
+	 * steps again), so both the splat target and every layer's physics kernel
+	 * must move to the new instance. Also drops the in-flight compute gate — a
+	 * pass submitted against the dead context may never settle, which would
+	 * block tickCompute forever.
+	 */
+	public rebindFluidField(fluidField: FluidMouseField | null): void {
+		this.deps.globalFluidEffect = fluidField;
+		this.computeInFlight = null;
+		const velocityNode = fluidField?.getVelocityNode() ?? null;
+		this.forEachLayer((layer) => layer.rebindFluidField(velocityNode));
+		if (fluidField && this.cameraUniforms) {
+			this.attachPointerListeners();
+		}
+	}
 
 	/** Flip every layer into GPU fluid mode (called after the intro transition). */
 	public activateFluidSim(): void {
