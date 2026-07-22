@@ -11,11 +11,13 @@
 
 	type Props = {
 		progress: number;
+		shaderInProgress?: number;
 		onGetInTouch?: () => void | Promise<void>;
 	};
 
 	let {
 		progress,
+		shaderInProgress = 0,
 		isMobileTiming = false,
 		isPhoneTiming = false,
 		onGetInTouch = () => {}
@@ -32,12 +34,22 @@
 				? COLLABORATION_UI_TIMING.mobile
 				: COLLABORATION_UI_TIMING.desktop
 	);
+	let usesMobileExitTiming = $derived(isMobileTiming || isPhoneTiming);
 
 	let sectionProgress = $derived(clamp01(progress));
-	let uiProgress = $derived(getUiProgress(progress, timing.window));
+	let revealProgress = $derived(
+		getUiProgress(Math.min(progress, timing.window.hideStart), timing.window)
+	);
+	let uiProgress = $derived(
+		usesMobileExitTiming
+			? getUiProgress(progress, timing.window)
+			: revealProgress * (1 - clamp01(shaderInProgress))
+	);
 	let scrimOpacity = $derived(
 		getBeatProgress(sectionProgress, timing.beats.scrimIn) *
-			(1 - getBeatProgress(progress, timing.beats.scrimOut))
+			(usesMobileExitTiming
+				? 1 - getBeatProgress(progress, timing.beats.scrimOut)
+				: 1 - clamp01(shaderInProgress))
 	);
 	let headingUiProgress = $derived(
 		getBeatProgress(uiProgress, timing.beats.heading)

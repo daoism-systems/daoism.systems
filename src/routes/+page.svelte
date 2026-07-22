@@ -28,6 +28,7 @@
 	} from '$lib/runtime/pagePipeline';
 	import { createSiteRuntime, type SiteRuntime } from '$lib/runtime/siteRuntime';
 	import { useScrollToSection } from '$lib/hooks/useScrollToSection';
+	import { resolveCloudFill } from '$lib/scene/animation/sceneUiTiming';
 
 	type Section = PageSection;
 
@@ -79,6 +80,11 @@
 	let { data }: PageProps = $props();
 	let activeSectionLabel = $derived(SECTIONS[pageProgress.step]?.label ?? '');
 	let isContactActive = $derived(pageProgress.step === CONTACT_SECTION_INDEX);
+	let collaborationShaderInProgress = $derived(
+		resolveCloudFill(
+			PAGE_PIPELINE.mapGlobalProgressToSceneProgress(pageProgress.globalProgress)
+		).oneToTwo
+	);
 	let introRevealReady = $derived(data.sceneHidden || $introTransitionEnded);
 	let isPeripheralUiIntroVisible = $derived(
 		introRevealReady &&
@@ -356,6 +362,7 @@
 						{:else if i === COLLABORATION_SECTION_INDEX}
 							<section.component
 								progress={getSectionProgress(i, pageProgress.step, pageProgress.value)}
+								shaderInProgress={collaborationShaderInProgress}
 								isMobileTiming={IS_MOBILE_LAYOUT}
 								isPhoneTiming={IS_PHONE_LAYOUT}
 								onGetInTouch={navigateToContactForm}
