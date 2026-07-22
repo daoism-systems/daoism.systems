@@ -273,8 +273,8 @@ export const PARTNERS_UI_TIMING = {
 export const TEAM_UI_TIMING = {
 	desktop: {
 		beats: {
-			headingReveal: revealBeat(0.03, 0.21),
-			headingHide: revealBeat(0.36, 0.18),
+			headingReveal: revealBeat(0, 0.21),
+			headingHide: revealBeat(0.15, 0.18),
 			cardsReveal: revealBeat(0.14, 0.16),
 			cardsCycle: revealBeat(0.34, 0.58)
 		},
