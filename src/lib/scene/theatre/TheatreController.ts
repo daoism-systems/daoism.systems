@@ -8,6 +8,7 @@ import type { SimpleParticleSystem } from '../particles/SimpleParticleSystem';
 import type { PyramidInstancedParticles } from '../particles/PyramidInstancedParticles';
 import { GridPlane } from '../grid/GridPlane';
 import type { ModelRotationController } from '../rotation/ModelRotationController';
+import { DEFAULT_ANNOTATION_HIDE_TIMING, type AnnotationHideTiming } from '../ui/Annotations';
 import {
 	DEFAULT_SCENE_BOUNDARIES,
 	setSceneBoundaries
@@ -21,6 +22,22 @@ import { version } from '$app/environment';
  * from static-override stripping.
  */
 const SCENE_BOUNDARIES_OBJECT_KEY = 'Scene Boundaries';
+
+/**
+ * Forest-scene annotation hide timings — static props, same deal as
+ * `SCENE_BOUNDARIES_OBJECT_KEY` (see `STATIC_PROP_OBJECT_KEYS`).
+ */
+const ANNOTATIONS_OBJECT_KEY = 'Annotations';
+
+/**
+ * Sheet objects whose props are authored STATICALLY (no keyframes). They are
+ * exempt from `stripUntrackedStaticOverrides` so Studio edits survive a reload
+ * instead of being treated as throwaway inspector tweaks.
+ */
+const STATIC_PROP_OBJECT_KEYS: ReadonlySet<string> = new Set([
+	SCENE_BOUNDARIES_OBJECT_KEY,
+	ANNOTATIONS_OBJECT_KEY
+]);
 
 export interface ScrollConfigDeps {
 	/** Live ref — Lenis is created after Theatre registers, so we read on each tick. */
@@ -84,6 +101,10 @@ export interface TheatreDependencies {
 		setInverted: (amount: number) => void;
 	};
 	scroll?: ScrollConfigDeps;
+	/** Forest-scene annotations (desktop-only — absent when not constructed). */
+	annotations?: {
+		setHideTiming: (timing: Partial<AnnotationHideTiming>) => void;
+	};
 }
 
 type VoidFn = () => void;
@@ -484,10 +505,7 @@ function stripUntrackedStaticOverrides(blob: any, tracked: Set<string>): void {
 			if (byObject && typeof byObject === 'object') {
 				for (const [objKey, props] of Object.entries<any>(byObject)) {
 					if (!props || typeof props !== 'object') continue;
-					// Scene Boundaries holds the scene-axis section boundaries as STATIC
-					// props (no keyframes) — keep them so Studio edits persist across
-					// reload instead of being treated as throwaway inspector tweaks.
-					if (objKey === SCENE_BOUNDARIES_OBJECT_KEY) continue;
+					if (STATIC_PROP_OBJECT_KEYS.has(objKey)) continue;
 					for (const propName of Object.keys(props)) {
 						if (!tracked.has(`${objKey}.${propName}`)) {
 							delete props[propName];
@@ -801,6 +819,43 @@ export class TheatreController {
 		if (deps.gridPlane) this.registerGrid(deps.gridPlane);
 		if (deps.sceneInvert) this.registerCanvas(deps.sceneInvert);
 		if (deps.scroll) this.registerScrollConfigs(deps.scroll);
+		if (deps.annotations) this.registerAnnotationTiming(deps.annotations);
+	}
+
+	/**
+	 * Forest-scene annotation hide timings as STATIC props, in local scene
+	 * progress (0..1 across the scene 07 annotation range). Like
+	 * `registerSceneBoundaries` these are never keyframed — `onValuesChange`
+	 * fires once on subscribe so the values baked into `features/*.json` apply at
+	 * boot, and the `STATIC_PROP_OBJECT_KEYS` exemption keeps Studio edits across
+	 * a reload. Desktop-only: `Annotations` isn't constructed on mobile clients,
+	 * so `mobile.json` never carries this object (the mobile *viewport* branch of
+	 * a narrow desktop window still reads `endTrimMobile` from here).
+	 */
+	private registerAnnotationTiming(
+		annotations: NonNullable<TheatreDependencies['annotations']>
+	): void {
+		if (!this.sheet) return;
+		const obj = this.sheet.object(
+			ANNOTATIONS_OBJECT_KEY,
+			{
+				firstHideAt: types.number(DEFAULT_ANNOTATION_HIDE_TIMING.firstHideAt, {
+					range: [0, 1],
+					label: '1st hide at'
+				}),
+				endTrimDesktop: types.number(DEFAULT_ANNOTATION_HIDE_TIMING.endTrimDesktop, {
+					range: [0, 1],
+					label: 'end trim dsk'
+				}),
+				endTrimMobile: types.number(DEFAULT_ANNOTATION_HIDE_TIMING.endTrimMobile, {
+					range: [0, 1],
+					label: 'end trim mob'
+				})
+			},
+			{ reconfigure: true }
+		);
+		const unsub = obj.onValuesChange((values) => annotations.setHideTiming(values));
+		this.unsubscribes.push(unsub);
 	}
 
 	private registerInspectable(name: string, inspectable: Inspectable): void {
@@ -969,11 +1024,12 @@ export class TheatreController {
 				deps.objectGroups.forestMainTree.visible = values.mainTreeVisible;
 			for (const group of deps.objectGroups.forestOtherTrees)
 				group.visible = values.otherTreesVisible;
-			if (deps.objectGroups.forestCity)
-				deps.objectGroups.forestCity.visible = values.cityVisible;
+			if (deps.objectGroups.forestCity) deps.objectGroups.forestCity.visible = values.cityVisible;
 
-			for (const sys of deps.particleSystems.signTree) sys.setVisibilityGate(values.mainTreeVisible);
-			for (const sys of deps.particleSystems.forest) sys.setVisibilityGate(values.otherTreesVisible);
+			for (const sys of deps.particleSystems.signTree)
+				sys.setVisibilityGate(values.mainTreeVisible);
+			for (const sys of deps.particleSystems.forest)
+				sys.setVisibilityGate(values.otherTreesVisible);
 
 			deps.gridPlane?.setVisible(values.gridVisible);
 		});

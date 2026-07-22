@@ -11,8 +11,28 @@ import type { Unsubscriber } from 'svelte/store';
 
 const annotationRevealAtProgressDesktop = [0.15, 0.5, 0.7] as const;
 const annotationRevealAtProgressMobile = [0.3, 0.5, 0.6] as const;
-const firstAnnotationHideAtProgress = 0.33;
-const annotationVisibilityEndTrimMobile = 0.2;
+
+/**
+ * When annotations go away, in LOCAL forest-scene progress (0..1 across
+ * `getScene07AnnotationRange`). Authored from Theatre Studio's `Annotations`
+ * sheet object — see `TheatreController.registerAnnotationTiming`.
+ */
+export interface AnnotationHideTiming {
+	/** Local progress at which annotation #0 hides while the others stay. */
+	firstHideAt: number;
+	/**
+	 * Fraction of the forest range trimmed off the END, so annotations clear the
+	 * screen before the scene 07 -> 08 transition rather than riding into it.
+	 */
+	endTrimDesktop: number;
+	endTrimMobile: number;
+}
+
+export const DEFAULT_ANNOTATION_HIDE_TIMING: AnnotationHideTiming = {
+	firstHideAt: 0.33,
+	endTrimDesktop: 0.12,
+	endTrimMobile: 0.2
+};
 
 // Opened-tooltip viewport clamp: only the OPENED tooltip's description panel is
 // pulled back inside the viewport so it never clips while being read — including
@@ -77,6 +97,9 @@ export class Annotations {
 	private _annotationsNeedFinalRender = false;
 	private _annotationPositionsDirty = false;
 	private lastAnnotationVisibility = false;
+	private readonly hideTiming: AnnotationHideTiming = { ...DEFAULT_ANNOTATION_HIDE_TIMING };
+	/** Last progress seen, so a Studio edit re-evaluates without needing a scroll. */
+	private lastNormalizedProgress = -1;
 	private readonly _annotationNdc = new THREE.Vector3();
 	private readonly _annotationWorldPos = new THREE.Vector3();
 	private smokeTransitionUnsubscribe?: Unsubscriber;
@@ -393,19 +416,30 @@ export class Annotations {
 		this.hideAnimationTimeouts.set(index, timeoutId);
 	}
 
+	/**
+	 * Apply authored hide timings (Theatre `Annotations` object). Re-evaluates at
+	 * the current scroll position so a Studio drag shows immediately.
+	 */
+	public setHideTiming(timing: Partial<AnnotationHideTiming>): void {
+		Object.assign(this.hideTiming, timing);
+		if (this.lastNormalizedProgress >= 0) this.updateForProgress(this.lastNormalizedProgress);
+	}
+
 	public updateForProgress(normalizedProgress: number): void {
+		this.lastNormalizedProgress = normalizedProgress;
 		if (this.annotationEntries.size === 0) return;
 
 		const viewportWidth = this.rendererDomElement.clientWidth || window.innerWidth;
 		const isMobileViewport = viewportWidth < 768;
 		const annotationRange = getScene07AnnotationRange(viewportWidth);
 		const sceneRange = annotationRange.end - annotationRange.start;
-		const visibilityEnd = isMobileViewport
-			? Math.max(
-					annotationRange.start,
-					annotationRange.end - sceneRange * annotationVisibilityEndTrimMobile
-				)
-			: annotationRange.end;
+		const visibilityEndTrim = isMobileViewport
+			? this.hideTiming.endTrimMobile
+			: this.hideTiming.endTrimDesktop;
+		const visibilityEnd = Math.max(
+			annotationRange.start,
+			annotationRange.end - sceneRange * visibilityEndTrim
+		);
 		const shouldShowAnnotations =
 			normalizedProgress >= annotationRange.start && normalizedProgress < visibilityEnd;
 		const localSceneProgress =
@@ -417,7 +451,7 @@ export class Annotations {
 		}
 
 		if (shouldShowAnnotations) {
-			const shouldHideFirstAnnotation = localSceneProgress >= firstAnnotationHideAtProgress;
+			const shouldHideFirstAnnotation = localSceneProgress >= this.hideTiming.firstHideAt;
 			let activeAnnotationStillVisible = false;
 			for (const [id, entry] of this.annotationEntries.entries()) {
 				const index = Number(id);

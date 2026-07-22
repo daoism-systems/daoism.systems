@@ -64,6 +64,12 @@ export class OctagonParticleSystem extends BaseParticleSystem {
 	 * means the per-particle rewrite + buffer re-upload can be skipped. */
 	private readonly lastPinnedMatrix = new THREE.Matrix4();
 	private hasPinnedPose = false;
+	/** Set when per-frame updates were skipped (layer hidden) — the position
+	 * buffer holds a stale pre-hide pose the GPU sim must not resume from. */
+	private poseStale = false;
+	/** True while the pinned buffer content is the offscreen HIDDEN_POSITION
+	 * fill rather than a real pose — another state the sim must not resume from. */
+	private pinnedPoseIsHiddenFill = false;
 
 	private worldPositionsBuffer: StorageBufferNode<'vec3'> | null = null;
 	private velocitiesBuffer: StorageBufferNode<'vec4'> | null = null;
@@ -263,7 +269,12 @@ export class OctagonParticleSystem extends BaseParticleSystem {
 		const matrix = this.copySourceWorldMatrix(BaseParticleSystem._tempMatrix);
 		this.transformMatrixUniform.value.copy(matrix);
 
+		// The GPU sim may only take over from a valid recent pose: not from a
+		// stale buffer (updates were skipped while hidden) and not from the
+		// offscreen hidden-fill — both force a CPU re-pin first, even mid-activity.
 		const shouldCpuPinPose =
+			this.poseStale ||
+			(this.hasPinnedPose && this.pinnedPoseIsHiddenFill) ||
 			!this.fluidActive ||
 			this.fluidUniforms.uActivity.value <= OctagonParticleSystem.IDLE_ACTIVITY_EPSILON;
 		if (!shouldCpuPinPose) {
@@ -276,6 +287,8 @@ export class OctagonParticleSystem extends BaseParticleSystem {
 		if (!this.worldPositionsAttr || !this.localPositionsArray) return;
 
 		if (this.hasPinnedPose && matrix.equals(this.lastPinnedMatrix)) {
+			// Buffer already matches pin(matrix) — the stale flag is moot.
+			this.poseStale = false;
 			return;
 		}
 
@@ -291,6 +304,8 @@ export class OctagonParticleSystem extends BaseParticleSystem {
 			this.worldPositionsAttr.version++;
 			this.lastPinnedMatrix.copy(matrix);
 			this.hasPinnedPose = true;
+			this.pinnedPoseIsHiddenFill = true;
+			this.poseStale = false;
 			this.clearVelocitiesWhenIdle();
 			return;
 		}
@@ -312,7 +327,20 @@ export class OctagonParticleSystem extends BaseParticleSystem {
 		this.worldPositionsAttr.version++;
 		this.lastPinnedMatrix.copy(matrix);
 		this.hasPinnedPose = true;
+		this.pinnedPoseIsHiddenFill = false;
+		this.poseStale = false;
 		this.clearVelocitiesWhenIdle();
+	}
+
+	/**
+	 * Mark the position buffer as stale — call when this layer re-appears after
+	 * a hidden stretch during which per-frame updates were skipped. The next
+	 * updateTransforms() re-pins to the current mesh pose (and clears
+	 * velocities) even while the fluid sim is mid-activity, so the sim resumes
+	 * from a valid pose instead of the frozen pre-hide one.
+	 */
+	public markPoseStale(): void {
+		this.poseStale = true;
 	}
 
 	/**
@@ -437,6 +465,8 @@ export class OctagonParticleSystem extends BaseParticleSystem {
 		this.velocitiesAttr = null;
 		this.idlePosePinned = false;
 		this.hasPinnedPose = false;
+		this.poseStale = false;
+		this.pinnedPoseIsHiddenFill = false;
 		this.authoredOpacity = 1;
 		this.introOpacityMultiplier = 1;
 	}

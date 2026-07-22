@@ -1392,6 +1392,7 @@ class MainScene {
 				},
 				gridPlane: this.gridPlane ?? null,
 				modelRotationController: this.modelRotationController,
+				annotations: this.annotations,
 				cameraFov: {
 					initial: this.responsiveLayout.getCameraFov(),
 					setFov: (fov) => {
