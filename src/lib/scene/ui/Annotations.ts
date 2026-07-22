@@ -9,8 +9,9 @@ import { AnimationTimeline } from '$lib/utils/animations/helpers/animationTimeli
 import { fullScreenSmokeTransition } from '$lib/utils/fullScreenSmokeTransition';
 import type { Unsubscriber } from 'svelte/store';
 
-const annotationRevealAtProgressDesktop = [0.2, 0.5, 0.7] as const;
+const annotationRevealAtProgressDesktop = [0.15, 0.5, 0.7] as const;
 const annotationRevealAtProgressMobile = [0.3, 0.5, 0.6] as const;
+const firstAnnotationHideAtProgress = 0.33;
 const annotationVisibilityEndTrimMobile = 0.2;
 
 // Opened-tooltip viewport clamp: only the OPENED tooltip's description panel is
@@ -416,9 +417,7 @@ export class Annotations {
 		}
 
 		if (shouldShowAnnotations) {
-			const shouldHideFirstAnnotation =
-				localSceneProgress >= this.getResponsiveRevealProgress(1, viewportWidth) &&
-				localSceneProgress >= this.getResponsiveRevealProgress(2, viewportWidth);
+			const shouldHideFirstAnnotation = localSceneProgress >= firstAnnotationHideAtProgress;
 			let activeAnnotationStillVisible = false;
 			for (const [id, entry] of this.annotationEntries.entries()) {
 				const index = Number(id);
