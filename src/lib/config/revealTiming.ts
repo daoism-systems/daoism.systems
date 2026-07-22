@@ -86,18 +86,21 @@ export const ABOUT_UI_TIMING = {
 	},
 	mobile: {
 		window: {
-			revealStart: 0.04,
-			revealEnd: 0.46,
+			revealStart: 0.02,
+			revealEnd: 0.66,
 			hideStart: 0.78,
-			hideEnd: 1.14
+			hideEnd: 1.26
 		},
 		beats: {
-			heading: revealBeat(0, 0.58),
-			primaryCopy: revealBeat(0.26, 0.48),
-			secondaryCopy: revealBeat(0.44, 0.38)
+			heading: revealBeat(0, 0.74),
+			primaryCopy: revealBeat(0.24, 0.72),
+			secondaryCopy: revealBeat(0.42, 0.66)
 		},
-		headingMotion: STANDARD_HEADING_MOTION.mobile,
-		copyDuration: 0.82
+		headingMotion: {
+			duration: 0.9,
+			stagger: 0.024
+		},
+		copyDuration: 0.98
 	}
 } as const;
 

@@ -2,7 +2,12 @@
   import Heading from '$lib/components/Heading.svelte';
   import IconPlus from '$lib/components/IconPlus.svelte';
   import { ABOUT_UI_TIMING, SUPPORTING_UI_REVEAL_PROGRESS } from '$lib/config/revealTiming';
-  import { clamp01, getBeatProgress, getUiProgress } from '$lib/utils/animations/uiProgress';
+  import {
+    clamp01,
+    getBeatProgress,
+    getLinearBeatProgress,
+    getUiProgress
+  } from '$lib/utils/animations/uiProgress';
   import { textReveal } from '$lib/utils/animations/textReveal';
 
   let { progress, isMobileTiming = false } = $props();
@@ -11,12 +16,17 @@
   let timing = $derived(isMobileTiming ? ABOUT_UI_TIMING.mobile : ABOUT_UI_TIMING.desktop);
   let sectionProgress = $derived(clamp01(progress));
   let uiProgress = $derived(getUiProgress(progress, timing.window));
-  let headingUiProgress = $derived(getBeatProgress(uiProgress, timing.beats.heading));
+  let getChoreographyProgress = $derived(
+    isMobileTiming ? getLinearBeatProgress : getBeatProgress
+  );
+  let headingUiProgress = $derived(
+    getChoreographyProgress(uiProgress, timing.beats.heading)
+  );
   let primaryCopyProgress = $derived(
-    getBeatProgress(uiProgress, timing.beats.primaryCopy)
+    getChoreographyProgress(uiProgress, timing.beats.primaryCopy)
   );
   let secondaryCopyProgress = $derived(
-    getBeatProgress(uiProgress, timing.beats.secondaryCopy)
+    getChoreographyProgress(uiProgress, timing.beats.secondaryCopy)
   );
   let isIconHidden = $derived(
     isMobileTiming
@@ -32,7 +42,7 @@
   const primaryCopyRevealOptions = $derived({
     progress: primaryCopyProgress,
     duration: timing.copyDuration,
-    scrubProgressPower: 1.14,
+    scrubProgressPower: isMobileTiming ? 1.06 : 1.14,
     wordOffsetY: '0.5em',
     wordOffsetX: 0
   });
