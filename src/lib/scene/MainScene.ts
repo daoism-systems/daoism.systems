@@ -595,6 +595,12 @@ class MainScene {
 				this.globalFluidEffect.uAspectRatio.value =
 					window.innerWidth / Math.max(1, window.innerHeight);
 			}
+			// The octagon systems bake the fluid field's velocity node into their
+			// physics kernels and splat into it on pointer input — both still point
+			// at the disposed pre-recovery field. Rewire them to the new one (also
+			// re-pins each layer, since the recreated device restored particle
+			// positions from stale CPU-side arrays).
+			this.octagonController?.rebindFluidField(this.globalFluidEffect);
 			if (this.inspector) this.renderer.webGPURenderer.inspector = this.inspector;
 			if (this._sceneReady) {
 				const progress = this.progressPipeline.getLastProgress();

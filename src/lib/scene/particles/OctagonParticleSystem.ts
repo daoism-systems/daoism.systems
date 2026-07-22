@@ -50,7 +50,7 @@ export class OctagonParticleSystem extends BaseParticleSystem {
 	private static readonly HIDDEN_POSITION = 1e10;
 	private static readonly IDLE_ACTIVITY_EPSILON = 0.0005;
 
-	private readonly velocityNode: VelocityNode | null;
+	private velocityNode: VelocityNode | null;
 	private readonly cameraUniforms: CameraProjectionUniforms | null;
 	private readonly useCpuFallback: boolean;
 	private readonly fluidUniforms: OctagonFluidUniforms = createOctagonFluidUniforms();
@@ -341,6 +341,44 @@ export class OctagonParticleSystem extends BaseParticleSystem {
 	 */
 	public markPoseStale(): void {
 		this.poseStale = true;
+	}
+
+	/**
+	 * Rebuild the physics kernel against a new FluidMouseField velocity node.
+	 * Called after GPU-context recovery: the old field is disposed (its texture
+	 * never steps again), and the recreated device re-uploads the position
+	 * buffer from the CPU-side array — a stale pose. Rebinding plus a forced
+	 * re-pin gives the sim a live field and a valid pose to resume from.
+	 */
+	public rebindFluidField(velocityNode: VelocityNode | null): void {
+		if (this.useCpuFallback) return;
+		this.velocityNode = velocityNode;
+
+		if (
+			velocityNode &&
+			this.cameraUniforms &&
+			this.worldPositionsBuffer &&
+			this.velocitiesBuffer &&
+			this.originsBuffer &&
+			this.localPositionsBuffer
+		) {
+			this.physicsKernel = createOctagonFluidPhysicsCompute({
+				worldPositions: this.worldPositionsBuffer,
+				velocities: this.velocitiesBuffer,
+				origins: this.originsBuffer,
+				localPositions: this.localPositionsBuffer,
+				transformMatrix: this.transformMatrixUniform,
+				mouseVelocityNode: velocityNode,
+				camera: this.cameraUniforms,
+				uniforms: this.fluidUniforms,
+				particleCount: this.particleCount
+			});
+		} else {
+			this.physicsKernel = null;
+			this.fluidActive = false;
+		}
+
+		this.markPoseStale();
 	}
 
 	/**
