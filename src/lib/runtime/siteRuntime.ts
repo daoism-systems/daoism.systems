@@ -37,13 +37,11 @@ export type SiteRuntime = {
 	destroy: () => void;
 };
 
-// Lenis emits every frame and keeps lerping for ~1-2s after a flick, so every
-// consumer below is epsilon-gated: re-publishing an unchanged value costs a
-// Svelte invalidation or a scene write per frame for the whole momentum tail.
-const CAMERA_PROGRESS_EPSILON = 0.0004;
-const SCROLL_PROGRESS_EPSILON = 0.0004;
-const PAGE_PROGRESS_EPSILON = 0.0004;
-const SCROLL_POSITION_EPSILON = 0.25;
+// Lenis emits every frame and keeps lerping after a flick. The camera follows
+// every distinct frame; DOM-facing consumers retain only sub-pixel gates.
+const SCROLL_PROGRESS_EPSILON = 0.00001;
+const PAGE_PROGRESS_EPSILON = 0.000025;
+const SCROLL_POSITION_EPSILON = 0.05;
 
 // "Nothing published yet" — the next value always clears the gate.
 const UNSENT = -1;
@@ -69,7 +67,7 @@ export async function createSiteRuntime(options: SiteRuntimeOptions): Promise<Si
 
 	/** Camera scrub — scene-side only, no DOM cost. */
 	const publishSceneProgress = (sceneProgress: number) => {
-		if (!scene || !moved(sceneProgress, sentSceneProgress, CAMERA_PROGRESS_EPSILON)) return;
+		if (!scene || sceneProgress === sentSceneProgress) return;
 		sentSceneProgress = sceneProgress;
 		scene.setCameraProgress(sceneProgress * 100);
 	};

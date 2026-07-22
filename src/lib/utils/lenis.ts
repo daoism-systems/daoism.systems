@@ -3,14 +3,14 @@ import { detectAndroid } from '$lib/utils/isMobile';
 
 export const SCROLL_TO_EASING = (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t));
 
-const WHEEL_DELTA_SOFT_CAP_DESKTOP = 42;
-const WHEEL_DELTA_SOFT_CAP_MOBILE = 34;
+const WHEEL_DELTA_SOFT_CAP_DESKTOP = 30;
+const WHEEL_DELTA_SOFT_CAP_MOBILE = 26;
 
 export const DESKTOP_LENIS_CONFIG = {
 	lerp: 0.055,
 	syncTouchLerp: 0.055,
-	wheelMultiplier: 0.62,
-	touchMultiplier: 0.9
+	wheelMultiplier: 0.48,
+	touchMultiplier: 0.85
 } as const;
 
 // iOS uses syncTouch: false so WebKit's native momentum (paired with
@@ -19,16 +19,16 @@ export const DESKTOP_LENIS_CONFIG = {
 // touches on its position:fixed children, so on Android we flip syncTouch
 // on and let Lenis animate the scroll itself — see ANDROID_LENIS_TOUCH_CONFIG.
 export const MOBILE_LENIS_CONFIG = {
-	lerp: 0.1,
-	wheelMultiplier: 0.45
+	lerp: 0.07,
+	wheelMultiplier: 0.4
 } as const;
 
 // Tuned for finger drag rather than wheel: snappier lerp than wheel and a
 // higher multiplier so a swipe travels roughly the distance it would under
 // native momentum.
-const ANDROID_LENIS_TOUCH_CONFIG = {
-	syncTouchLerp: 0.1,
-	touchMultiplier: 1.4
+export const ANDROID_LENIS_TOUCH_CONFIG = {
+	syncTouchLerp: 0.075,
+	touchMultiplier: 1.1
 } as const;
 
 const clampProgress = (value: number) => Math.min(1, Math.max(0, value));
@@ -106,7 +106,7 @@ export function createLenisController(
 
 		lastAnimatedScroll = e.animatedScroll;
 
-		if (Math.abs(progress - currentProgress) < 0.0001) return;
+		if (progress === currentProgress) return;
 
 		currentProgress = progress;
 		options.onCameraProgress(options.mapToSceneProgress(progress));
