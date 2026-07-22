@@ -253,6 +253,22 @@ export class OctagonController {
 		this.syncActivity();
 	}
 
+	/**
+	 * Zero the interaction envelope immediately. Call on tab-visibility return:
+	 * rAF stops while the tab is hidden, freezing uActivity mid-decay, and
+	 * resuming with the frozen value would keep the sim animating off stale
+	 * fluid energy for seconds with no pointer near the cloud. With activity
+	 * at 0 the per-layer CPU pin re-engages on the next tick and snaps the
+	 * cloud straight back to the mesh pose.
+	 */
+	public resetInteractionState(): void {
+		this.simulationActivity = 0;
+		this.syncActivity();
+		// First pointer event after the reset re-seeds pointer tracking instead
+		// of deriving a splat velocity from pre-hide coordinates.
+		this.pointerInitialized = false;
+	}
+
 	/** Framerate-independent decay back toward a quiet near-rest state. */
 	public tickActivityDecay(delta: number): void {
 		const current = this.simulationActivity;

@@ -458,7 +458,22 @@ class MainScene {
 			isActive: () => this._sceneReady,
 			isDisposed: () => this._disposed,
 			getLoop: () => this.animate,
-			onVisible: () => this.animation.tickTimer(),
+			onVisible: () => {
+				this.animation.tickTimer();
+				// The hidden stretch froze _lastFrameAt/_lastDrawAt. If the watchdog
+				// ticks before the first resumed frame completes, it reads the gap
+				// as a stall and fires a spurious GPU recovery — restamp both.
+				const now = performance.now();
+				this._lastFrameAt = now;
+				this._lastDrawAt = now;
+				// rAF stopped mid-flight, so uActivity and the fluid velocity
+				// texture kept whatever energy they had at hide time (e.g. the
+				// splat trail of the cursor leaving toward the tab bar). Resuming
+				// from that stale energy blooms the octagon with no pointer near
+				// it — clear the transient state so the cloud re-pins instead.
+				this.globalFluidEffect?.clearTransientState();
+				this.octagonController?.resetInteractionState();
+			},
 			onRecover: (reason) => void this.recoverGpu(reason),
 			getLastFrameAt: () => this._lastFrameAt,
 			setLastFrameAt: (time) => {

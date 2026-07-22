@@ -511,6 +511,24 @@ export class FluidMouseField implements MouseField {
 	}
 
 	/**
+	 * Drop all transient sim state: queued splats, the idle-TTL energy, and the
+	 * RT contents (queued for a one-shot clear on the next step). Call when
+	 * resuming after a stretch where the sim did not step — a hidden tab or a
+	 * GPU recovery — the frozen field would otherwise read as live energy and
+	 * consumers gating on field magnitude (the octagon particle kernel) would
+	 * animate with no pointer anywhere near them.
+	 */
+	public clearTransientState(): void {
+		this.pendingClear = true;
+		this.splatQueue.length = 0;
+		this.activityEnergy = 0;
+		// pendingClear zeroes every RT on the next step(), which is exactly the
+		// "cleared for the current idle stretch" state this flag records.
+		this.idleFieldCleared = true;
+		this.outputVelocityNode.value = this.velocityRead.texture;
+	}
+
+	/**
 	 * Adopt a recreated WebGPURenderer after GPU-context recovery. The field
 	 * instance must survive recovery: consumers bake `outputVelocityNode` into
 	 * their TSL graphs (octagon physics kernels, train-slider materials, the
@@ -522,13 +540,7 @@ export class FluidMouseField implements MouseField {
 	 */
 	public rebindRenderer(renderer: WebGPURenderer): void {
 		this.renderer = renderer;
-		this.pendingClear = true;
-		this.splatQueue.length = 0;
-		this.activityEnergy = 0;
-		// pendingClear zeroes every RT on the next step(), which is exactly the
-		// "cleared for the current idle stretch" state this flag records.
-		this.idleFieldCleared = true;
-		this.outputVelocityNode.value = this.velocityRead.texture;
+		this.clearTransientState();
 	}
 
 	/**
