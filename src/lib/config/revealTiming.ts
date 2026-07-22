@@ -75,8 +75,8 @@ export const ABOUT_UI_TIMING = {
 		},
 		beats: {
 			heading: revealBeat(0, 0.68),
-			primaryCopy: revealBeat(0.15, 0.56),
-			secondaryCopy: revealBeat(0.5, 0.4)
+			primaryCopy: revealBeat(0.18, 0.56),
+			secondaryCopy: revealBeat(0.49, 0.4)
 		},
 		headingMotion: {
 			duration: 0.8,
@@ -93,8 +93,8 @@ export const ABOUT_UI_TIMING = {
 		},
 		beats: {
 			heading: revealBeat(0, 0.58),
-			primaryCopy: revealBeat(0.24, 0.48),
-			secondaryCopy: revealBeat(0.48, 0.38)
+			primaryCopy: revealBeat(0.26, 0.48),
+			secondaryCopy: revealBeat(0.44, 0.38)
 		},
 		headingMotion: STANDARD_HEADING_MOTION.mobile,
 		copyDuration: 0.82
