@@ -7,48 +7,50 @@
 		{ length: 9 },
 		(_, index) => `/images/404-preloader/frame-${String(index + 1).padStart(2, '0')}.png`
 	);
-	const phrases = [
-		'Act without forcing; pure form pours straight from raw concrete.',
-		'Empty your mind, let the rebar handle the load.',
-		'Flow with the void, cast it in heavy brutalist blocks.',
-		'Do nothing, and the brutalist mass will settle.',
-		'Softness yields, but only inside a monolithic mold.',
-		'The Way that can be built is not the eternal Way; it just has too much reinforcement.'
-	] as const;
-	const phraseVisibleDuration = 2000;
-	const phraseRevealDelay = 280;
-	const entranceDuration = 800;
+	const phrase = 'Do nothing, and the brutalist mass will settle.';
+	const minimumVisibleDuration = 4000;
+	const frameInterval = 1000 / 3;
+	const progressPerSecond = 30;
+	const dominoOverlap = 50;
+	const artRevealDelay = 120;
+	const artRevealDuration = 720;
+	const progressRevealDelay = artRevealDelay + artRevealDuration / 4;
+	const progressRevealDuration = 560;
+	const phraseRevealDelay = progressRevealDelay + progressRevealDuration / 100;
+	const phraseRevealDuration = 0.42;
+	const phraseRevealStagger = 0.006;
+	const frameCycleDelay = artRevealDelay + artRevealDuration;
+	const entranceDuration = 2000;
+	const artRevealDelayCss = `${artRevealDelay}ms`;
+	const artRevealDurationCss = `${artRevealDuration}ms`;
+	const progressRevealDelayCss = `${progressRevealDelay}ms`;
+	const progressRevealDurationCss = `${progressRevealDuration}ms`;
 
-	let { progress = 0, ready = false }: { progress?: number; ready?: boolean } = $props();
-	let sequenceIndex = $state(0);
-	let isPhraseHiding = $state(false);
+	let {
+		progress = 0,
+		ready = false,
+		onDismissed
+	}: { progress?: number; ready?: boolean; onDismissed?: () => void } = $props();
+	let frameIndex = $state(0);
 	let phraseRevealReady = $state(false);
 	let entranceComplete = $state(false);
-	let displayedProgress = $derived(ready ? 100 : Math.min(99, Math.round(progress)));
-	let canDismiss = $derived(ready && entranceComplete);
-	let frameIndex = $derived(sequenceIndex % frames.length);
-	let phrase = $derived(phrases[sequenceIndex % phrases.length]);
+	let minimumDurationElapsed = $state(false);
+	let displayedProgress = $state(0);
+	let dismissalNotified = false;
+	let canDismiss = $derived(
+		ready && minimumDurationElapsed && entranceComplete && displayedProgress === 100
+	);
 	let phraseRevealOptions = $derived({
 		trigger: phraseRevealReady,
-		reversed: isPhraseHiding,
-		duration: 0.42,
-		stagger: 0.006,
-		reverseSpeedMultiplier: 2,
-		onReverseDone: handlePhraseHidden
-	});
-
-	$effect(() => {
-		if (!phraseRevealReady || ready || isPhraseHiding) return;
-
-		const phraseTimer = window.setTimeout(() => {
-			isPhraseHiding = true;
-		}, phraseVisibleDuration);
-
-		return () => window.clearTimeout(phraseTimer);
+		duration: phraseRevealDuration,
+		stagger: phraseRevealStagger
 	});
 
 	onMount(() => {
 		const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		let animatedProgress = 0;
+		let previousFrameTime = performance.now();
+		let progressAnimationFrame = 0;
 		const phraseTimer = window.setTimeout(
 			() => (phraseRevealReady = true),
 			reducedMotion ? 0 : phraseRevealDelay
@@ -57,17 +59,57 @@
 			() => (entranceComplete = true),
 			reducedMotion ? 0 : entranceDuration
 		);
+		const minimumDurationTimer = window.setTimeout(
+			() => (minimumDurationElapsed = true),
+			minimumVisibleDuration
+		);
+		let frameTimer: number | undefined;
+
+		const advanceFrame = () => {
+			frameIndex = (frameIndex + 1) % frames.length;
+			frameTimer = window.setTimeout(advanceFrame, frameInterval);
+		};
+
+		if (!reducedMotion) {
+			frameTimer = window.setTimeout(advanceFrame, frameCycleDelay);
+		}
+
+		const animateProgress = (currentFrameTime: number) => {
+			const elapsed = Math.min(currentFrameTime - previousFrameTime, 1000 / progressPerSecond);
+			const targetProgress = ready ? 100 : Math.min(99, Math.max(0, progress));
+
+			animatedProgress = Math.min(
+				targetProgress,
+				animatedProgress + (elapsed / 1000) * progressPerSecond
+			);
+			displayedProgress = Math.floor(animatedProgress);
+			previousFrameTime = currentFrameTime;
+			progressAnimationFrame = window.requestAnimationFrame(animateProgress);
+		};
+
+		progressAnimationFrame = window.requestAnimationFrame(animateProgress);
 
 		return () => {
 			window.clearTimeout(phraseTimer);
 			window.clearTimeout(entranceTimer);
+			window.clearTimeout(minimumDurationTimer);
+			if (frameTimer !== undefined) window.clearTimeout(frameTimer);
+			window.cancelAnimationFrame(progressAnimationFrame);
 		};
 	});
 
-	function handlePhraseHidden() {
-		if (ready) return;
-		sequenceIndex += 1;
-		isPhraseHiding = false;
+	function handleTransitionEnd(event: TransitionEvent) {
+		if (
+			dismissalNotified ||
+			!canDismiss ||
+			event.target !== event.currentTarget ||
+			event.propertyName !== 'opacity'
+		) {
+			return;
+		}
+
+		dismissalNotified = true;
+		onDismissed?.();
 	}
 </script>
 
@@ -76,11 +118,16 @@
 	class:not-found-preloader--entering={!entranceComplete}
 	class:not-found-preloader--complete={canDismiss}
 	style:--not-found-reveal-ease={EASINGS.EASE_CUSTOM_REVEAL}
+	style:--not-found-art-reveal-delay={artRevealDelayCss}
+	style:--not-found-art-reveal-duration={artRevealDurationCss}
+	style:--not-found-progress-reveal-delay={progressRevealDelayCss}
+	style:--not-found-progress-reveal-duration={progressRevealDurationCss}
 	role="status"
 	aria-live="polite"
 	aria-label={`Loading the 404 experience: ${displayedProgress}%`}
+	ontransitionend={handleTransitionEnd}
 >
-	<div class="not-found-preloader__mobile-header" aria-hidden="true">
+	<!-- <div class="not-found-preloader__mobile-header" aria-hidden="true">
 		<img src="/icons/logo.svg" alt="" />
 		<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
 			<path d="M8 8H12.2667V12.2667H8V8Z" fill="currentColor" />
@@ -88,7 +135,7 @@
 			<path d="M19.7333 8H24V12.2667H19.7333V8Z" fill="currentColor" />
 			<path d="M19.7333 19.7333H24V24H19.7333V19.7333Z" fill="currentColor" />
 		</svg>
-	</div>
+	</div> -->
 
 	<div class="not-found-preloader__art" aria-hidden="true">
 		<svg
@@ -158,15 +205,13 @@
 	</div>
 
 	<span class="not-found-preloader__progress">{displayedProgress}%</span>
-	{#key phrase}
-		<p
-			class="not-found-preloader__phrase"
-			class:not-found-preloader__phrase--ready={phraseRevealReady}
-			use:headingReveal={phraseRevealOptions}
-		>
-			<span class="text-line">{phrase}</span>
-		</p>
-	{/key}
+	<p
+		class="not-found-preloader__phrase"
+		class:not-found-preloader__phrase--ready={phraseRevealReady}
+		use:headingReveal={phraseRevealOptions}
+	>
+		<span class="text-line">{phrase}</span>
+	</p>
 </div>
 
 <style lang="scss">
@@ -197,8 +242,12 @@
 			will-change: opacity, transform, filter;
 		}
 
-		&--entering &__art {
+		&--entering &__ring-line {
 			will-change: opacity;
+		}
+
+		&--entering &__frames {
+			will-change: opacity, transform, filter;
 		}
 
 		&--complete {
@@ -223,8 +272,6 @@
 			left: 50%;
 			width: 0;
 			height: 0;
-			opacity: 0;
-			animation: not-found-art-reveal 700ms cubic-bezier(0.37, 0, 0.63, 1) 50ms forwards;
 		}
 
 		&__ring,
@@ -242,7 +289,9 @@
 			will-change: transform;
 
 			&-line {
-				opacity: 0.5;
+				opacity: 0;
+				animation: not-found-ring-line-reveal var(--not-found-art-reveal-duration)
+					var(--not-found-reveal-ease) var(--not-found-art-reveal-delay) forwards;
 			}
 
 			&--outer {
@@ -266,20 +315,25 @@
 			width: var(--art-image-size);
 			height: var(--art-image-size);
 			overflow: hidden;
+			opacity: 0;
+			filter: blur(8px);
+			transform: translate(-50%, calc(-50% + 24px)) scale(0.92);
+			animation: not-found-image-reveal var(--not-found-art-reveal-duration)
+				var(--not-found-reveal-ease) var(--not-found-art-reveal-delay) forwards;
 
 			img {
 				position: absolute;
 				top: 50%;
 				left: 50%;
-				max-width: 100%;
-				max-height: 100%;
+				width: 100%;
+				height: 100%;
 				transform: translate(-50%, -50%) scale(1.025);
 				opacity: 0;
 				filter: blur(3px);
 				transition:
-					opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
-					filter 700ms cubic-bezier(0.22, 1, 0.36, 1),
-					transform 900ms cubic-bezier(0.22, 1, 0.36, 1);
+					opacity 80ms linear,
+					filter 80ms linear,
+					transform 100ms linear;
 			}
 
 			img.active {
@@ -291,25 +345,26 @@
 
 		&__progress {
 			position: absolute;
-			top: 83.56%;
+			top: 86.5%;
 			left: 50%;
 			transform: translate(-50%, -50%);
 			font-size: 18px;
 			line-height: 1;
 			opacity: 0;
 			filter: blur(8px);
-			animation: not-found-progress-reveal 680ms var(--not-found-reveal-ease) 280ms forwards;
+			animation: not-found-progress-reveal var(--not-found-progress-reveal-duration)
+				var(--not-found-reveal-ease) var(--not-found-progress-reveal-delay) forwards;
 		}
 
 		p {
 			position: absolute;
 			right: 20px;
-			bottom: 39px;
+			bottom: 40px;
 			left: 20px;
 			margin: 0;
 			color: #a8aebc;
 			font-size: 15.623px;
-			line-height: 1.35;
+			line-height: 100%;
 			text-align: center;
 
 			.text-line {
@@ -328,7 +383,7 @@
 
 	@media (max-width: 767px) {
 		.not-found-preloader {
-			--art-image-size: min(98px, 21.21vw);
+			--art-image-size: 98px;
 			--inner-ring-size: min(271.616px, 58.79vw);
 			--outer-ring-size: min(423.003px, 91.56vw);
 			--inner-ring-rotation: -90deg;
@@ -358,7 +413,7 @@
 			}
 
 			&__progress {
-				top: 82.8%;
+				top: 79.5%;
 			}
 
 			p {
@@ -368,7 +423,7 @@
 		}
 	}
 
-	@media (max-width: 420px) {
+	@media (max-width: 438px) {
 		.not-found-preloader p {
 			right: 12px;
 			left: 12px;
@@ -392,6 +447,7 @@
 
 			&__mobile-header,
 			&__art,
+			&__frames,
 			&__progress {
 				opacity: 1;
 				filter: none;
@@ -405,6 +461,15 @@
 
 			&__progress {
 				transform: translate(-50%, -50%);
+			}
+
+			&__frames {
+				transform: translate(-50%, -50%);
+			}
+
+			&__ring-line {
+				opacity: 0.5;
+				animation: none;
 			}
 
 			&__ring--outer {
@@ -430,9 +495,17 @@
 		}
 	}
 
-	@keyframes not-found-art-reveal {
+	@keyframes not-found-ring-line-reveal {
+		to {
+			opacity: 0.5;
+		}
+	}
+
+	@keyframes not-found-image-reveal {
 		to {
 			opacity: 1;
+			filter: blur(0);
+			transform: translate(-50%, -50%) scale(1);
 		}
 	}
 

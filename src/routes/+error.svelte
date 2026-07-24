@@ -21,12 +21,14 @@
 
 	let scene = $state<NotFoundSketch | null>(null);
 	let ready = $state(false);
+	let preloaderDismissed = $state(false);
 	let loadingProgress = $state(0);
 	let prewarming = $state(false);
 	let transitionController: AbortController | null = null;
 
+	const uiReady = $derived(ready && preloaderDismissed);
 	const idleAndStill = $derived(
-		voidHeroState.phase === 'idle' && !voidHeroState.transitioning
+		uiReady && voidHeroState.phase === 'idle' && !voidHeroState.transitioning
 	);
 
 	onMount(() => {
@@ -85,6 +87,7 @@
 		});
 
 		const handleStartKey = (event: KeyboardEvent) => {
+			if (!uiReady) return;
 			if (
 				event.key.toLowerCase() === 'm' &&
 				!event.repeat &&
@@ -219,6 +222,10 @@
 	function handleMuteToggle() {
 		scene?.toggleMusicMute();
 	}
+
+	function handlePreloaderDismissed() {
+		preloaderDismissed = true;
+	}
 </script>
 
 <svelte:head>
@@ -237,33 +244,35 @@
 	<link rel="preload" href="/draco/draco_decoder.wasm" as="fetch" crossorigin="anonymous" />
 </svelte:head>
 
-<a href="/" class="error-logo" onclick={handleGoHome}>
+<a href="/" class="error-logo" class:ready={uiReady} onclick={handleGoHome}>
 	<img src="/icons/logo.svg" alt="daoism systems logo" height="48" />
 </a>
 
-<ScrollIndicator
-	sectionLabels={[
-		'404',
-		'404',
-		'Still 404',
-		'And here too',
-		'...',
-		'404',
-		'404',
-		"You won't believe it..."
-	]}
-/>
+<div class="error-scroll-indicator" class:ready={uiReady}>
+	<ScrollIndicator
+		sectionLabels={[
+			'404',
+			'404',
+			'Still 404',
+			'And here too',
+			'...',
+			'404',
+			'404',
+			"You won't believe it..."
+		]}
+	/>
+</div>
 
 <HeroHeading
 	phase={voidHeroState.phase}
 	score={voidHeroState.runHud.score}
-	{ready}
+	ready={uiReady}
 	preparing={prewarming}
 />
 
 <div
 	class="error-cta-text"
-	class:ready
+	class:ready={uiReady}
 	class:transitioning={voidHeroState.transitioning}
 	class:playing={voidHeroState.phase !== 'idle'}
 >
@@ -273,7 +282,7 @@
 
 <button
 	class="error-cta-btn hotspot"
-	class:ready
+	class:ready={uiReady}
 	class:transitioning={voidHeroState.transitioning}
 	class:playing={voidHeroState.phase !== 'idle'}
 	onclick={handleGoHome}
@@ -285,7 +294,7 @@
 <KonamiHint enabled={idleAndStill} />
 <IdleHint enabled={idleAndStill} onPlay={handlePrepare} />
 
-{#if !voidHeroState.transitioning}
+{#if uiReady && !voidHeroState.transitioning}
 	<GameActionCta
 		phase={voidHeroState.phase}
 		onStart={handleStart}
@@ -294,7 +303,7 @@
 	/>
 {/if}
 
-{#if !voidHeroState.transitioning}
+{#if uiReady && !voidHeroState.transitioning}
 	<GameModal
 		phase={voidHeroState.phase}
 		music={voidHeroState.music}
@@ -307,7 +316,7 @@
 	/>
 {/if}
 
-{#if voidHeroState.phase !== 'idle' && !voidHeroState.transitioning}
+{#if uiReady && voidHeroState.phase !== 'idle' && !voidHeroState.transitioning}
 	<GameHud
 		runHud={voidHeroState.runHud}
 		music={voidHeroState.music}
@@ -317,11 +326,14 @@
 	/>
 {/if}
 
-{#if voidHeroState.phase === 'ended' && voidHeroState.lastRunHud && !voidHeroState.transitioning}
+{#if uiReady &&
+	voidHeroState.phase === 'ended' &&
+	voidHeroState.lastRunHud &&
+	!voidHeroState.transitioning}
 	<GameResults lastRunHud={voidHeroState.lastRunHud} />
 {/if}
 
-{#if voidHeroState.phase === 'playing'}
+{#if uiReady && voidHeroState.phase === 'playing'}
 	<GameExit active={voidHeroState.runHud.active} onLose={handleLose} />
 	<ComboPopupLayer
 		popups={voidHeroState.popups}
@@ -332,7 +344,7 @@
 
 <div
 	class="error-page"
-	class:ready
+	class:ready={uiReady}
 	class:transitioning={voidHeroState.transitioning}
 	class:playing={voidHeroState.phase !== 'idle'}
 	class:ended={voidHeroState.phase === 'ended'}
@@ -353,7 +365,7 @@
 	</p>
 </div>
 
-<NotFoundPreloader progress={loadingProgress} {ready} />
+<NotFoundPreloader progress={loadingProgress} {ready} onDismissed={handlePreloaderDismissed} />
 
 <style lang="scss">
 	@use '$lib/styles/variables' as *;
@@ -393,6 +405,10 @@
 
 		&.ready {
 			opacity: 1;
+
+			> * {
+				pointer-events: all;
+			}
 		}
 
 		&.transitioning {
@@ -408,7 +424,7 @@
 		}
 
 		> * {
-			pointer-events: all;
+			pointer-events: none;
 		}
 	}
 
@@ -426,6 +442,14 @@
 		width: 7rem;
 		display: flex;
 		align-items: center;
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.8s ease-out;
+
+		&.ready {
+			opacity: 1;
+			pointer-events: auto;
+		}
 
 		img {
 			width: 100%;
@@ -435,6 +459,17 @@
 		@include breakpoint(phone) {
 			width: 6.2rem;
 			padding: 1rem $offset-x-phone;
+		}
+	}
+
+	.error-scroll-indicator {
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.8s ease-out;
+
+		&.ready {
+			opacity: 1;
+			pointer-events: auto;
 		}
 	}
 
@@ -484,6 +519,7 @@
 		border-radius: 50%;
 		background: rgb(0 0 0 / 50%);
 		opacity: 0;
+		pointer-events: none;
 		transition:
 			opacity 0.8s ease-out,
 			transform 0.25s ease;
@@ -512,6 +548,7 @@
 
 		&.ready {
 			opacity: 1;
+			pointer-events: auto;
 		}
 
 		&.transitioning {
