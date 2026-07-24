@@ -1,30 +1,25 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { EASINGS } from '$lib/utils/animations/constants/easings';
-	import { headingReveal } from '$lib/utils/animations/headingReveal';
 
 	const frames = Array.from(
 		{ length: 9 },
-		(_, index) => `/images/404-preloader/frame-${String(index + 1).padStart(2, '0')}.png`
+		(_, index) => `/images/404-preloader/frame-${String(index + 1).padStart(2, '0')}.jpg`
 	);
-	const phrase = 'Do nothing, and the brutalist mass will settle.';
+	const phraseLines = ['Do nothing, and the', 'brutalist mass will settle.'];
 	const minimumVisibleDuration = 4000;
 	const frameInterval = 1000 / 3;
 	const progressPerSecond = 30;
-	const dominoOverlap = 50;
+	const uiRevealDuration = 720;
 	const artRevealDelay = 120;
-	const artRevealDuration = 720;
-	const progressRevealDelay = artRevealDelay + artRevealDuration / 4;
-	const progressRevealDuration = 560;
-	const phraseRevealDelay = progressRevealDelay + progressRevealDuration / 100;
-	const phraseRevealDuration = 0.42;
-	const phraseRevealStagger = 0.006;
-	const frameCycleDelay = artRevealDelay + artRevealDuration;
+	const progressRevealDelay = artRevealDelay + uiRevealDuration / 4;
+	const phraseRevealDelay = progressRevealDelay + uiRevealDuration / 100;
+	const frameCycleDelay = artRevealDelay + uiRevealDuration;
 	const entranceDuration = 2000;
 	const artRevealDelayCss = `${artRevealDelay}ms`;
-	const artRevealDurationCss = `${artRevealDuration}ms`;
 	const progressRevealDelayCss = `${progressRevealDelay}ms`;
-	const progressRevealDurationCss = `${progressRevealDuration}ms`;
+	const phraseRevealDelayCss = `${phraseRevealDelay}ms`;
+	const uiRevealDurationCss = `${uiRevealDuration}ms`;
 
 	let {
 		progress = 0,
@@ -32,7 +27,6 @@
 		onDismissed
 	}: { progress?: number; ready?: boolean; onDismissed?: () => void } = $props();
 	let frameIndex = $state(0);
-	let phraseRevealReady = $state(false);
 	let entranceComplete = $state(false);
 	let minimumDurationElapsed = $state(false);
 	let displayedProgress = $state(0);
@@ -40,21 +34,12 @@
 	let canDismiss = $derived(
 		ready && minimumDurationElapsed && entranceComplete && displayedProgress === 100
 	);
-	let phraseRevealOptions = $derived({
-		trigger: phraseRevealReady,
-		duration: phraseRevealDuration,
-		stagger: phraseRevealStagger
-	});
 
 	onMount(() => {
 		const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 		let animatedProgress = 0;
 		let previousFrameTime = performance.now();
 		let progressAnimationFrame = 0;
-		const phraseTimer = window.setTimeout(
-			() => (phraseRevealReady = true),
-			reducedMotion ? 0 : phraseRevealDelay
-		);
 		const entranceTimer = window.setTimeout(
 			() => (entranceComplete = true),
 			reducedMotion ? 0 : entranceDuration
@@ -90,7 +75,6 @@
 		progressAnimationFrame = window.requestAnimationFrame(animateProgress);
 
 		return () => {
-			window.clearTimeout(phraseTimer);
 			window.clearTimeout(entranceTimer);
 			window.clearTimeout(minimumDurationTimer);
 			if (frameTimer !== undefined) window.clearTimeout(frameTimer);
@@ -118,10 +102,11 @@
 	class:not-found-preloader--entering={!entranceComplete}
 	class:not-found-preloader--complete={canDismiss}
 	style:--not-found-reveal-ease={EASINGS.EASE_CUSTOM_REVEAL}
+	style:--not-found-ui-reveal-ease={EASINGS.EASE_SINE_INOUT}
+	style:--not-found-ui-reveal-duration={uiRevealDurationCss}
 	style:--not-found-art-reveal-delay={artRevealDelayCss}
-	style:--not-found-art-reveal-duration={artRevealDurationCss}
 	style:--not-found-progress-reveal-delay={progressRevealDelayCss}
-	style:--not-found-progress-reveal-duration={progressRevealDurationCss}
+	style:--not-found-phrase-reveal-delay={phraseRevealDelayCss}
 	role="status"
 	aria-live="polite"
 	aria-label={`Loading the 404 experience: ${displayedProgress}%`}
@@ -205,12 +190,10 @@
 	</div>
 
 	<span class="not-found-preloader__progress">{displayedProgress}%</span>
-	<p
-		class="not-found-preloader__phrase"
-		class:not-found-preloader__phrase--ready={phraseRevealReady}
-		use:headingReveal={phraseRevealOptions}
-	>
-		<span class="text-line">{phrase}</span>
+	<p class="not-found-preloader__phrase">
+		{#each phraseLines as line, index}
+			<span class="text-line">{line}</span>{#if index < phraseLines.length - 1}{' '}{/if}
+		{/each}
 	</p>
 </div>
 
@@ -220,6 +203,7 @@
 		--inner-ring-size: 360.332px;
 		--outer-ring-size: 561.166px;
 		--inner-ring-rotation: -30deg;
+		--art-reveal-offset: 48px;
 
 		position: fixed;
 		inset: 0;
@@ -237,17 +221,14 @@
 			opacity 500ms cubic-bezier(0.22, 1, 0.36, 1),
 			visibility 0s linear;
 
-		&--entering &__mobile-header,
-		&--entering &__progress {
+		&--entering &__mobile-header {
 			will-change: opacity, transform, filter;
 		}
 
-		&--entering &__ring-line {
-			will-change: opacity;
-		}
-
-		&--entering &__frames {
-			will-change: opacity, transform, filter;
+		&--entering &__art,
+		&--entering &__progress,
+		&--entering &__phrase {
+			will-change: clip-path, transform;
 		}
 
 		&--complete {
@@ -270,15 +251,20 @@
 			position: absolute;
 			top: 50%;
 			left: 50%;
-			width: 0;
-			height: 0;
+			width: var(--outer-ring-size);
+			height: var(--outer-ring-size);
+			clip-path: inset(100% 0 0);
+			transform: translate(-50%, calc(-50% + var(--art-reveal-offset)));
+			animation: not-found-ui-reveal var(--not-found-ui-reveal-duration)
+				var(--not-found-ui-reveal-ease) var(--not-found-art-reveal-delay) forwards;
+			--not-found-ui-rest-transform: translate(-50%, -50%);
 		}
 
 		&__ring,
 		&__frames {
 			position: absolute;
-			top: 0;
-			left: 0;
+			top: 50%;
+			left: 50%;
 			transform: translate(-50%, -50%);
 		}
 
@@ -289,9 +275,7 @@
 			will-change: transform;
 
 			&-line {
-				opacity: 0;
-				animation: not-found-ring-line-reveal var(--not-found-art-reveal-duration)
-					var(--not-found-reveal-ease) var(--not-found-art-reveal-delay) forwards;
+				opacity: 0.5;
 			}
 
 			&--outer {
@@ -315,11 +299,6 @@
 			width: var(--art-image-size);
 			height: var(--art-image-size);
 			overflow: hidden;
-			opacity: 0;
-			filter: blur(8px);
-			transform: translate(-50%, calc(-50% + 24px)) scale(0.92);
-			animation: not-found-image-reveal var(--not-found-art-reveal-duration)
-				var(--not-found-reveal-ease) var(--not-found-art-reveal-delay) forwards;
 
 			img {
 				position: absolute;
@@ -347,13 +326,13 @@
 			position: absolute;
 			top: 86.5%;
 			left: 50%;
-			transform: translate(-50%, -50%);
+			clip-path: inset(100% 0 0);
+			transform: translate(-50%, calc(-50% + var(--art-reveal-offset)));
 			font-size: 18px;
 			line-height: 1;
-			opacity: 0;
-			filter: blur(8px);
-			animation: not-found-progress-reveal var(--not-found-progress-reveal-duration)
-				var(--not-found-reveal-ease) var(--not-found-progress-reveal-delay) forwards;
+			animation: not-found-ui-reveal var(--not-found-ui-reveal-duration)
+				var(--not-found-ui-reveal-ease) var(--not-found-progress-reveal-delay) forwards;
+			--not-found-ui-rest-transform: translate(-50%, -50%);
 		}
 
 		p {
@@ -368,16 +347,16 @@
 			text-align: center;
 
 			.text-line {
-				display: block;
+				display: inline;
 			}
 		}
 
 		&__phrase {
-			opacity: 0;
-
-			&--ready {
-				opacity: 1;
-			}
+			clip-path: inset(100% 0 0);
+			transform: translateY(var(--art-reveal-offset));
+			animation: not-found-ui-reveal var(--not-found-ui-reveal-duration)
+				var(--not-found-ui-reveal-ease) var(--not-found-phrase-reveal-delay) forwards;
+			--not-found-ui-rest-transform: translateY(0);
 		}
 	}
 
@@ -419,6 +398,11 @@
 			p {
 				bottom: 40px;
 				font-size: 14px;
+				line-height: 160%;
+
+				.text-line {
+					display: block;
+				}
 			}
 		}
 	}
@@ -448,19 +432,30 @@
 			&__mobile-header,
 			&__art,
 			&__frames,
-			&__progress {
+			&__progress,
+			&__phrase {
 				opacity: 1;
 				filter: none;
 				animation: none;
 			}
 
-			&__mobile-header,
 			&__art {
+				clip-path: none;
+				transform: translate(-50%, -50%);
+			}
+
+			&__mobile-header {
 				transform: none;
 			}
 
 			&__progress {
+				clip-path: none;
 				transform: translate(-50%, -50%);
+			}
+
+			&__phrase {
+				clip-path: none;
+				transform: none;
 			}
 
 			&__frames {
@@ -495,25 +490,10 @@
 		}
 	}
 
-	@keyframes not-found-ring-line-reveal {
+	@keyframes not-found-ui-reveal {
 		to {
-			opacity: 0.5;
-		}
-	}
-
-	@keyframes not-found-image-reveal {
-		to {
-			opacity: 1;
-			filter: blur(0);
-			transform: translate(-50%, -50%) scale(1);
-		}
-	}
-
-	@keyframes not-found-progress-reveal {
-		to {
-			opacity: 1;
-			filter: blur(0);
-			transform: translate(-50%, -50%);
+			clip-path: inset(0);
+			transform: var(--not-found-ui-rest-transform);
 		}
 	}
 

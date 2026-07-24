@@ -413,8 +413,8 @@ class NotFoundSketch {
 	private secretButtonForwardNormal = new THREE.Vector3(0, 0, 1);
 	private secretButtonHovered = false;
 	private secretButtonPulseTime = 0;
-	private secretButtonPlateOpacity = uniform(0.01);
-	private secretButtonRimOpacity = uniform(0.01);
+	private secretButtonPlateOpacity = uniform(0);
+	private secretButtonRimOpacity = uniform(0);
 	private secretButtonPlateGlow = uniform(0.35);
 	private secretButtonRimGlow = uniform(0.65);
 	private readonly secretButtonTargets = [
@@ -1542,8 +1542,8 @@ class NotFoundSketch {
 		this.secretButtonHovered = hovered;
 		if (!this.secretButtonGroup) return;
 
-		this.secretButtonPlateOpacity.value = hovered ? 0.72 : 0.1;
-		this.secretButtonRimOpacity.value = hovered ? 0.95 : 0.16;
+		this.secretButtonPlateOpacity.value = hovered ? 0.72 : 0;
+		this.secretButtonRimOpacity.value = hovered ? 0.95 : 0;
 		this.secretButtonPlateGlow.value = hovered ? 3.2 : 0.35;
 		this.secretButtonRimGlow.value = hovered ? 6 : 0.65;
 		const baseScale = this.secretButtonGroup.userData.baseScale ?? 1;
