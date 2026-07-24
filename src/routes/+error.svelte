@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { fade } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import type NotFoundSketch from './404';
 	import { showPreloader } from '$lib/store.svelte';
 	import { runHomeTransition } from '$lib/transitions/runHomeTransition';
+	import NotFoundPreloader from '$lib/components/NotFoundPreloader.svelte';
 	import ScrollIndicator from '$lib/components/ScrollIndicator.svelte';
 	import { begin, dispatch, end, prepare, removePopup, restoreView, setTransitioning, voidHeroState } from '$lib/voidhero/voidHeroStore.svelte';
 	import { konami } from '$lib/voidhero/konami.svelte';
@@ -21,6 +21,7 @@
 
 	let scene = $state<NotFoundSketch | null>(null);
 	let ready = $state(false);
+	let loadingProgress = $state(0);
 	let prewarming = $state(false);
 	let transitionController: AbortController | null = null;
 
@@ -39,6 +40,10 @@
 
 		const events = new SceneEventBus();
 		const unsubscribe = events.subscribe((event) => {
+			if (event.kind === 'loading') {
+				loadingProgress = event.progress;
+				return;
+			}
 			if (event.kind === 'ready') {
 				ready = true;
 				return;
@@ -348,11 +353,7 @@
 	</p>
 </div>
 
-{#if !ready}
-	<div class="page-loader" out:fade={{ duration: 500 }} aria-hidden="true">
-		<span class="page-loader__spinner"></span>
-	</div>
-{/if}
+<NotFoundPreloader progress={loadingProgress} {ready} />
 
 <style lang="scss">
 	@use '$lib/styles/variables' as *;
@@ -639,30 +640,4 @@
 		}
 	}
 
-	.page-loader {
-		position: fixed;
-		inset: 0;
-		z-index: 100;
-		background: var(--bg-primary, #20242d);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		pointer-events: none;
-	}
-
-	.page-loader__spinner {
-		display: block;
-		width: 4rem;
-		height: 4rem;
-		border-radius: 50%;
-		border: 0.25rem solid rgba(255, 255, 255, 0.18);
-		border-top-color: #fff;
-		animation: page-loader-spin 0.85s linear infinite;
-	}
-
-	@keyframes page-loader-spin {
-		to {
-			transform: rotate(360deg);
-		}
-	}
 </style>

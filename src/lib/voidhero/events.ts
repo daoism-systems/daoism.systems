@@ -9,6 +9,7 @@ export interface ScreenPopup {
 
 export type SceneEvent =
 	| { kind: 'ready' }
+	| { kind: 'loading'; progress: number }
 	| { kind: 'runHud'; state: RunHudState }
 	| { kind: 'music'; state: MusicState }
 	| { kind: 'popup'; popup: ScreenPopup }

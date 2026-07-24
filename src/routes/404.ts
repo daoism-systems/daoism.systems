@@ -384,6 +384,7 @@ class NotFoundSketch {
 		typeof window !== 'undefined' &&
 		new URL(window.location.href).searchParams.get('perf') === '1';
 	private perfLastMark: string | null = null;
+	private loadingProgress = 0;
 	private clock = new THREE.Clock();
 	private game: VoidHeroGame | null = null;
 	private pendingGameStart = false;
@@ -585,6 +586,7 @@ class NotFoundSketch {
 	}
 
 	private async init(): Promise<void> {
+		this.publishLoadingProgress(1);
 		this.perfMark('init');
 		this.nfRenderer = new NotFoundRenderer();
 		await this.nfRenderer.init();
@@ -592,6 +594,7 @@ class NotFoundSketch {
 			this.nfRenderer.dispose();
 			return;
 		}
+		this.publishLoadingProgress(10);
 		this.perfMark('rendererInit');
 
 		this.scene = new THREE.Scene();
@@ -658,6 +661,7 @@ class NotFoundSketch {
 		await this.loadModel();
 		if (this.destroyed) return;
 		this.modelReady = true;
+		this.publishLoadingProgress(70);
 		this.perfMark('loadModel');
 
 		// Initialize fluid simulation (desktop only)
@@ -693,6 +697,7 @@ class NotFoundSketch {
 			volumetricPassResolutionScale: NOT_FOUND_SCENE_SETTINGS.volumetricPassResolutionScale,
 			fogScatterResolutionScale: NOT_FOUND_SCENE_SETTINGS.fogScatterResolutionScale
 		});
+		this.publishLoadingProgress(80);
 		this.perfMark('postSetup');
 
 		if (this.debugEnabled) {
@@ -725,6 +730,7 @@ class NotFoundSketch {
 		// artifacts, so this must stay ahead of the first presented frame.
 		await this.warmupScene();
 		if (this.destroyed) return;
+		this.publishLoadingProgress(99);
 
 		if (this.pendingGameStart) {
 			this.startGame();
@@ -735,6 +741,7 @@ class NotFoundSketch {
 		this.startReveal();
 		this.addEventListeners();
 		this.animate();
+		this.publishLoadingProgress(100);
 		this.options.events.emit({ kind: 'ready' });
 		this.perfMark('ready');
 		performance.measure('404:totalToReady', '404:init', '404:ready');
@@ -747,6 +754,13 @@ class NotFoundSketch {
 		this.currentFov = this.minRevealFov;
 		this.camera.fov = this.minRevealFov;
 		this.camera.updateProjectionMatrix();
+	}
+
+	private publishLoadingProgress(progress: number): void {
+		const nextProgress = Math.max(0, Math.min(100, progress));
+		if (nextProgress <= this.loadingProgress) return;
+		this.loadingProgress = nextProgress;
+		this.options.events.emit({ kind: 'loading', progress: nextProgress });
 	}
 
 	private async loadModel(): Promise<void> {
@@ -764,7 +778,10 @@ class NotFoundSketch {
 		// Don't let it surface as an unhandled rejection if the scene is destroyed first.
 		basecolorPromise.catch(() => {});
 
-		const gltf = await gltfLoader.loadAsync('/models/404.glb');
+		const gltf = await gltfLoader.loadAsync('/models/404.glb', (event) => {
+			if (event.total <= 0) return;
+			this.publishLoadingProgress(10 + Math.min(1, event.loaded / event.total) * 35);
+		});
 		if (this.destroyed) {
 			dracoLoader.dispose();
 			return;
@@ -772,6 +789,7 @@ class NotFoundSketch {
 
 		this.gltfScene = gltf.scene;
 		this.scene.add(gltf.scene);
+		this.publishLoadingProgress(48);
 
 		// Extract camera (prefer RS_Camera)
 		this.extractCamera(gltf);
@@ -797,6 +815,7 @@ class NotFoundSketch {
 			dracoLoader.dispose();
 			return;
 		}
+		this.publishLoadingProgress(53);
 
 		// Load PBR textures for cubes (download started in parallel above)
 		this.basecolorTexture = await basecolorPromise;
@@ -807,6 +826,7 @@ class NotFoundSketch {
 		this.basecolorTexture.colorSpace = THREE.SRGBColorSpace;
 		this.basecolorTexture.wrapS = THREE.RepeatWrapping;
 		this.basecolorTexture.wrapT = THREE.RepeatWrapping;
+		this.publishLoadingProgress(58);
 
 		// Combo lightning VFX masks — grayscale, sampled linearly (.r) as additive
 		// masks. Losslessly converted from the original TGAs to WebP (~6x smaller,
@@ -830,6 +850,7 @@ class NotFoundSketch {
 		this.comboBoltTexture = comboBolt;
 		this.comboBoltAltTexture = comboBoltAlt;
 		this.comboImpactTexture = comboImpact;
+		this.publishLoadingProgress(65);
 
 		// Apply materials to cubes and other meshes
 		this.applyModelMaterials(gltf.scene);
@@ -1884,8 +1905,10 @@ class NotFoundSketch {
 
 	private async warmupScene(): Promise<void> {
 		this.fluidEffect?.warmup();
+		this.publishLoadingProgress(82);
 		this.perfMark('fluidWarmup');
 		await this.nfRenderer.precompileAsync(this.scene, this.camera);
+		this.publishLoadingProgress(92);
 		this.perfMark('precompile');
 
 		// Render the warmup frames with the game scene visible (when it exists — only
@@ -1901,6 +1924,7 @@ class NotFoundSketch {
 				this.fluidEffect?.step(delta);
 				this.nfRenderer.render();
 				await this.waitForNextFrame();
+				this.publishLoadingProgress(92 + ((i + 1) / frameCount) * 7);
 			}
 		} finally {
 			this.game?.setPrewarmVisible(false);
