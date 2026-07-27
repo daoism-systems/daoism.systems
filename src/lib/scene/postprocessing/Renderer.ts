@@ -588,7 +588,7 @@ export class Renderer implements Inspectable, PostProcessingGraphHost {
 	private createWebGPURenderer(canvas?: HTMLCanvasElement): WebGPURenderer {
 		return new WebGPURenderer({
 			...(canvas ? { canvas } : {}),
-			antialias: this.isMobile,
+			antialias: false,
 			forceWebGL: this.forceWebGLFallback
 		});
 	}

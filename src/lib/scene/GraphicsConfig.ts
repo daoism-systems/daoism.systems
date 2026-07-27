@@ -57,8 +57,10 @@ function applyMobileCaps(options: GraphicsOptions): GraphicsOptions {
 		...options,
 		// Flagship phones render at native resolution (they also skip the DPR cap
 		// — see getMaxDevicePixelRatio — and land on the 'high' tier, so no tier
-		// clamp re-caps this). Everything else keeps the desktop caps, which the
-		// DPR cap of 1 undercuts anyway.
+		// clamp re-caps this). The memory-constrained subset of that group is held
+		// back by the DPR cap rather than here, so this stays uncapped for them
+		// too. Everything else keeps the desktop caps, which the DPR cap of 1
+		// undercuts anyway.
 		maxResolution: detectHighEndMob()
 			? { width: Infinity, height: Infinity }
 			: {

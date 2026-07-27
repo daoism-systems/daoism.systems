@@ -57,6 +57,35 @@ export function detectHighEndMob(): boolean {
 	return (navigator.hardwareConcurrency ?? 0) >= 8 && dpr >= 2.5;
 }
 
+/**
+ * Flagship-density phone that nonetheless runs a small RAM budget — the iPhone
+ * X through 13 class (3–4 GB, occasionally 6). These share one WKWebView
+ * content-process memory limit with the rest of the browser, and native 3x
+ * pushes every framebuffer 2.25x past what that limit tolerates: the process is
+ * jetsam-killed at the preloader -> scene handoff, which the browser surfaces as
+ * "Can't open this page".
+ *
+ * Panel size is the only proxy available here. WebKit does not implement
+ * navigator.deviceMemory, and every iPhone since the X reports DPR 3, so
+ * detectHighEndMob's density check cannot separate a 13 mini from a 16 Pro Max.
+ * Short edge <= 390 covers the 375-wide (X / XS / 11 Pro / 12 mini / 13 mini)
+ * and 390-wide (12 / 13 / 14) classes while leaving the 393-wide-and-up models
+ * (14 Pro and later, 6–8 GB) on the uncapped path.
+ *
+ * Android is excluded deliberately: it exposes deviceMemory, so detectHighEndMob
+ * already gates those on a real >= 8 GB reading.
+ *
+ * Measured against `screen`, not innerWidth, so browser chrome, the URL bar, or
+ * a rotation can't reclassify the device mid-session.
+ */
+export function detectMemoryConstrainedMob(): boolean {
+	if (typeof navigator === 'undefined' || typeof window === 'undefined') return false;
+	if (!/iPhone|iPod/i.test(navigator.userAgent)) return false;
+
+	const { width, height } = window.screen;
+	return Math.min(width, height) <= 390;
+}
+
 export function detectSafari(): boolean {
 	if (typeof navigator === 'undefined') return false;
 

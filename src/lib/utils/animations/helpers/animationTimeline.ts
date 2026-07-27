@@ -32,6 +32,15 @@ export interface AnimationTimelineOptions {
 	onReverseComplete?: () => void;
 }
 
+// Longest elapsed time a single rAF tick may advance the playhead. Without this,
+// a main-thread stall (shader compile, asset decode, a browser energy-saver
+// throttle) hands the next tick a multi-hundred-millisecond delta and the
+// timeline teleports past its whole duration in one frame — targets snap to
+// their end state and every addCallback fires at once instead of animating.
+// Playback then runs slow-motion through a stall rather than skipping it, which
+// is the right trade for reveal animations: the motion is the point.
+const MAX_FRAME_DELTA_MS = 50;
+
 export class AnimationTimeline {
 	private entries: TimelineEntry[] = [];
 	private callbacks: CallbackEntry[] = [];
@@ -220,7 +229,11 @@ export class AnimationTimeline {
 				return;
 			}
 
-			const delta = (now - this._lastTimestamp) * this._playbackRate;
+			// rAF timestamps mark the start of the frame's rendering, which can predate
+			// the performance.now() captured in play()/reverse() — clamp the low end too
+			// so a negative first delta can't walk the playhead backwards.
+			const elapsed = Math.min(Math.max(now - this._lastTimestamp, 0), MAX_FRAME_DELTA_MS);
+			const delta = elapsed * this._playbackRate;
 			this._lastTimestamp = now;
 
 			if (this._reversed) {
