@@ -1,7 +1,8 @@
 import {
 	advanceProgress,
 	getProgressTarget,
-	MAX_PROGRESS_FRAME_DELTA_MS
+	MAX_PROGRESS_FRAME_DELTA_MS,
+	MAX_PENDING_PROGRESS
 } from '$lib/utils/animations/progress';
 
 // Renderer for the preloader background grid. Context-agnostic: the target canvas may be an
@@ -521,7 +522,7 @@ export function createBackgroundPatternEngine(options: EngineOptions): Backgroun
 
 		displayedProgress = advanceProgress(
 			displayedProgress,
-			getProgressTarget(targetProgress, targetProgress >= 100),
+			getProgressTarget(MAX_PENDING_PROGRESS, targetProgress >= 100),
 			deltaMs
 		);
 
