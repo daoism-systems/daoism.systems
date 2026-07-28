@@ -25,7 +25,7 @@
 	const siteName = 'Daoism Systems — Web3 & AI Engineering Studio';
 	const defaultDescription =
 		'Daoism Systems designs and develops DAOs, DeFi protocols, AI-powered systems, and resilient on-chain infrastructure.';
-	const socialImage = `${siteUrl}/og-daoism.png`;
+	const socialImage = `${siteUrl}/og-daoism.jpg`;
 	const canonicalUrl = $derived(new URL(page.url.pathname, siteUrl).toString());
 	const robotsContent = $derived(
 		page.status >= 400 || page.url.pathname.startsWith('/_octagon')

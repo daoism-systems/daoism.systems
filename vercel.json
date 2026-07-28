@@ -20,7 +20,7 @@
 			]
 		},
 		{
-			"source": "/(favicon.svg|og-daoism.png)",
+			"source": "/(favicon.svg|og-daoism.jpg)",
 			"headers": [
 				{
 					"key": "Cache-Control",
