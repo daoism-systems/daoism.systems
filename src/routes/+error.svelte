@@ -245,7 +245,7 @@
 </svelte:head>
 
 <a href="/" class="error-logo" class:ready={uiReady} onclick={handleGoHome}>
-	<img src="/icons/logo.svg" alt="daoism systems logo" height="48" />
+	<img src="/icons/logo.svg" alt="Daoism Systems" width="136" height="48" />
 </a>
 
 <div class="error-scroll-indicator" class:ready={uiReady}>

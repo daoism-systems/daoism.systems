@@ -254,7 +254,13 @@
 		<div class="card__icon">
 			<div class="card__icon-reveal">
 				<div class="card__icon-inner">
-					<img src={icon} alt={`partner icon ${id}`} style:--icon-scale={iconScale} />
+					<img
+						src={icon}
+						alt={`${title} logo`}
+						loading="lazy"
+						decoding="async"
+						style:--icon-scale={iconScale}
+					/>
 				</div>
 			</div>
 		</div>

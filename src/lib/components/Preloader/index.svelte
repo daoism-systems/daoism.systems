@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { Howler } from 'howler';
 	import { EASINGS } from '$lib/utils/animations/constants/easings';
 	import { headingReveal } from '$lib/utils/animations/headingReveal';
@@ -37,6 +37,7 @@
 		backgroundTransitionComplete && $warmupComplete && $loadingProgress >= 100
 	);
 	let shouldPlaySequence = $derived(isPreloaderReady && waitingMessageSequenceComplete);
+	let preloaderShell = $state<HTMLDivElement>();
 
 	const preloaderMotionEase = EASINGS.EASE_CUSTOM_REVEAL;
 	const preloaderExitEase = EASINGS.EASE_POWER1_INOUT;
@@ -80,6 +81,14 @@
 		waitingMessageIndex = 0;
 		waitingMessagePhase = 'revealing';
 		waitingMessageSequenceComplete = false;
+	});
+
+	$effect(() => {
+		if (!shouldPlaySequence || !preloaderShell) return;
+		const shell = preloaderShell;
+		void tick().then(() => {
+			shell.querySelector<HTMLButtonElement>('button')?.focus();
+		});
 	});
 
 	onMount(() => {
@@ -137,7 +146,11 @@
 {#if $showPreloader}
 	<div
 		class="preloader-shell fixed inset-0 z-100 overflow-hidden bg-black"
+		bind:this={preloaderShell}
 		class:preloader-shell--exit={isExiting}
+		role="dialog"
+		aria-modal="true"
+		aria-label="Loading Daoism Systems"
 		style:--preloader-btn-ease={preloaderMotionEase}
 		style:--preloader-exit-ease={preloaderExitEase}
 		style:--preloader-with-sound-stagger="0.1s"

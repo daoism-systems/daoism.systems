@@ -23,14 +23,24 @@
 		onTrackChange,
 		onVolumeChange
 	}: Props = $props();
+
+	let dialogEl = $state<HTMLDivElement>();
+
+	$effect(() => {
+		if (phase !== 'ended' || !lastRunHud || !dialogEl) return;
+		const dialog = dialogEl;
+		queueMicrotask(() => dialog.focus());
+	});
 </script>
 
 {#if phase === 'ended' && lastRunHud}
 	<div
 		class="game-modal"
+		bind:this={dialogEl}
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="void-hero-results-modal-title"
+		tabindex="-1"
 		onpointerdown={(e) => e.stopPropagation()}
 		onpointerup={(e) => e.stopPropagation()}
 	>

@@ -212,6 +212,8 @@
 				<div
 					class="team__card-slot"
 					data-card-index={index}
+					role="group"
+					aria-label={vacancy.title}
 					onpointerdown={() => handlePress(index)}
 					onpointerup={handleRelease}
 					onpointercancel={handleRelease}

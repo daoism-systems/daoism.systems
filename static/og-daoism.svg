@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+	<defs>
+		<radialGradient id="glow" cx="50%" cy="45%" r="55%">
+			<stop offset="0" stop-color="#d65450" stop-opacity=".32"/>
+			<stop offset=".48" stop-color="#361919" stop-opacity=".14"/>
+			<stop offset="1" stop-color="#000" stop-opacity="0"/>
+		</radialGradient>
+		<pattern id="grid" width="34" height="34" patternUnits="userSpaceOnUse">
+			<rect x="1" y="1" width="24" height="14" rx="1.5" fill="none" stroke="#ffffff" stroke-opacity=".1"/>
+		</pattern>
+		<filter id="blur">
+			<feGaussianBlur stdDeviation="18"/>
+		</filter>
+	</defs>
+	<rect width="1200" height="630" fill="#030303"/>
+	<rect width="1200" height="630" fill="url(#grid)"/>
+	<rect width="1200" height="630" fill="url(#glow)"/>
+	<circle cx="600" cy="286" r="168" fill="none" stroke="#ffffff" stroke-opacity=".13"/>
+	<circle cx="600" cy="286" r="8" fill="#f3f3f1"/>
+	<circle cx="600" cy="286" r="54" fill="#d65450" opacity=".22" filter="url(#blur)"/>
+	<path d="M548 286h104M600 234v104" stroke="#ffffff" stroke-opacity=".28"/>
+	<text x="70" y="76" fill="#f4f4f2" font-family="Arial, sans-serif" font-size="34" font-weight="700" letter-spacing="-1">daoism</text>
+	<text x="73" y="99" fill="#f4f4f2" font-family="monospace" font-size="13" letter-spacing="7">SYSTEMS</text>
+	<text x="70" y="478" fill="#f4f4f2" font-family="monospace" font-size="55" font-weight="700" letter-spacing="-4">EMERGING SYSTEMS</text>
+	<text x="70" y="543" fill="#f4f4f2" font-family="monospace" font-size="55" font-weight="700" letter-spacing="-4">OF THE FUTURE</text>
+	<text x="950" y="84" fill="#a8aebc" font-family="monospace" font-size="17">WEB3 + AI</text>
+	<path d="M70 576h1060" stroke="#ffffff" stroke-opacity=".18"/>
+</svg>

@@ -80,6 +80,32 @@
 		setCursorHidden(false);
 	}
 
+	function handleMenuKeydown(event: KeyboardEvent) {
+		if (event.key === 'Escape') {
+			event.preventDefault();
+			closeMenu();
+			return;
+		}
+
+		if (event.key !== 'Tab' || !menuEl) return;
+		const focusable = Array.from(
+			menuEl.querySelectorAll<HTMLElement>(
+				'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+			)
+		);
+		if (focusable.length === 0) return;
+
+		const first = focusable[0];
+		const last = focusable[focusable.length - 1];
+		if (event.shiftKey && document.activeElement === first) {
+			event.preventDefault();
+			last.focus();
+		} else if (!event.shiftKey && document.activeElement === last) {
+			event.preventDefault();
+			first.focus();
+		}
+	}
+
 	function collectMenuItem(node: HTMLSpanElement, { index }: { index: number }) {
 		menuItems[index] = node;
 		return {
@@ -230,9 +256,24 @@
 			tl.reverse();
 		}
 	});
+
+	$effect(() => {
+		if (!open || !closeBtn) return;
+		queueMicrotask(() => closeBtn.focus());
+	});
 </script>
 
-<div class="menu" bind:this={menuEl}>
+<div
+	id="site-menu"
+	class="menu"
+	bind:this={menuEl}
+	role="dialog"
+	aria-modal="true"
+	aria-label="Site navigation"
+	aria-hidden={!open}
+	inert={!open}
+	onkeydown={handleMenuKeydown}
+>
 	<div data-sidenav-panel="" class="sidenav__menu-bg-panel is--first"></div>
 	<div data-sidenav-panel="" class="sidenav__menu-bg-panel is--second"></div>
 	<div data-sidenav-panel="" class="sidenav__menu-bg-panel"></div>

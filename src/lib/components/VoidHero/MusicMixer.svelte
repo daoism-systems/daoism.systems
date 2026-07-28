@@ -50,7 +50,7 @@
 					aria-pressed={isMuted}
 					onclick={() => onTrackChange('none')}
 				>
-					<img src="/textures/voidhero/tracks/disabled.svg" alt="" />
+					<img src="/textures/voidhero/tracks/disabled.svg" alt="" aria-hidden="true" />
 				</button>
 				{#each namedTracks as track (track.id)}
 					{@const complexity = complexityOf(track)}
@@ -63,7 +63,7 @@
 						title={`${complexity.label} tempo`}
 						onclick={() => onTrackChange(track.id)}
 					>
-						<img src={TRACK_ART[track.id]} alt={track.label} />
+						<img src={TRACK_ART[track.id]} alt="" aria-hidden="true" />
 						<span class="mixer__badge" data-level={complexity.level} aria-hidden="true">
 							{#each [1, 2, 3] as bolt (bolt)}
 								<svg

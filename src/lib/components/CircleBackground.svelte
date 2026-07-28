@@ -321,7 +321,7 @@
       </div>
       <div class="circle-small__title min-[2245px]:!text-3xl">Hover to explore</div>
       <div class="circle-small__text text-sm min-[2245px]:!text-2xl">
-        <h6>We Develop</h6>
+        <h3>We Develop</h3>
         <p>Custom development and implementation of on-chain &amp; AI systems: Smart Contracts, User Interfaces, Interoperability Solutions, AI agents tooling, AI agents workflows</p>
       </div>
       <svg class="circle-small__circle" viewBox="0 0 1402 900" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -350,7 +350,7 @@
 
       <div class="circle-small__title min-[2245px]:text-3xl!">Hover to explore</div>
       <div class="circle-small__text text-sm min-[2245px]:text-2xl!">
-        <h6>We Design</h6>
+        <h3>We Design</h3>
         <p>Strategic design of decentralized economic and governance systems: tokenomics, governance frameworks, treasury management, liquidity strategies, and protocol architectures built for resilient, scalable Web3 ecosystems.</p>
       </div>
       <svg class="circle-small__circle" viewBox="0 0 1402 900" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -557,7 +557,7 @@
       font-variant-ligatures: none;
       word-spacing: 0.1em;
 
-      h6 {
+      h3 {
         color: #fff;
         margin-bottom: 0.6rem;
         font-family: inherit;

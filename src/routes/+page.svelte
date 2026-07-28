@@ -26,7 +26,7 @@
 		createPagePipeline,
 		type PageSection
 	} from '$lib/runtime/pagePipeline';
-	import { createSiteRuntime, type SiteRuntime } from '$lib/runtime/siteRuntime';
+	import type { SiteRuntime } from '$lib/runtime/siteRuntime';
 	import { useScrollToSection } from '$lib/hooks/useScrollToSection';
 	import { resolveCloudFill } from '$lib/scene/animation/sceneUiTiming';
 
@@ -72,6 +72,7 @@
 	let isPhoneViewport = $state(false);
 	let scrollProgress = $state(0);
 	let siteRuntime = $state<SiteRuntime | null>(null);
+	let hasMounted = $state(false);
 	let runtimeDestroyed = false;
 	const { scrollToSection } = useScrollToSection(
 		IS_MOBILE_LAYOUT,
@@ -106,6 +107,7 @@
 	}
 
 	onMount(async () => {
+		hasMounted = true;
 		if (!scrollWrapper || !scrollContainer) return;
 
 		introMediaQuery = window.matchMedia('(max-width: 1024px)');
@@ -125,6 +127,9 @@
 		phoneViewportQuery.addEventListener('change', phoneViewportHandler);
 
 		isMobile = detectMob();
+
+		const { createSiteRuntime } = await import('$lib/runtime/siteRuntime');
+		if (runtimeDestroyed) return;
 
 		const runtime = await createSiteRuntime({
 			scrollWrapper,
@@ -271,10 +276,6 @@
 	});
 </script>
 
-<svelte:head>
-	<title>Daoism Systems</title>
-</svelte:head>
-
 <div id="page-scroll-wrapper" class="page-scroll-wrapper" bind:this={scrollWrapper}>
 	<!-- <ImageEffects /> -->
 
@@ -342,9 +343,10 @@
 	{/if}
 
 	{#if !data.uiHidden}
-		<div class={`sections ${isContactActive ? 'sections--contact' : ''}`}>
+		<main class={`sections ${isContactActive ? 'sections--contact' : ''}`}>
 			{#each SECTIONS as section, i (i)}
 				<section
+					id={`section-${i}`}
 					class="section {pageProgress.step === i ? 'active' : ''} {isSectionMounted(
 						i,
 						pageProgress.step
@@ -352,7 +354,7 @@
 						? 'nearby'
 						: ''} {isOutgoingHoldover(i, pageProgress.step) ? 'outgoing' : ''}"
 				>
-					{#if isSectionMounted(i, pageProgress.step)}
+					{#if !hasMounted || isSectionMounted(i, pageProgress.step)}
 						{#if i === HERO_SECTION_INDEX}
 							<section.component
 								progress={getSectionProgress(i, pageProgress.step, pageProgress.value)}
@@ -381,7 +383,7 @@
 					{/if}
 				</section>
 			{/each}
-		</div>
+		</main>
 	{/if}
 </div>
 
