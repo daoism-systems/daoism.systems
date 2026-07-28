@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { EASINGS } from '$lib/utils/animations/constants/easings';
+	import { advanceProgress, getProgressTarget } from '$lib/utils/animations/progress';
 
 	const frames = Array.from(
 		{ length: 9 },
@@ -9,7 +10,6 @@
 	const phraseLines = ['Do nothing, and the', 'brutalist mass will settle.'];
 	const minimumVisibleDuration = 4000;
 	const frameInterval = 1000 / 3;
-	const progressPerSecond = 30;
 	const uiRevealDuration = 720;
 	const artRevealDelay = 120;
 	const progressRevealDelay = artRevealDelay + uiRevealDuration / 4;
@@ -60,12 +60,11 @@
 		}
 
 		const animateProgress = (currentFrameTime: number) => {
-			const elapsed = Math.min(currentFrameTime - previousFrameTime, 1000 / progressPerSecond);
-			const targetProgress = ready ? 100 : Math.min(99, Math.max(0, progress));
-
-			animatedProgress = Math.min(
+			const targetProgress = getProgressTarget(progress, ready);
+			animatedProgress = advanceProgress(
+				animatedProgress,
 				targetProgress,
-				animatedProgress + (elapsed / 1000) * progressPerSecond
+				currentFrameTime - previousFrameTime
 			);
 			displayedProgress = Math.floor(animatedProgress);
 			previousFrameTime = currentFrameTime;

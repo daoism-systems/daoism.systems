@@ -1,3 +1,9 @@
+import {
+	advanceProgress,
+	getProgressTarget,
+	MAX_PROGRESS_FRAME_DELTA_MS
+} from '$lib/utils/animations/progress';
+
 // Renderer for the preloader background grid. Context-agnostic: the target canvas may be an
 // HTMLCanvasElement (main-thread fallback) or an OffscreenCanvas (worker path), so this module
 // touches no DOM, store, or events — the host (component or worker) feeds it via the returned API.
@@ -64,18 +70,6 @@ const TRAIL_DECAY_MS = 460;
 const TRAIL_MAX_ALPHA = 0.3;
 const TRAIL_STEP_RATIO = 0.5;
 
-// Progress is advanced on the render thread (not the main thread) so the bar keeps
-// moving while the main thread is blocked compiling shaders. Rather than easing toward
-// the lumpy real target (which arrives in bursts and decelerates as it converges), the
-// bar sweeps at a constant velocity toward a sub-100 ceiling: a steady, smooth, linear
-// march that never stalls during a long block (e.g. precompileAsync). The bar holds at
-// the ceiling until the host reports real completion (target >= 100), then finishes
-// linearly to 100.
-const PROGRESS_CEILING = 99; // the linear sweep holds here — only real completion releases it
-const PROGRESS_SWEEP_MS = 8000; // wall-clock for the full 0 -> ceiling linear sweep
-const PROGRESS_FINISH_MS = 400; // linear finish to 100 once the host reports 100
-const PROGRESS_SWEEP_PER_MS = PROGRESS_CEILING / PROGRESS_SWEEP_MS;
-const PROGRESS_FINISH_PER_MS = 100 / PROGRESS_FINISH_MS;
 const BAR_HEIGHT_PX = 2;
 const BAR_COLOR = '#e64749';
 const BAR_GLOW_COLOR = 'rgba(230, 71, 73, 0.5)';
@@ -508,7 +502,7 @@ export function createBackgroundPatternEngine(options: EngineOptions): Backgroun
 		}
 
 		const rawDeltaMs = Math.max(0, now - lastTimestamp);
-		const deltaMs = Math.min(rawDeltaMs, 48);
+		const deltaMs = Math.min(rawDeltaMs, MAX_PROGRESS_FRAME_DELTA_MS);
 		lastTimestamp = now;
 
 		// Preloader has finished, but the grid stays on screen behind the CTA. Keep the loop alive
@@ -525,25 +519,18 @@ export function createBackgroundPatternEngine(options: EngineOptions): Backgroun
 			return;
 		}
 
-		// Constant-velocity (linear) advance, so the bar reads as a steady, smooth march
-		// instead of an exponential ease that visibly decelerates. Monotonic: only ever
-		// pushes upward. The bar climbs to PROGRESS_CEILING and holds there; only real
-		// completion (target >= 100) releases it, finishing linearly to 100.
-		if (targetProgress >= 100) {
-			displayedProgress = Math.min(100, displayedProgress + PROGRESS_FINISH_PER_MS * deltaMs);
-		} else if (displayedProgress < PROGRESS_CEILING) {
-			displayedProgress = Math.min(
-				PROGRESS_CEILING,
-				displayedProgress + PROGRESS_SWEEP_PER_MS * deltaMs
-			);
-		}
+		displayedProgress = advanceProgress(
+			displayedProgress,
+			getProgressTarget(targetProgress, targetProgress >= 100),
+			deltaMs
+		);
 
 		// Mirror the bar's eased value to the host on each integer step. displayedProgress is
 		// monotonic non-decreasing, so this never thrashes a boundary.
 		if (onDisplayProgress) {
-			const rounded = Math.round(displayedProgress);
-			if (rounded !== lastReportedProgress) {
-				lastReportedProgress = rounded;
+			const integerProgress = Math.floor(displayedProgress);
+			if (integerProgress !== lastReportedProgress) {
+				lastReportedProgress = integerProgress;
 				onDisplayProgress(displayedProgress);
 			}
 		}
@@ -577,7 +564,7 @@ export function createBackgroundPatternEngine(options: EngineOptions): Backgroun
 			cleanupStartAt = now;
 		}
 
-		let currentPhase = phase;
+		let currentPhase: BackgroundPhase = phase;
 		let frontierY = fillFrontierY;
 
 		if (phase === 'cleanup') {
