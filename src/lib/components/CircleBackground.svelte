@@ -189,12 +189,14 @@
     );
   });
 
-  // `firstRing` drives the WHOLE outer-frame unit (ring 1 + plus-markers + side-lines) so
-  // the cross, the horizontal line and the outer circle stay locked together. All three
-  // rings + the frame use the same revealRing, so they grow outward concentric and together.
+  // `firstRing` drives the outer circle and plus-markers. The side lines share its reveal,
+  // then retract during the About → Services contraction so they are gone when the eyes land.
   let firstRing = $derived(revealRing(progress, c1DrawStart, c1DrawEnd, c1UndrawStart, c1UndrawEnd));
   let secondRing = $derived(revealRing(progress, c2DrawStart, c2DrawEnd, c2UndrawStart, c2UndrawEnd));
   let thirdRing = $derived(revealRing(progress, c3DrawStart, c3DrawEnd, c3UndrawStart, c3UndrawEnd));
+  let sideLineProgress = $derived(
+    1 - easeInOutCubic(getProgress(progress, contractStart, contractEnd))
+  );
 
   // Eye small ring draws in with the snap (raw clock, = contraction window); 0 outside → '0 1' (hidden).
   let circleSmallDashArray = $derived(getPairDashArray(Math.max(getProgress(progress, eyeRevealStart, eyeRevealEnd), 0)));
@@ -234,8 +236,7 @@
     class="circle-background__item"
     style="width: {width}%;"
   >
-    <!-- Outer frame: ring 1 + plus-markers + side-lines scale as ONE unit (via firstRing)
-         so the cross, the horizontal line and the outer circle stay perfectly in sync. -->
+    <!-- Outer frame: ring 1, plus-markers and side-lines reveal as one unit. -->
     <div
       class="outer-frame"
       style="opacity: {firstRing.opacity}; transform: scale3d({firstRing.scale}, {firstRing.scale}, 1);"
@@ -270,8 +271,16 @@
       </svg>
     </span>
 
-    <span class="line line--left"></span>
-    <span class="line line--right"></span>
+    <span
+      class="line line--left"
+      style:opacity={sideLineProgress}
+      style:transform={`scale3d(${sideLineProgress}, 1, 1)`}
+    ></span>
+    <span
+      class="line line--right"
+      style:opacity={sideLineProgress}
+      style:transform={`scale3d(${sideLineProgress}, 1, 1)`}
+    ></span>
     </div>
 
     <svg class="circle" viewBox="0 0 1034 900" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity: {secondRing.opacity}; transform: translate3d(-50%, -50%, 0) scale3d({secondRing.scale}, {secondRing.scale}, 1);">
@@ -313,13 +322,7 @@
       <div class="circle-small__title min-[2245px]:!text-3xl">Hover to explore</div>
       <div class="circle-small__text text-sm min-[2245px]:!text-2xl">
         <h6>We Develop</h6>
-        <ul>
-          <li>Smart Contracts</li>
-          <li>User Interfaces</li>
-          <li>Interoperability Solutions</li>
-          <li>AI agents tooling</li>
-          <li>AI agents workflows</li>
-        </ul>
+        <p>Custom development and implementation of on-chain &amp; AI systems: Smart Contracts, User Interfaces, Interoperability Solutions, AI agents tooling, AI agents workflows</p>
       </div>
       <svg class="circle-small__circle" viewBox="0 0 1402 900" fill="none" xmlns="http://www.w3.org/2000/svg">
         <g opacity="0.8">
@@ -348,13 +351,7 @@
       <div class="circle-small__title min-[2245px]:text-3xl!">Hover to explore</div>
       <div class="circle-small__text text-sm min-[2245px]:text-2xl!">
         <h6>We Design</h6>
-        <ul>
-          <li>Tokenomics</li>
-          <li>Governance systems</li>
-          <li>Treasury management solutions</li>
-          <li>Liquidity allocation strategies</li>
-          <li>Protocol architectures</li>
-        </ul>
+        <p>Strategic design of decentralized economic and governance systems: tokenomics, governance frameworks, treasury management, liquidity strategies, and protocol architectures built for resilient, scalable Web3 ecosystems.</p>
       </div>
       <svg class="circle-small__circle" viewBox="0 0 1402 900" fill="none" xmlns="http://www.w3.org/2000/svg">
         <g opacity="0.8">
@@ -568,18 +565,14 @@
         width: 100%;
       }
 
-      ul {
+      p {
         color: $color-grey-300;
         font-family: inherit;
         display: block;
         width: 100%;
-        list-style: none;
         margin: 0;
         padding: 0;
-
-        li {
-          line-height: 1.5;
-        }
+        line-height: 1.5;
       }
     }
   }

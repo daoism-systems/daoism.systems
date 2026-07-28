@@ -157,7 +157,7 @@
         class="section-reveal-paragraph"
         use:gsapSplitReveal={gsapParagraphRevealOptions}
       >
-        Teams shaping decentralized web
+        We're proud to support teams shaping the decentralized web — and we'd be glad to see you among them.
       </p>
     {:else}
       <p
@@ -165,7 +165,7 @@
         style:transform={`translate3d(0, ${paragraphOffsetY}px, 0)`}
         use:textReveal={paragraphRevealOptions}
       >
-        Teams shaping decentralized web
+        We're proud to support teams shaping the decentralized web — and we'd be glad to see you among them.
       </p>
     {/if}
     <div

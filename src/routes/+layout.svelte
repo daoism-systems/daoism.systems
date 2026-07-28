@@ -21,7 +21,7 @@
 	);
 
 	const siteName = 'Daoism Systems — DAO & DeFi Development Studio';
-	const defaultDescription = 'Daoism Systems is a web3 tech studio engineering DAOs, DeFi protocols, and on-chain tooling. Building decentralized systems since 2017.';
+	const defaultDescription = 'Daoism Systems is a Web3 & AI engineering studio building DAOs, DeFi protocols, AI-powered systems, and on-chain infrastructure. Building decentralized systems since 2017.';
 
 	// Progressive enhancement: use View Transitions API when available
 	onNavigate((navigation) => {

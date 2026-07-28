@@ -18,6 +18,7 @@
 		{
 			id: 1,
 			title: 'We Develop',
+			subtitle: 'Custom development and implementation of on-chain & AI systems',
 			items: [
 				'Smart Contracts',
 				'User Interfaces',
@@ -29,12 +30,13 @@
 		{
 			id: 2,
 			title: 'We Design',
+			subtitle: 'Strategic design of decentralized economic and governance systems',
 			items: [
 				'Tokenomics',
-				'Governance systems',
-				'Treasury management solutions',
-				'Liquidity allocation strategies',
-				'Protocol architectures'
+				'Governance frameworks',
+				'Treasury management',
+				'Liquidity strategies',
+				'Protocol architectures built for resilient, scalable Web3 ecosystems'
 			]
 		}
 	];
@@ -116,15 +118,18 @@
 				>
 					{card.title}
 				</b>
-				<ul
-					class="services-card__list"
+				<div
+					class="services-card__content"
 					style:opacity={listProgress}
 					style:transform={`translate3d(0, ${(1 - listProgress) * 18}px, 0)`}
 				>
-					{#each card.items as item (item)}
-						<li>{item}</li>
-					{/each}
-				</ul>
+					<p class="services-card__subtitle">{card.subtitle}</p>
+					<ul class="services-card__list">
+						{#each card.items as item (item)}
+							<li>{item}</li>
+						{/each}
+					</ul>
+				</div>
 			</div>
 		{/each}
 	</div>
@@ -227,15 +232,26 @@
 				backface-visibility: hidden;
 			}
 
-			&__list {
+			&__content {
 				font-size: 12px;
 				line-height: 1.5;
-				color: $color-grey-500;
 				word-spacing: $word-spacing;
-				list-style: none;
+				backface-visibility: hidden;
+			}
+
+			&__subtitle {
+				max-width: 34ch;
+				margin: 0 0 0.75rem;
+				color: rgba(255, 255, 255, 0.82);
+			}
+
+			&__list {
+				display: grid;
+				gap: 0.2rem;
 				margin: 0;
 				padding: 0;
-				backface-visibility: hidden;
+				color: $color-grey-500;
+				list-style: none;
 
 				li {
 					position: relative;
@@ -244,8 +260,8 @@
 					&::before {
 						content: '';
 						position: absolute;
+						top: 0.65em;
 						left: 0;
-						top: 0.6em;
 						width: 3px;
 						height: 3px;
 						border-radius: 50%;
@@ -268,7 +284,7 @@
 			}
 
 			&__title,
-			&__list {
+			&__content {
 				opacity: 1 !important;
 				transform: none !important;
 			}
