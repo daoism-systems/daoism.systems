@@ -17,24 +17,25 @@
 	const SERVICES_CARDS = [
 		{
 			id: 1,
-			title: 'We Develop',
+			title: 'Technics',
 			items: [
 				'Smart Contracts',
 				'User Interfaces',
-				'Interoperability Solutions',
-				'AI agents tooling',
-				'AI agents workflows'
+				'DeFi Interoperability Solutions',
+				'AI Tooling',
+				'AI Agents and Workflows'
 			]
 		},
 		{
 			id: 2,
-			title: 'We Design',
+			title: 'Consultancy',
 			items: [
 				'Tokenomics',
+				'Tokenomics',
 				'Governance systems',
-				'Treasury management solutions',
-				'Liquidity allocation strategies',
-				'Protocol architectures'
+				'Treasury Management Solutions',
+				'DeFi Yield Strategies',
+				'Protocol Architectures'
 			]
 		}
 	];
