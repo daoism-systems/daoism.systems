@@ -157,7 +157,7 @@
         class="section-reveal-paragraph"
         use:gsapSplitReveal={gsapParagraphRevealOptions}
       >
-        :Daoism Systems is joining the movement towards a borderless, permissionless, global society by supporting these emergent organizations with the best decentralized infrastructures."
+        "Daoism Systems is joining the movement towards a borderless, permissionless, global society by supporting these emergent organizations with the best decentralized infrastructures."
         <a href="https://paragraph.com/@0013700/daoism-systems-manifesto" target="_blank" rel="noopener noreferrer">- Daoism Systems Manifesto</a>
       </p>
     {:else}
