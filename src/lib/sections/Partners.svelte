@@ -153,41 +153,22 @@
 
   <div class="partners__desc">
     {#if PARTNERS_GSAP_SPLIT_REVEAL_EXPERIMENT_ENABLED}
-      <blockquote class="partners__quote section-reveal-paragraph" use:gsapSplitReveal={gsapParagraphRevealOptions}>
-        <a
-          class="partners__quote-link"
-          href="https://paragraph.com/@0013700/daoism-systems-manifesto"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Daoism Systems is joining the movement towards a borderless, permissionless, global society by supporting these emergent organizations with the best decentralized infrastructures.
-        </a>
-        <cite class="partners__cite">
-          — <a
-            href="https://paragraph.com/@0013700/daoism-systems-manifesto"
-            target="_blank"
-            rel="noopener noreferrer"
-          >Daoism Systems Manifesto</a>
-        </cite>
-      </blockquote>
+      <p
+        class="section-reveal-paragraph"
+        use:gsapSplitReveal={gsapParagraphRevealOptions}
+      >
+        Daoism Systems is joining the movement towards a borderless, permissionless, global society by supporting these emergent organizations with the best decentralized infrastructures.
+        <a href="https://paragraph.com/@0013700/daoism-systems-manifesto" target="_blank" rel="noopener noreferrer">Daoism Systems Manifesto</a>
+      </p>
     {:else}
-      <blockquote class="partners__quote section-reveal-paragraph" style:transform={`translate3d(0, ${paragraphOffsetY}px, 0)`} use:textReveal={paragraphRevealOptions}>
-        <a
-          class="partners__quote-link"
-          href="https://paragraph.com/@0013700/daoism-systems-manifesto"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Daoism Systems is joining the movement towards a borderless, permissionless, global society by supporting these emergent organizations with the best decentralized infrastructures.
-        </a>
-        <cite class="partners__cite">
-          — <a
-            href="https://paragraph.com/@0013700/daoism-systems-manifesto"
-            target="_blank"
-            rel="noopener noreferrer"
-          >Daoism Systems Manifesto</a>
-        </cite>
-      </blockquote>
+      <p
+        class="section-reveal-paragraph"
+        style:transform={`translate3d(0, ${paragraphOffsetY}px, 0)`}
+        use:textReveal={paragraphRevealOptions}
+      >
+        Daoism Systems is joining the movement towards a borderless, permissionless, global society by supporting these emergent organizations with the best decentralized infrastructures.
+        <a href="https://paragraph.com/@0013700/daoism-systems-manifesto" target="_blank" rel="noopener noreferrer">Daoism Systems Manifesto</a>
+      </p>
     {/if}
     <div
       class="partners__divider"
@@ -289,69 +270,6 @@
           max-width: 36ch;
           font-size: var(--text-2xl);
           line-height: var(--tw-leading, var(--text-2xl--line-height));
-        }
-      }
-
-      .partners__quote {
-        margin-left: auto;
-        margin-top: 0;
-        margin-bottom: 0;
-        color: $color-grey-300;
-        font-style: italic;
-        border-left: none;
-        padding-left: 0;
-
-        @include breakpoint(desktop) {
-          padding-top: 1rem;
-        }
-
-        @include breakpoint(tablet) {
-          margin-left: 3rem;
-        }
-
-        @include breakpoint(phone) {
-          margin-left: 1.675rem;
-        }
-
-        @media (min-width: 2245px) {
-          max-width: 36ch;
-          font-size: var(--text-2xl);
-          line-height: var(--tw-leading, var(--text-2xl--line-height));
-        }
-      }
-
-      .partners__quote-link {
-        color: inherit;
-        text-decoration: none;
-        transition: color 0.2s ease;
-
-        @media (hover: hover) {
-          &:hover {
-            color: #fff;
-            text-decoration: underline;
-            text-underline-offset: 0.2em;
-          }
-        }
-      }
-
-      .partners__cite {
-        display: block;
-        margin-top: 0.75rem;
-        font-size: 0.8em;
-        font-style: normal;
-        color: $color-grey-500;
-
-        a {
-          color: inherit;
-          text-decoration: none;
-          border-bottom: 1px solid currentColor;
-          transition: color 0.2s ease;
-
-          @media (hover: hover) {
-            &:hover {
-              color: $color-grey-300;
-            }
-          }
         }
       }
     }
