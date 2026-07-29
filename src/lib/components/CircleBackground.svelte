@@ -321,8 +321,8 @@
       </div>
       <div class="circle-small__title min-[2245px]:!text-3xl">Hover to explore</div>
       <div class="circle-small__text text-sm min-[2245px]:!text-2xl">
-        <h3>We Develop</h3>
-        <p>Custom development and implementation of on-chain &amp; AI systems: Smart Contracts, User Interfaces, Interoperability Solutions, AI agents tooling, AI agents workflows</p>
+        <h3>Technics</h3>
+        <p>Smart Contracts, User Interfaces, Interoperability Solutions, AI Agents Tooling, AI Agents Workflows</p>
       </div>
       <svg class="circle-small__circle" viewBox="0 0 1402 900" fill="none" xmlns="http://www.w3.org/2000/svg">
         <g opacity="0.8">
@@ -350,8 +350,8 @@
 
       <div class="circle-small__title min-[2245px]:text-3xl!">Hover to explore</div>
       <div class="circle-small__text text-sm min-[2245px]:text-2xl!">
-        <h3>We Design</h3>
-        <p>Strategic design of decentralized economic and governance systems: tokenomics, governance frameworks, treasury management, liquidity strategies, and protocol architectures built for resilient, scalable Web3 ecosystems.</p>
+        <h3>Consultancy</h3>
+        <p>Tokenomics, Governance Systems, Treasury Management Solutions, Liquidity Allocation Strategies, Protocol Architectures</p>
       </div>
       <svg class="circle-small__circle" viewBox="0 0 1402 900" fill="none" xmlns="http://www.w3.org/2000/svg">
         <g opacity="0.8">
