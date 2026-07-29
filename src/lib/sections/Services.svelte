@@ -21,9 +21,9 @@
 			items: [
 				'Smart Contracts',
 				'User Interfaces',
-				'DeFi Interoperability Solutions',
-				'AI Tooling',
-				'AI Agents and Workflows'
+				'Interoperability Solutions',
+				'AI Agents Tooling',
+				'AI Agents Workflows'
 			]
 		},
 		{
@@ -31,10 +31,9 @@
 			title: 'Consultancy',
 			items: [
 				'Tokenomics',
-				'Tokenomics',
-				'Governance systems',
+				'Governance Systems',
 				'Treasury Management Solutions',
-				'DeFi Yield Strategies',
+				'Liquidity Allocation Strategies',
 				'Protocol Architectures'
 			]
 		}
