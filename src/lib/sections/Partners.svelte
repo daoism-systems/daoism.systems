@@ -144,7 +144,7 @@
 <div class="partners">
   <Heading
     className="partners"
-    text={['Teams we', 'worked with']}
+    text={['The network', 'of trust']}
     sup="5"
     position="bottom"
     progress={sectionProgress}
@@ -157,7 +157,7 @@
         class="section-reveal-paragraph"
         use:gsapSplitReveal={gsapParagraphRevealOptions}
       >
-        We're proud to support teams shaping the decentralized web — and we'd be glad to see you among them.
+        Daoism Systems is joining the movement towards a borderless, permissionless, global society by supporting these emergent organizations with the best decentralized infrastructures.
       </p>
     {:else}
       <p
@@ -165,7 +165,7 @@
         style:transform={`translate3d(0, ${paragraphOffsetY}px, 0)`}
         use:textReveal={paragraphRevealOptions}
       >
-        We're proud to support teams shaping the decentralized web — and we'd be glad to see you among them.
+        Daoism Systems is joining the movement towards a borderless, permissionless, global society by supporting these emergent organizations with the best decentralized infrastructures.
       </p>
     {/if}
     <div

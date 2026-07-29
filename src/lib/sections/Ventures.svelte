@@ -62,7 +62,7 @@
     style:transform={`translate3d(0, ${contentOffsetY}px, 0)`}
   >
     <p class="section-reveal-paragraph" use:textReveal={paragraphRevealOptions}>
-        A public record of our activity, case studies and patterns for resilient, permissionless coordination systems.
+        A public record of our activity, case studies and patterns for distributed futures of web3.
     </p>
 
     <!-- Mobile: red badge pinned above the slider, tracks the centered slide -->

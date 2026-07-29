@@ -18,7 +18,6 @@
 		{
 			id: 1,
 			title: 'We Develop',
-			subtitle: 'Custom development and implementation of on-chain & AI systems',
 			items: [
 				'Smart Contracts',
 				'User Interfaces',
@@ -30,13 +29,12 @@
 		{
 			id: 2,
 			title: 'We Design',
-			subtitle: 'Strategic design of decentralized economic and governance systems',
 			items: [
 				'Tokenomics',
-				'Governance frameworks',
-				'Treasury management',
-				'Liquidity strategies',
-				'Protocol architectures built for resilient, scalable Web3 ecosystems'
+				'Governance systems',
+				'Treasury management solutions',
+				'Liquidity allocation strategies',
+				'Protocol architectures'
 			]
 		}
 	];
@@ -118,18 +116,15 @@
 				>
 					{card.title}
 				</b>
-				<div
-					class="services-card__content"
+				<ul
+					class="services-card__list"
 					style:opacity={listProgress}
 					style:transform={`translate3d(0, ${(1 - listProgress) * 18}px, 0)`}
 				>
-					<p class="services-card__subtitle">{card.subtitle}</p>
-					<ul class="services-card__list">
-						{#each card.items as item (item)}
-							<li>{item}</li>
-						{/each}
-					</ul>
-				</div>
+					{#each card.items as item (item)}
+						<li>{item}</li>
+					{/each}
+				</ul>
 			</div>
 		{/each}
 	</div>
@@ -232,26 +227,15 @@
 				backface-visibility: hidden;
 			}
 
-			&__content {
+			&__list {
 				font-size: 12px;
 				line-height: 1.5;
+				color: $color-grey-500;
 				word-spacing: $word-spacing;
-				backface-visibility: hidden;
-			}
-
-			&__subtitle {
-				max-width: 34ch;
-				margin: 0 0 0.75rem;
-				color: rgba(255, 255, 255, 0.82);
-			}
-
-			&__list {
-				display: grid;
-				gap: 0.2rem;
+				list-style: none;
 				margin: 0;
 				padding: 0;
-				color: $color-grey-500;
-				list-style: none;
+				backface-visibility: hidden;
 
 				li {
 					position: relative;
@@ -260,7 +244,7 @@
 					&::before {
 						content: '';
 						position: absolute;
-						top: 0.65em;
+						top: 0.6em;
 						left: 0;
 						width: 3px;
 						height: 3px;
@@ -284,7 +268,7 @@
 			}
 
 			&__title,
-			&__content {
+			&__list {
 				opacity: 1 !important;
 				transform: none !important;
 			}
