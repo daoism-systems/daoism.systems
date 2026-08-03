@@ -263,7 +263,7 @@
         }
 
         @include breakpoint(phone) {
-          margin-left: 1.675rem;
+          display: none;
         }
 
         @media (min-width: 2245px) {
