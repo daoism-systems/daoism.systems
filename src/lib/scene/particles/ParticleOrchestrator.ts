@@ -90,6 +90,32 @@ export class ParticleOrchestrator {
 		}
 	}
 
+	/**
+	 * No-VAT path (mobile): the pyramid solids ship in the main GLB and ride the
+	 * main scroll mixer. Attach the whole pyramids root to the rotation pivot
+	 * BEFORE the particle-source attach in `setupPyramidsAndForest` — that way
+	 * the pivot wraps solids AND particle sources, so Theatre's `pyramidsVisible`
+	 * and the auto-rotation cover both coherently (with VAT, the solid mesh gets
+	 * this via `attachPyramidVATMesh`). Solids also take the chromatic layer the
+	 * VAT mesh would have received.
+	 */
+	public setupPyramidSolids(modelScene: THREE.Group): void {
+		if (this.deps.features.pyramidVat) return;
+		const root =
+			modelScene.getObjectByName('pyramids_1') ?? modelScene.getObjectByName('Pyramids');
+		if (!root) return;
+
+		// Mixer-safe pivots: the root is animated by the main mixer, so the
+		// attach()-style pivots would corrupt its animated transforms.
+		this.deps.modelRotationController.attachAnimatedPyramidsRoot(root);
+
+		root.traverse((child) => {
+			if (child instanceof THREE.Mesh && !/particle/i.test(child.name)) {
+				this.enableChromaticLayer(child, SCENE_LAYERS.CHROMATIC_1);
+			}
+		});
+	}
+
 	public setupPyramidsAndForest(modelScene: THREE.Group, includePyramidParticles = true): void {
 		if (!this.deps.features.pyramidParticles && !this.deps.features.forestParticles) {
 			return;
@@ -256,7 +282,7 @@ export class ParticleOrchestrator {
 	): Promise<void> {
 		if (!this.deps.features.fallbackPyramidParticles) return;
 		if (this.pyramidParticleSystems.length > 0) return;
-		const sourceUrls = ['/models/pyramids_source.glb'];
+		const sourceUrls = [`${this.pyramidAssetPrefix}_source.glb`];
 
 		for (const url of sourceUrls) {
 			try {
@@ -297,6 +323,12 @@ export class ParticleOrchestrator {
 		}
 	}
 
+	/** Mobile ships its own (smaller) pyramid bake from the mobile FBX; both
+	 * tiers use the same `<prefix>_source|merged|vat` file naming. */
+	private get pyramidAssetPrefix(): string {
+		return this.deps.isMobile ? '/models/pyramids_mobile' : '/models/pyramids';
+	}
+
 	public async loadPyramidVAT(
 		onProgress?: (loaded: number, total: number) => void
 	): Promise<void> {
@@ -304,8 +336,8 @@ export class ParticleOrchestrator {
 		try {
 			this.pyramidVAT = new PyramidVAT(this.deps.gltfLoader);
 			const vatMesh = await this.pyramidVAT.load(
-				'/models/pyramids_merged.glb',
-				'/models/pyramids_vat.bin.gz',
+				`${this.pyramidAssetPrefix}_merged.glb`,
+				`${this.pyramidAssetPrefix}_vat.bin.gz`,
 				onProgress
 			);
 
@@ -340,9 +372,23 @@ export class ParticleOrchestrator {
 		// both are full: at rest one shape is collapsed (dots pile up → vanish) and at
 		// the crossover a shape is half-scale (its matrix inverse explodes the offset →
 		// dots scatter). So bind each VERTEX at the candidate frame where ITS shape is
-		// most fully formed. These candidates straddle both shapes' full-scale windows
-		// (shape 1 displays early, shape 2 late, swapping ~0.32). Bind, then restore.
-		const CANDIDATES = [0.1, 0.18, 0.26, 0.36, 0.4];
+		// most fully formed. Candidates are bake-specific hardcodes (same spirit as
+		// the desktop wing-yaw correction in PyramidInstancedParticles):
+		// - Desktop FBX: shape 1 displays early, shape 2 late, swapping ~0.32.
+		// - Mobile bake: every displayed source mesh lives only inside ~[0.20..0.33]
+		//   (outside it all sit at scale 0, so a sample there can bind nothing), and
+		//   source/VAT alignment is only settled from ~0.23; the desktop list would
+		//   sample the window exactly once, at 0.26. Source scale is flat across the
+		//   window and the bind keeps the FIRST max-scale candidate, so the first
+		//   entry does the bulk of the binding — later ones rescue objects that were
+		//   near zero scale there. Bind, then restore.
+		// Mobile windows (measured from the corrected pyramids_mobile_source bake):
+		// shape 1 displays at progress 0.194–0.332, shape 2 at 0.306–0.462. One
+		// mid-window candidate per shape binds every dot; 0.36/0.4 double-cover
+		// shape 2 (offline binding sim: 23390/23390 bound, 0 unbound).
+		const CANDIDATES = this.deps.isMobile
+			? [0.26, 0.36, 0.4]
+			: [0.1, 0.18, 0.26, 0.36, 0.4];
 		const systems = this.pyramidParticleSystems.filter((s) => s.beginVatBinding(vat));
 		for (const progress of CANDIDATES) {
 			this.deps.modelRotationController.posePyramidSourceAt(progress);

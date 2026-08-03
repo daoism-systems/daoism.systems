@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
+	import { PARTNERS_UI_TIMING } from '$lib/config/revealTiming';
 	import { cardReveal } from '$lib/utils/animations/cardReveal';
 	import { hoverSound } from '$lib/utils/hoverSound';
 
@@ -9,6 +10,7 @@
 	export let subtitle: string;
 	export let type: string;
 	export let index: number;
+	export let total: number;
 	export let iconScale: number = 1;
 
 	let cardEl: HTMLDivElement;
@@ -29,9 +31,15 @@
 	const maxImageShift = 14;
 	const tiltSmoothing = 0.12;
 	const revealOptions = {
-		startViewport: 0.82,
-		endViewport: 0.24,
-		fromDirection: index % 2 === 0 ? 'top' : 'bottom'
+		startViewport: 0.92,
+		endViewport: 0.16,
+		ease: 'cubic-bezier(0.4, 0, 0.2, 1)',
+		fromDirection: index % 2 === 0 ? 'top' : 'bottom',
+		completeWhenFullyVisible: index === total - 1,
+		itemTiming: {
+			desktop: PARTNERS_UI_TIMING.desktop.cardItems,
+			mobile: PARTNERS_UI_TIMING.mobile.cardItems
+		}
 	} as const;
 
 	function clearReleaseBurstTimers() {
@@ -235,7 +243,7 @@
 		<div class="card__header">
 			<div class="card__number">
 				<span class="text-3xl">{id}</span>
-				<span>/ 5</span>
+				<span>/ {total}</span>
 			</div>
 			<span class="card__type text-sm">{type}</span>
 		</div>
@@ -244,8 +252,16 @@
 			<p>{subtitle}</p>
 		</div>
 		<div class="card__icon">
-			<div class="card__icon-inner">
-				<img src={icon} alt={`partner icon ${id}`} style:transform={`scale(${iconScale})`} />
+			<div class="card__icon-reveal">
+				<div class="card__icon-inner">
+					<img
+						src={icon}
+						alt={`${title} logo`}
+						loading="lazy"
+						decoding="async"
+						style:--icon-scale={iconScale}
+					/>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -302,12 +318,14 @@
 
 		@include breakpoint(tablet) {
 			width: 48vw;
-			height: 45svh;
+			max-width: 380px;
+			aspect-ratio: 320 / 329;
 		}
 
 		@include breakpoint(phone) {
 			width: 71.2vw;
-			height: 36svh;
+			max-width: 320px;
+			aspect-ratio: 320 / 329;
 		}
 
 		@include breakpoint(small-phone) {
@@ -479,23 +497,39 @@
 					max-width: 100%;
 					height: auto;
 					max-height: none;
+					transform: scale(var(--icon-scale, 1));
+				}
+
+				// Partner logos ship at very different intrinsic sizes, so a plain
+				// max-width leaves the small SVGs tiny. Drive every logo off a
+				// uniform height (~the design's share of the card) so the set scales
+				// in step with the card and reads consistently on tablet/phone.
+				@include breakpoint(not-desktop) {
+					width: auto;
+					max-width: 60%;
+					height: 42%;
+					max-height: 42%;
 				}
 			}
 
+			&-reveal,
 			&-inner {
 				display: flex;
 				align-items: center;
 				justify-content: center;
 				width: 100%;
 				height: 100%;
-				transform: translate3d(var(--img-shift-x), var(--img-shift-y), var(--img-z))
-					scale(var(--img-scale));
-				transition: transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
-				will-change: transform;
 
 				@include breakpoint(desktop) {
 					height: auto;
 				}
+			}
+
+			&-inner {
+				transform: translate3d(var(--img-shift-x), var(--img-shift-y), var(--img-z))
+					scale(var(--img-scale));
+				transition: transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
+				will-change: transform;
 			}
 		}
 
@@ -521,6 +555,7 @@
 
 	@media (prefers-reduced-motion: reduce) {
 		.card,
+		.card__icon-reveal,
 		.card__icon-inner,
 		.card::before,
 		.card::after {

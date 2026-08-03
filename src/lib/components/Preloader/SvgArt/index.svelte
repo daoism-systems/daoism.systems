@@ -130,12 +130,12 @@
 		--t-art-reveal-delay: 0.05s;
 		--t-art-reveal-dur: 0.95s;
 		--t-orbit-delay: 0.2s;
-		--t-orbit-dur: 0.92s;
+		--t-orbit-dur: 1.2s;
 		--t-expand-delay: 0.25s;
-		--t-expand-dur: 2.1s;
-		--t-exit-rings-dur: 0.46s;
-		--t-exit-frame-delay: 0.3s;
-		--t-exit-frame-dur: 0.34s;
+		--t-expand-dur: 2.8s;
+		--t-exit-rings-dur: 0.8s;
+		--t-exit-frame-delay: 0.48s;
+		--t-exit-frame-dur: 0.62s;
 		/* Buttons reveal a beat into the circles' intro (orbit phase + offset). */
 		--t-buttons-ready: calc(var(--t-orbit-delay) + 0.4s);
 		--preloader-frame-size: min(691px, 78vmin, calc(100vw - 2rem), calc(100vh - 2rem));

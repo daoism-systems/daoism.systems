@@ -1,14 +1,38 @@
 import * as THREE from 'three/webgpu';
 import { vacancies } from '$lib/store.svelte';
 import { getScene07AnnotationRange } from '../animation/sceneManifest';
-import { createAnnotationRevealTimeline } from '$lib/utils/animations/annotationReveal';
+import {
+	createAnnotationOpenTimeline,
+	createAnnotationRevealTimeline
+} from '$lib/utils/animations/annotationReveal';
 import { AnimationTimeline } from '$lib/utils/animations/helpers/animationTimeline';
 import { fullScreenSmokeTransition } from '$lib/utils/fullScreenSmokeTransition';
 import type { Unsubscriber } from 'svelte/store';
 
-const annotationRevealAtProgressDesktop = [0.2, 0.5, 0.7] as const;
+const annotationRevealAtProgressDesktop = [0.15, 0.5, 0.7] as const;
 const annotationRevealAtProgressMobile = [0.3, 0.5, 0.6] as const;
-const annotationVisibilityEndTrimMobile = 0.2;
+
+/**
+ * When annotations go away, in LOCAL forest-scene progress (0..1 across
+ * `getScene07AnnotationRange`). Authored from Theatre Studio's `Annotations`
+ * sheet object — see `TheatreController.registerAnnotationTiming`.
+ */
+export interface AnnotationHideTiming {
+	/** Local progress at which annotation #0 hides while the others stay. */
+	firstHideAt: number;
+	/**
+	 * Fraction of the forest range trimmed off the END, so annotations clear the
+	 * screen before the scene 07 -> 08 transition rather than riding into it.
+	 */
+	endTrimDesktop: number;
+	endTrimMobile: number;
+}
+
+export const DEFAULT_ANNOTATION_HIDE_TIMING: AnnotationHideTiming = {
+	firstHideAt: 0.33,
+	endTrimDesktop: 0.12,
+	endTrimMobile: 0.2
+};
 
 // Opened-tooltip viewport clamp: only the OPENED tooltip's description panel is
 // pulled back inside the viewport so it never clips while being read — including
@@ -64,6 +88,7 @@ export class Annotations {
 	private annotationEntries: Map<string, AnnotationEntry> = new Map();
 	private annotationOverlay?: HTMLElement;
 	private readonly annotationRevealTimelines = new Map<number, AnimationTimeline>();
+	private readonly annotationOpenTimelines = new Map<number, AnimationTimeline>();
 	private readonly pendingRevealIndices = new Set<number>();
 	private readonly pendingHideIndices = new Set<number>();
 	private readonly hidingIndices = new Set<number>();
@@ -72,6 +97,9 @@ export class Annotations {
 	private _annotationsNeedFinalRender = false;
 	private _annotationPositionsDirty = false;
 	private lastAnnotationVisibility = false;
+	private readonly hideTiming: AnnotationHideTiming = { ...DEFAULT_ANNOTATION_HIDE_TIMING };
+	/** Last progress seen, so a Studio edit re-evaluates without needing a scroll. */
+	private lastNormalizedProgress = -1;
 	private readonly _annotationNdc = new THREE.Vector3();
 	private readonly _annotationWorldPos = new THREE.Vector3();
 	private smokeTransitionUnsubscribe?: Unsubscriber;
@@ -196,12 +224,21 @@ export class Annotations {
 		}
 	}
 
-	private createAnnotationHTML(vacancy: any, index: number): string {
+	private createAnnotationHTML(vacancy: (typeof vacancies)[number], index: number): string {
 		const isLeft = vacancy.textPosition === 'left';
+		const buttonId = `hotspot-trigger-${index}`;
+		const contentId = `hotspot-content-${index}`;
 
 		return `
     <div class="hotspot${isLeft ? ' hotspot--left' : ''}" data-index="${index}">
-        <button class="hotspot__btn" aria-label="${vacancy.title}">
+        <button
+            id="${buttonId}"
+            class="hotspot__btn"
+            type="button"
+            aria-label="${vacancy.title}"
+            aria-controls="${contentId}"
+            aria-expanded="false"
+        >
             <svg viewBox="0 0 11 11" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M5 0H6V11H5V0Z" fill="currentColor" />
                 <path d="M4.3714e-08 6L0 5L11 5V6L4.3714e-08 6Z" fill="currentColor" />
@@ -213,49 +250,89 @@ export class Annotations {
         </button>
 
         <div class="hotspot__desc">
-            <h6 class="hotspot__title">
-                <span>${vacancy.title}</span>
-                <span class="info-mask"><span class="info">(Click to Read)</span></span>
-            </h6>
-            <p class="desc">
-                ${vacancy.description}
-            </p>
+            <div class="hotspot__summary">
+                <h6 class="hotspot__title">
+                    <span>${vacancy.title}</span>
+                    <span class="info-mask"><span class="info">(Click to Read)</span></span>
+                </h6>
+            </div>
+            <div
+                id="${contentId}"
+                class="hotspot__content"
+                role="region"
+                aria-labelledby="${buttonId}"
+                aria-hidden="true"
+            >
+                <div class="hotspot__content-mask">
+                    <div class="hotspot__content-inner">
+                        <h6 class="hotspot__title">${vacancy.title}</h6>
+                        <p class="desc">${vacancy.description}</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 `;
 	}
 
 	private setActiveAnnotation(index: number): void {
-		const wasActive = this.activeAnnotationIndex === index;
+		const previousIndex = this.activeAnnotationIndex;
+		const nextIndex = previousIndex === index ? -1 : index;
 
-		this.annotationElements.forEach((element) => {
-			if (element) {
-				const hotspot = element.querySelector('.hotspot') as HTMLElement;
-				if (hotspot) hotspot.classList.remove('hotspot--active');
-			}
-		});
+		if (previousIndex !== -1) {
+			this.setAnnotationExpanded(previousIndex, false, true);
+		}
 
-		if (!wasActive) {
-			this.activeAnnotationIndex = index;
-			const activeElement = this.annotationElements[index];
-
-			if (activeElement) {
-				const hotspot = activeElement.querySelector('.hotspot') as HTMLElement;
-				if (hotspot) hotspot.classList.add('hotspot--active');
-			}
-		} else {
-			this.activeAnnotationIndex = -1;
+		this.activeAnnotationIndex = nextIndex;
+		if (nextIndex !== -1) {
+			this.setAnnotationExpanded(nextIndex, true, true);
 		}
 	}
 
 	private resetAnnotationStates(): void {
-		this.annotationElements.forEach((element) => {
-			if (element) {
-				const hotspot = element.querySelector('.hotspot') as HTMLElement;
-				if (hotspot) hotspot.classList.remove('hotspot--active');
-			}
-		});
+		if (this.activeAnnotationIndex !== -1) {
+			this.setAnnotationExpanded(this.activeAnnotationIndex, false, false);
+		}
 		this.activeAnnotationIndex = -1;
+	}
+
+	private setAnnotationExpanded(index: number, expanded: boolean, animate: boolean): void {
+		const element = this.annotationElements[index];
+		if (!element) return;
+
+		const hotspot = element.querySelector<HTMLElement>('.hotspot');
+		const button = element.querySelector<HTMLButtonElement>('.hotspot__btn');
+		const content = element.querySelector<HTMLElement>('.hotspot__content');
+		hotspot?.classList.toggle('hotspot--active', expanded);
+		button?.setAttribute('aria-expanded', String(expanded));
+		content?.setAttribute('aria-hidden', String(!expanded));
+
+		const timeline = this.getOpenTimeline(index);
+		if (!timeline) return;
+
+		if (!animate) {
+			timeline.setProgress(expanded ? 1 : 0);
+			return;
+		}
+
+		if (expanded) {
+			timeline.play();
+		} else {
+			timeline.reverse();
+		}
+	}
+
+	private getOpenTimeline(index: number): AnimationTimeline | null {
+		const existing = this.annotationOpenTimelines.get(index);
+		if (existing) return existing;
+
+		const element = this.annotationElements[index];
+		if (!element) return null;
+		const timeline = createAnnotationOpenTimeline(element);
+		if (!timeline) return null;
+
+		this.annotationOpenTimelines.set(index, timeline);
+		return timeline;
 	}
 
 	private playRevealForIndex(index: number): void {
@@ -270,6 +347,7 @@ export class Annotations {
 			this.annotationRevealTimelines.set(index, timeline);
 		}
 
+		this.getOpenTimeline(index);
 		timeline.play(true);
 	}
 
@@ -338,19 +416,30 @@ export class Annotations {
 		this.hideAnimationTimeouts.set(index, timeoutId);
 	}
 
+	/**
+	 * Apply authored hide timings (Theatre `Annotations` object). Re-evaluates at
+	 * the current scroll position so a Studio drag shows immediately.
+	 */
+	public setHideTiming(timing: Partial<AnnotationHideTiming>): void {
+		Object.assign(this.hideTiming, timing);
+		if (this.lastNormalizedProgress >= 0) this.updateForProgress(this.lastNormalizedProgress);
+	}
+
 	public updateForProgress(normalizedProgress: number): void {
+		this.lastNormalizedProgress = normalizedProgress;
 		if (this.annotationEntries.size === 0) return;
 
 		const viewportWidth = this.rendererDomElement.clientWidth || window.innerWidth;
 		const isMobileViewport = viewportWidth < 768;
 		const annotationRange = getScene07AnnotationRange(viewportWidth);
 		const sceneRange = annotationRange.end - annotationRange.start;
-		const visibilityEnd = isMobileViewport
-			? Math.max(
-					annotationRange.start,
-					annotationRange.end - sceneRange * annotationVisibilityEndTrimMobile
-				)
-			: annotationRange.end;
+		const visibilityEndTrim = isMobileViewport
+			? this.hideTiming.endTrimMobile
+			: this.hideTiming.endTrimDesktop;
+		const visibilityEnd = Math.max(
+			annotationRange.start,
+			annotationRange.end - sceneRange * visibilityEndTrim
+		);
 		const shouldShowAnnotations =
 			normalizedProgress >= annotationRange.start && normalizedProgress < visibilityEnd;
 		const localSceneProgress =
@@ -362,9 +451,7 @@ export class Annotations {
 		}
 
 		if (shouldShowAnnotations) {
-			const shouldHideFirstAnnotation =
-				localSceneProgress >= this.getResponsiveRevealProgress(1, viewportWidth) &&
-				localSceneProgress >= this.getResponsiveRevealProgress(2, viewportWidth);
+			const shouldHideFirstAnnotation = localSceneProgress >= this.hideTiming.firstHideAt;
 			let activeAnnotationStillVisible = false;
 			for (const [id, entry] of this.annotationEntries.entries()) {
 				const index = Number(id);
@@ -505,6 +592,9 @@ export class Annotations {
 			let y = Math.round((-this._annotationNdc.y * 0.5 + 0.5) * h + top);
 
 			element.style.display = '';
+			if (index === this.activeAnnotationIndex && !this.annotationOpenTimelines.has(index)) {
+				this.getOpenTimeline(index)?.setProgress(1);
+			}
 
 			if (isMobile) {
 				const offset = this.mobilePositioning.perAnnotationOffset[index] ?? { x: 0, y: 0 };
@@ -583,6 +673,13 @@ export class Annotations {
 	public resize(width: number, height: number): void {
 		void width;
 		void height;
+		for (const timeline of this.annotationOpenTimelines.values()) {
+			timeline.destroy();
+		}
+		this.annotationOpenTimelines.clear();
+		if (this.activeAnnotationIndex !== -1) {
+			this.getOpenTimeline(this.activeAnnotationIndex)?.setProgress(1);
+		}
 		this._annotationPositionsDirty = true;
 		this._annotationsNeedFinalRender = true;
 	}
@@ -595,6 +692,10 @@ export class Annotations {
 		for (const index of this.annotationRevealTimelines.keys()) {
 			this.stopRevealForIndex(index);
 		}
+		for (const timeline of this.annotationOpenTimelines.values()) {
+			timeline.destroy();
+		}
+		this.annotationOpenTimelines.clear();
 		this.pendingRevealIndices.clear();
 		this.pendingHideIndices.clear();
 		this.hidingIndices.clear();

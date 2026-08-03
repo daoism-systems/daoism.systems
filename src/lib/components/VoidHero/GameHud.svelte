@@ -53,7 +53,7 @@
 		{#each Array.from({ length: runHud.maxLives }, (_, i) => i) as i (i)}
 			{@const stage = Math.min(5, Math.max(1, runHud.heartStages[i] ?? (i < runHud.lives ? 1 : 5)))}
 			<span class="game-hud__heart" class:lit={i < runHud.lives}>
-				<img src="/textures/HeartBar/HeartStage{stage}.png" alt="heart icon" />
+				<img src="/textures/HeartBar/HeartStage{stage}.png" alt="" aria-hidden="true" />
 			</span>
 		{/each}
 	</div>

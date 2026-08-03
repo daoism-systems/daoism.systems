@@ -18,7 +18,7 @@
 		--bottom: {bottom};
 	"
 >
-	<img src="/icons/plus.svg" alt="plus icon" />
+	<img src="/icons/plus.svg" alt="" width="11" height="11" aria-hidden="true" />
 </span>
 
 <style lang="scss">

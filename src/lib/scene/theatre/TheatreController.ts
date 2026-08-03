@@ -8,11 +8,17 @@ import type { SimpleParticleSystem } from '../particles/SimpleParticleSystem';
 import type { PyramidInstancedParticles } from '../particles/PyramidInstancedParticles';
 import { GridPlane } from '../grid/GridPlane';
 import type { ModelRotationController } from '../rotation/ModelRotationController';
+import { DEFAULT_ANNOTATION_HIDE_TIMING, type AnnotationHideTiming } from '../ui/Annotations';
 import {
 	DEFAULT_SCENE_BOUNDARIES,
 	setSceneBoundaries
 } from '$lib/config/sceneBoundaryStore.svelte';
 import { SCENE_MANIFEST } from '$lib/scene/animation/sceneManifest';
+import {
+	ANDROID_LENIS_TOUCH_CONFIG,
+	DESKTOP_LENIS_CONFIG,
+	MOBILE_LENIS_CONFIG
+} from '$lib/utils/lenis';
 import { version } from '$app/environment';
 
 /**
@@ -21,6 +27,25 @@ import { version } from '$app/environment';
  * from static-override stripping.
  */
 const SCENE_BOUNDARIES_OBJECT_KEY = 'Scene Boundaries';
+
+/**
+ * Forest-scene annotation hide timings — static props, same deal as
+ * `SCENE_BOUNDARIES_OBJECT_KEY` (see `STATIC_PROP_OBJECT_KEYS`).
+ */
+const ANNOTATIONS_OBJECT_KEY = 'Annotations';
+
+const SCROLL_CONFIG_OBJECT_KEY = 'Scroll';
+
+/**
+ * Sheet objects whose props are authored STATICALLY (no keyframes). They are
+ * exempt from `stripUntrackedStaticOverrides` so Studio edits survive a reload
+ * instead of being treated as throwaway inspector tweaks.
+ */
+const STATIC_PROP_OBJECT_KEYS: ReadonlySet<string> = new Set([
+	SCENE_BOUNDARIES_OBJECT_KEY,
+	ANNOTATIONS_OBJECT_KEY,
+	SCROLL_CONFIG_OBJECT_KEY
+]);
 
 export interface ScrollConfigDeps {
 	/** Live ref — Lenis is created after Theatre registers, so we read on each tick. */
@@ -84,6 +109,10 @@ export interface TheatreDependencies {
 		setInverted: (amount: number) => void;
 	};
 	scroll?: ScrollConfigDeps;
+	/** Forest-scene annotations (desktop-only — absent when not constructed). */
+	annotations?: {
+		setHideTiming: (timing: Partial<AnnotationHideTiming>) => void;
+	};
 }
 
 type VoidFn = () => void;
@@ -344,11 +373,18 @@ function flattenConfig(
 function unflattenConfig(
 	flat: Record<string, FlatValue>,
 	keyMap: KeyMap,
-	colorFormats: Map<string, ColorFormat>
+	colorFormats: Map<string, ColorFormat>,
+	into: Record<string, any> | null = null
 ): Record<string, any> {
-	const result: Record<string, any> = {};
+	// `into` is the previous call's result, reused so the per-fire cost is leaf
+	// writes only. onValuesChange fires once per changed object per Theatre tick
+	// — during scroll that's most registered objects every frame, and rebuilding
+	// the nested graph each fire was steady GC churn (mobile frame-pacing spikes).
+	// Safe because every applyConfig consumer copies values out synchronously.
+	const result = into ?? {};
 
-	for (const [flatKey, value] of Object.entries(flat)) {
+	for (const flatKey in flat) {
+		if (colorFormats.has(flatKey)) continue; // converted in the color pass below
 		const path = keyMap.get(flatKey);
 		if (!path) continue;
 
@@ -359,24 +395,29 @@ function unflattenConfig(
 			}
 			current = current[path[i]];
 		}
-		current[path[path.length - 1]] = value;
+		current[path[path.length - 1]] = flat[flatKey];
 	}
+
+	if (colorFormats.size === 0) return result;
 
 	for (const [camelKey, format] of colorFormats) {
 		const path = keyMap.get(camelKey);
 		if (!path) continue;
 
-		let parent = result;
-		for (let i = 0; i < path.length - 1; i++) {
-			parent = parent[path[i]];
-			if (!parent) break;
-		}
-		if (!parent) continue;
-
-		const colorKey = path[path.length - 1];
-		const rgba = parent[colorKey];
+		// Read Theatre's raw rgba from `flat` (the leaf is not written above) so
+		// the converted value can land in a stable, reused leaf slot.
+		const rgba = flat[camelKey];
 		if (!isRgbaColor(rgba)) continue;
 
+		let parent = result;
+		for (let i = 0; i < path.length - 1; i++) {
+			if (!(path[i] in parent)) {
+				parent[path[i]] = {};
+			}
+			parent = parent[path[i]];
+		}
+
+		const colorKey = path[path.length - 1];
 		const r = Math.max(0, Math.min(1, rgba.r));
 		const g = Math.max(0, Math.min(1, rgba.g));
 		const b = Math.max(0, Math.min(1, rgba.b));
@@ -388,13 +429,16 @@ function unflattenConfig(
 			const hex = (Math.round(r * 255) << 16) | (Math.round(g * 255) << 8) | Math.round(b * 255);
 			parent[colorKey] = `#${hex.toString(16).padStart(6, '0')}`;
 		} else {
-			// 'rgb' — preserve original {r,g,b[,a]} shape.
-			parent[colorKey] = {
-				r,
-				g,
-				b,
-				...(typeof rgba.a === 'number' ? { a: rgba.a } : {})
-			};
+			// 'rgb' — preserve original {r,g,b[,a]} shape, mutating the reused leaf.
+			let target = parent[colorKey];
+			if (!target || typeof target !== 'object') {
+				target = {};
+				parent[colorKey] = target;
+			}
+			target.r = r;
+			target.g = g;
+			target.b = b;
+			if (typeof rgba.a === 'number') target.a = rgba.a;
 		}
 	}
 
@@ -469,10 +513,7 @@ function stripUntrackedStaticOverrides(blob: any, tracked: Set<string>): void {
 			if (byObject && typeof byObject === 'object') {
 				for (const [objKey, props] of Object.entries<any>(byObject)) {
 					if (!props || typeof props !== 'object') continue;
-					// Scene Boundaries holds the scene-axis section boundaries as STATIC
-					// props (no keyframes) — keep them so Studio edits persist across
-					// reload instead of being treated as throwaway inspector tweaks.
-					if (objKey === SCENE_BOUNDARIES_OBJECT_KEY) continue;
+					if (STATIC_PROP_OBJECT_KEYS.has(objKey)) continue;
 					for (const propName of Object.keys(props)) {
 						if (!tracked.has(`${objKey}.${propName}`)) {
 							delete props[propName];
@@ -786,6 +827,43 @@ export class TheatreController {
 		if (deps.gridPlane) this.registerGrid(deps.gridPlane);
 		if (deps.sceneInvert) this.registerCanvas(deps.sceneInvert);
 		if (deps.scroll) this.registerScrollConfigs(deps.scroll);
+		if (deps.annotations) this.registerAnnotationTiming(deps.annotations);
+	}
+
+	/**
+	 * Forest-scene annotation hide timings as STATIC props, in local scene
+	 * progress (0..1 across the scene 07 annotation range). Like
+	 * `registerSceneBoundaries` these are never keyframed — `onValuesChange`
+	 * fires once on subscribe so the values baked into `features/*.json` apply at
+	 * boot, and the `STATIC_PROP_OBJECT_KEYS` exemption keeps Studio edits across
+	 * a reload. Desktop-only: `Annotations` isn't constructed on mobile clients,
+	 * so `mobile.json` never carries this object (the mobile *viewport* branch of
+	 * a narrow desktop window still reads `endTrimMobile` from here).
+	 */
+	private registerAnnotationTiming(
+		annotations: NonNullable<TheatreDependencies['annotations']>
+	): void {
+		if (!this.sheet) return;
+		const obj = this.sheet.object(
+			ANNOTATIONS_OBJECT_KEY,
+			{
+				firstHideAt: types.number(DEFAULT_ANNOTATION_HIDE_TIMING.firstHideAt, {
+					range: [0, 1],
+					label: '1st hide at'
+				}),
+				endTrimDesktop: types.number(DEFAULT_ANNOTATION_HIDE_TIMING.endTrimDesktop, {
+					range: [0, 1],
+					label: 'end trim dsk'
+				}),
+				endTrimMobile: types.number(DEFAULT_ANNOTATION_HIDE_TIMING.endTrimMobile, {
+					range: [0, 1],
+					label: 'end trim mob'
+				})
+			},
+			{ reconfigure: true }
+		);
+		const unsub = obj.onValuesChange((values) => annotations.setHideTiming(values));
+		this.unsubscribes.push(unsub);
 	}
 
 	private registerInspectable(name: string, inspectable: Inspectable): void {
@@ -833,8 +911,9 @@ export class TheatreController {
 		if (Object.keys(theatreProps).length === 0) return;
 
 		const obj = this.sheet.object(name, theatreProps, { reconfigure: true });
+		let nested: Record<string, any> | null = null;
 		const unsub = obj.onValuesChange((values) => {
-			const nested = unflattenConfig(values as Record<string, FlatValue>, keyMap, colorFormats);
+			nested = unflattenConfig(values as Record<string, FlatValue>, keyMap, colorFormats, nested);
 			inspectable.applyConfig?.(nested);
 		});
 		this.unsubscribes.push(unsub);
@@ -953,11 +1032,12 @@ export class TheatreController {
 				deps.objectGroups.forestMainTree.visible = values.mainTreeVisible;
 			for (const group of deps.objectGroups.forestOtherTrees)
 				group.visible = values.otherTreesVisible;
-			if (deps.objectGroups.forestCity)
-				deps.objectGroups.forestCity.visible = values.cityVisible;
+			if (deps.objectGroups.forestCity) deps.objectGroups.forestCity.visible = values.cityVisible;
 
-			for (const sys of deps.particleSystems.signTree) sys.setVisibilityGate(values.mainTreeVisible);
-			for (const sys of deps.particleSystems.forest) sys.setVisibilityGate(values.otherTreesVisible);
+			for (const sys of deps.particleSystems.signTree)
+				sys.setVisibilityGate(values.mainTreeVisible);
+			for (const sys of deps.particleSystems.forest)
+				sys.setVisibilityGate(values.otherTreesVisible);
 
 			deps.gridPlane?.setVisible(values.gridVisible);
 		});
@@ -1151,29 +1231,47 @@ export class TheatreController {
 
 		const lenisAtInit = scrollDeps.lenisInstance.instance;
 		const initialHeight = Math.round(scrollDeps.virtualScrollHeight.h || 5000);
+		const platformConfig = this.isMobile ? MOBILE_LENIS_CONFIG : DESKTOP_LENIS_CONFIG;
 
 		const obj = this.sheet.object(
-			'Scroll',
+			SCROLL_CONFIG_OBJECT_KEY,
 			{
-				lerp: types.number(lenisAtInit?.options.lerp ?? 0.055, { range: [0.01, 1] }),
-				syncTouchLerp: types.number(lenisAtInit?.options.syncTouchLerp ?? 0.055, {
-					range: [0.01, 1],
-					label: 'sync touch lerp'
+				lerp: types.number(lenisAtInit?.options.lerp ?? platformConfig.lerp, {
+					range: [0.01, 1]
 				}),
+				syncTouchLerp: types.number(
+					lenisAtInit?.options.syncTouchLerp ??
+						(this.isMobile
+							? ANDROID_LENIS_TOUCH_CONFIG.syncTouchLerp
+							: DESKTOP_LENIS_CONFIG.syncTouchLerp),
+					{
+						range: [0.01, 1],
+						label: 'sync touch lerp'
+					}
+				),
 				// wheelMultiplier only affects wheel events — meaningless on touch,
 				// so the mobile panel drops it (Lenis keeps its platform default).
 				...(this.isMobile
 					? {}
 					: {
-							wheelMultiplier: types.number(lenisAtInit?.options.wheelMultiplier ?? 0.62, {
-								range: [0.1, 5],
-								label: 'wheel mult'
-							})
+							wheelMultiplier: types.number(
+								lenisAtInit?.options.wheelMultiplier ?? DESKTOP_LENIS_CONFIG.wheelMultiplier,
+								{
+									range: [0.1, 5],
+									label: 'wheel mult'
+								}
+							)
 						}),
-				touchMultiplier: types.number(lenisAtInit?.options.touchMultiplier ?? 0.9, {
-					range: [0.1, 5],
-					label: 'touch mult'
-				}),
+				touchMultiplier: types.number(
+					lenisAtInit?.options.touchMultiplier ??
+						(this.isMobile
+							? ANDROID_LENIS_TOUCH_CONFIG.touchMultiplier
+							: DESKTOP_LENIS_CONFIG.touchMultiplier),
+					{
+						range: [0.1, 5],
+						label: 'touch mult'
+					}
+				),
 				scrollHeight: types.number(initialHeight, { range: [3000, 100000] })
 			},
 			{ reconfigure: true }

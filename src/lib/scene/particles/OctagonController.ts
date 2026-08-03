@@ -50,6 +50,9 @@ export class OctagonController {
 	private simulationActivity = 0;
 	private readonly computeStride: number;
 	private computeInFlight: Promise<void> | null = null;
+	/** Per-layer visibility from the previous tickTransforms (index matches
+	 * forEachLayer order: primary = 0, extras follow). */
+	private layerWasVisible: boolean[] = [];
 
 	constructor(private readonly deps: OctagonControllerDeps) {
 		this.computeStride = deps.isMobile ? 2 : 1;
@@ -250,6 +253,22 @@ export class OctagonController {
 		this.syncActivity();
 	}
 
+	/**
+	 * Zero the interaction envelope immediately. Call on tab-visibility return:
+	 * rAF stops while the tab is hidden, freezing uActivity mid-decay, and
+	 * resuming with the frozen value would keep the sim animating off stale
+	 * fluid energy for seconds with no pointer near the cloud. With activity
+	 * at 0 the per-layer CPU pin re-engages on the next tick and snaps the
+	 * cloud straight back to the mesh pose.
+	 */
+	public resetInteractionState(): void {
+		this.simulationActivity = 0;
+		this.syncActivity();
+		// First pointer event after the reset re-seeds pointer tracking instead
+		// of deriving a splat velocity from pre-hide coordinates.
+		this.pointerInitialized = false;
+	}
+
 	/** Framerate-independent decay back toward a quiet near-rest state. */
 	public tickActivityDecay(delta: number): void {
 		const current = this.simulationActivity;
@@ -269,14 +288,20 @@ export class OctagonController {
 	// ── Per-frame transforms + compute scheduling ──────────────────────────
 
 	public tickTransforms(): void {
-		if (this.primary?.isVisible()) {
-			this.primary.updateTransforms();
-		}
-		for (const layer of this.extras) {
-			if (layer.isVisible()) {
+		this.forEachLayer((layer, index) => {
+			const visible = layer.isVisible();
+			// Hidden layers skip updateTransforms/compute entirely, so their
+			// position buffers freeze at the pre-hide pose while the scroll scrub
+			// keeps animating the source mesh. On re-show, force a re-pin so the
+			// fluid sim resumes from the current pose instead of the stale one.
+			if (visible && this.layerWasVisible[index] === false) {
+				layer.markPoseStale();
+			}
+			this.layerWasVisible[index] = visible;
+			if (visible) {
 				layer.updateTransforms();
 			}
-		}
+		});
 	}
 
 	/** Schedule a compute pass when fluid is active and stride allows. No-op if a pass is already in flight. */
@@ -289,13 +314,19 @@ export class OctagonController {
 		const stride = Math.max(1, this.computeStride);
 		if (frameNumber % stride !== 0) return;
 
-		this.computeInFlight = this.runCompute()
+		// Clear the gate only if it still holds THIS pass — rebindFluidField
+		// resets it after GPU recovery, and a zombie pass from the dead context
+		// settling late must not clobber the gate for a newer in-flight pass.
+		const pass: Promise<void> = this.runCompute()
 			.catch((error) => {
 				console.error('Octagon compute update failed:', error);
 			})
 			.finally(() => {
-				this.computeInFlight = null;
+				if (this.computeInFlight === pass) {
+					this.computeInFlight = null;
+				}
 			});
+		this.computeInFlight = pass;
 	}
 
 	private async runCompute(): Promise<void> {
@@ -304,15 +335,23 @@ export class OctagonController {
 		// keeps moving even on frames where octagon compute is throttled by stride.
 		this.updateCameraUniforms();
 
+		// Submit every layer's compute pass in THIS frame. computeAsync resolves
+		// only after GPU completion, so awaiting layers sequentially staggered the
+		// later layers' submissions into subsequent frames — and a straggler could
+		// then land AFTER updateTransforms' CPU-pin buffer upload on the frame
+		// activity crossed idle, stomping the freshly pinned pose (which persisted,
+		// because the pin cache saw an unchanged matrix and skipped rewrites).
 		const renderer = this.deps.gpu.renderer;
+		const passes: Promise<void>[] = [];
 		if (this.primary?.isVisible() && this.primary.hasActiveFluidSimulation()) {
-			await this.primary.compute(renderer);
+			passes.push(this.primary.compute(renderer));
 		}
 		for (const layer of this.extras) {
 			if (layer.isVisible() && layer.hasActiveFluidSimulation()) {
-				await layer.compute(renderer);
+				passes.push(layer.compute(renderer));
 			}
 		}
+		await Promise.all(passes);
 	}
 
 	private updateCameraUniforms(): void {
@@ -328,6 +367,24 @@ export class OctagonController {
 	}
 
 	// ── Lifecycle helpers ──────────────────────────────────────────────────
+
+	/**
+	 * Rewire to a new FluidMouseField after GPU-context recovery. The old field
+	 * is disposed (splats into it are dead ends and its velocity texture never
+	 * steps again), so both the splat target and every layer's physics kernel
+	 * must move to the new instance. Also drops the in-flight compute gate — a
+	 * pass submitted against the dead context may never settle, which would
+	 * block tickCompute forever.
+	 */
+	public rebindFluidField(fluidField: FluidMouseField | null): void {
+		this.deps.globalFluidEffect = fluidField;
+		this.computeInFlight = null;
+		const velocityNode = fluidField?.getVelocityNode() ?? null;
+		this.forEachLayer((layer) => layer.rebindFluidField(velocityNode));
+		if (fluidField && this.cameraUniforms) {
+			this.attachPointerListeners();
+		}
+	}
 
 	/** Flip every layer into GPU fluid mode (called after the intro transition). */
 	public activateFluidSim(): void {
@@ -391,5 +448,6 @@ export class OctagonController {
 		this.cameraUniforms = null;
 		this.pointerInitialized = false;
 		this.simulationActivity = 0;
+		this.layerWasVisible = [];
 	}
 }

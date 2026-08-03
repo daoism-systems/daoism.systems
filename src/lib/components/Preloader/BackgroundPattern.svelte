@@ -117,9 +117,8 @@
 			window.addEventListener('pointermove', handlePointerMove, { passive: true });
 		}
 
-		// Feed the raw (un-eased) target: the worker eases it on the render thread, so the
-		// bar keeps advancing even when the main thread is blocked compiling shaders and the
-		// main-thread easing store (displayedLoadingProgress) would otherwise stall.
+		// The render engine sweeps independently to 99; raw progress releases the final step
+		// only after loading really completes.
 		const unsubscribe = loadingProgress.subscribe((value) =>
 			controller.progress(Math.min(100, Math.max(0, value)))
 		);

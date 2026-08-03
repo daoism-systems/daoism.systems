@@ -129,7 +129,14 @@
 		if (fadeRaf !== null) cancelAnimationFrame(fadeRaf);
 	});
 
+	// While muted the analyser output is flat, so draw() renders one static frame
+	// and does not re-arm its rAF — no 30fps loop competing with the scene while
+	// idle. isMuted/isHovered/shouldShowIntro are re-read here so any change that
+	// alters the drawn frame restarts the loop (or repaints the static frame).
 	$effect(() => {
+		void isMuted;
+		void isHovered;
+		void shouldShowIntro;
 		if (isDocumentVisible && shouldRenderMobileDocked) {
 			startVisualiser();
 			return;
@@ -188,14 +195,20 @@
 			stopVisualiser();
 			return;
 		}
-		animationId = requestAnimationFrame(draw);
-		if (
-			lastVisualiserFrameTs !== 0 &&
-			timestamp - lastVisualiserFrameTs < VISUALISER_FRAME_INTERVAL_MS
-		) {
-			return;
+		if (isMuted) {
+			// Flat line while muted — render this one frame and halt (animationId 0
+			// keeps the resize → startVisualiser repaint path working).
+			animationId = 0;
+		} else {
+			animationId = requestAnimationFrame(draw);
+			if (
+				lastVisualiserFrameTs !== 0 &&
+				timestamp - lastVisualiserFrameTs < VISUALISER_FRAME_INTERVAL_MS
+			) {
+				return;
+			}
+			lastVisualiserFrameTs = timestamp;
 		}
-		lastVisualiserFrameTs = timestamp;
 
 		const hasAudioData = Boolean(analyser && dataArray && bufferLength > 0);
 		if (hasAudioData) {
@@ -219,19 +232,21 @@
 		const baseColor = isMobileDocked
 			? isMuted
 				? 'rgba(182, 190, 206, 0.92)'
-				: 'rgba(241, 244, 255, 0.96)'
+				: 'rgba(230, 71, 73, 0.98)'
 			: isHovered
 				? 'rgba(255, 255, 255, 0.94)'
 				: 'rgba(230, 71, 73, 0.94)';
 		const glowColor = isMobileDocked
 			? isMuted
 				? 'rgba(182, 190, 206, 0.18)'
-				: 'rgba(255, 255, 255, 0.3)'
+				: 'rgba(230, 71, 73, 0.36)'
 			: isHovered
 				? 'rgba(255, 255, 255, 0.26)'
 				: 'rgba(230, 71, 73, 0.22)';
 		ctx.fillStyle = baseColor;
-		ctx.shadowBlur = isMobileDocked ? 9 : isHovered ? 10 : 7;
+		// No canvas shadow on the mobile dock — shadowBlur is one of the most
+		// expensive 2D-canvas ops and competes with the WebGL scene's frame budget.
+		ctx.shadowBlur = isMobileDocked ? 0 : isHovered ? 10 : 7;
 		ctx.shadowColor = glowColor;
 		ctx.globalAlpha = shouldShowIntro ? 1 : 0.82;
 
@@ -251,7 +266,7 @@
 			}
 			if (rawAmplitude < noiseFloor) rawAmplitude = 0;
 			const compressed = Math.atan(rawAmplitude * preAmp) / (Math.PI / 2);
-			const columnHeight = compressed * midY * maxVal;
+			const columnHeight = Math.min(compressed * midY * maxVal, Math.max(0, midY - dotRadius));
 
 			for (let y = 0; y <= columnHeight; y += gridStep) {
 				ctx.beginPath();
@@ -517,20 +532,19 @@
 	#audio-visualiser.audio-visualiser--mobile {
 		top: auto;
 		left: auto;
-		right: $offset-x-phone;
-		bottom: calc(1.2rem + env(safe-area-inset-bottom, 0px));
 		z-index: 101;
-		width: 48px;
-		height: 48px;
+		width: 3rem;
+		height: 3rem;
 		border-radius: 50%;
-		border: 1px solid rgba(230, 71, 73, 0.42);
+		border: 1px solid rgba(168, 174, 188, 0.42);
 		background:
-			radial-gradient(80% 80% at 50% 24%, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 100%),
-			linear-gradient(180deg, rgba(230, 71, 73, 0.2) 0%, rgba(83, 43, 49, 0.72) 100%);
+			radial-gradient(90% 70% at 50% 100%, rgba(230, 71, 73, 0.58), transparent 72%),
+			linear-gradient(180deg, rgba(14, 15, 17, 0.96) 0%, rgba(30, 20, 23, 0.96) 52%, rgba(116, 38, 45, 0.98) 100%);
 		box-shadow:
 			0 14px 34px rgba(0, 0, 0, 0.45),
-			inset 0 1px 0 rgba(255, 255, 255, 0.22),
-			inset 0 -12px 22px rgba(0, 0, 0, 0.2);
+			inset 0 1px 0 rgba(255, 255, 255, 0.08),
+			inset 0 -12px 22px rgba(230, 71, 73, 0.18);
+		background-clip: padding-box;
 		transform: translateY(10px) scale(0.92);
 		place-items: center;
 	}
@@ -552,7 +566,7 @@
 	}
 
 	#audio-visualiser.audio-visualiser--mobile .audio-visualiser__mobile-shell {
-		width: 34px;
+		width: 42px;
 		height: 18px;
 		display: block;
 		pointer-events: none;
@@ -569,10 +583,11 @@
 
 	#audio-visualiser.audio-visualiser--mobile.muted {
 		border-color: rgba(168, 174, 188, 0.38);
-		background: rgba(43, 44, 48, 0.6);
-		// background:
-		// 	radial-gradient(80% 80% at 50% 24%, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 100%),
-		// 	linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(54, 58, 69, 0.5) 100%);
+		background: linear-gradient(180deg, rgba(14, 15, 17, 0.98), rgba(43, 44, 48, 0.98));
+		box-shadow:
+			0 14px 34px rgba(0, 0, 0, 0.45),
+			inset 0 1px 0 rgba(255, 255, 255, 0.08),
+			inset 0 -12px 22px rgba(0, 0, 0, 0.16);
 	}
 
 	@media (hover: hover) and (pointer: fine) {
@@ -853,7 +868,6 @@
 		}
 
 		#audio-visualiser.audio-visualiser--mobile .audio-visualiser__mobile-shell {
-			width: 31px;
 			height: 16px;
 		}
 	}

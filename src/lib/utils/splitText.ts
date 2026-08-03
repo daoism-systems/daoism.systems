@@ -14,6 +14,7 @@ export interface SplitTextOptions {
 export interface SplitResult {
 	words: HTMLElement[];
 	chars: HTMLElement[];
+	lines: HTMLElement[];
 	revert(): void;
 }
 
@@ -108,6 +109,98 @@ export function splitText(el: HTMLElement, options: SplitTextOptions = {}): Spli
 	return {
 		words,
 		chars,
+		lines: [],
+		revert() {
+			el.innerHTML = originalHTML;
+		}
+	};
+}
+
+export function splitTextIntoLines(el: HTMLElement): SplitResult {
+	const originalHTML = el.innerHTML;
+	const originalText = el.textContent ?? '';
+	const emptyResult = (): SplitResult => ({
+		words: [],
+		chars: [],
+		lines: [],
+		revert: () => {}
+	});
+
+	if (!originalText.trim()) return emptyResult();
+
+	type MeasuredLine = {
+		top: number;
+		startNode: Text;
+		startOffset: number;
+		endNode: Text;
+		endOffset: number;
+	};
+
+	const measuredLines: MeasuredLine[] = [];
+	const range = document.createRange();
+	const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+	let currentNode = walker.nextNode();
+
+	while (currentNode) {
+		const textNode = currentNode as Text;
+		const wordMatches = textNode.data.matchAll(/\S+/g);
+
+		for (const match of wordMatches) {
+			const startOffset = match.index ?? 0;
+			const endOffset = startOffset + match[0].length;
+			range.setStart(textNode, startOffset);
+			range.setEnd(textNode, endOffset);
+			const rect = range.getBoundingClientRect();
+
+			if (!rect.width && !rect.height) return emptyResult();
+
+			const currentLine = measuredLines.at(-1);
+			if (!currentLine || Math.abs(currentLine.top - rect.top) > 2) {
+				measuredLines.push({
+					top: rect.top,
+					startNode: textNode,
+					startOffset,
+					endNode: textNode,
+					endOffset
+				});
+			} else {
+				currentLine.endNode = textNode;
+				currentLine.endOffset = endOffset;
+			}
+		}
+
+		currentNode = walker.nextNode();
+	}
+
+	if (!measuredLines.length) return emptyResult();
+
+	const fragment = document.createDocumentFragment();
+	const lines = measuredLines.map(({ startNode, startOffset, endNode, endOffset }, index) => {
+		const mask = document.createElement('span');
+		const line = document.createElement('span');
+		const lineRange = document.createRange();
+		lineRange.setStart(startNode, startOffset);
+		lineRange.setEnd(endNode, endOffset);
+		mask.className = 'text-reveal-line-mask';
+		mask.style.display = 'block';
+		mask.style.overflow = 'hidden';
+		line.className = 'text-reveal-line';
+		line.style.display = 'block';
+		line.style.transformOrigin = 'left bottom';
+		line.style.backfaceVisibility = 'hidden';
+		line.appendChild(lineRange.cloneContents());
+		mask.appendChild(line);
+		fragment.appendChild(mask);
+		if (index < measuredLines.length - 1) fragment.appendChild(document.createTextNode(' '));
+		return line;
+	});
+
+	el.replaceChildren(fragment);
+
+	return {
+		words: [],
+		chars: [],
+		lines,
 		revert() {
 			el.innerHTML = originalHTML;
 		}

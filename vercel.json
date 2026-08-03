@@ -2,6 +2,42 @@
 	"framework": "sveltekit-1",
 	"headers": [
 		{
+			"source": "/_app/immutable/(.*)",
+			"headers": [
+				{
+					"key": "Cache-Control",
+					"value": "public, max-age=31536000, immutable"
+				}
+			]
+		},
+		{
+			"source": "/(models|textures|fonts|sounds|hdr|draco|basis|images|icons)/(.*)",
+			"headers": [
+				{
+					"key": "Cache-Control",
+					"value": "public, max-age=31536000, immutable"
+				}
+			]
+		},
+		{
+			"source": "/(favicon.svg|og-daoism.jpg)",
+			"headers": [
+				{
+					"key": "Cache-Control",
+					"value": "public, max-age=604800, stale-while-revalidate=86400"
+				}
+			]
+		},
+		{
+			"source": "/(robots.txt|sitemap.xml|site.webmanifest)",
+			"headers": [
+				{
+					"key": "Cache-Control",
+					"value": "public, max-age=3600, stale-while-revalidate=86400"
+				}
+			]
+		},
+		{
 			"source": "/service-worker.js",
 			"headers": [
 				{

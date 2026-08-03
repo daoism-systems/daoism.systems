@@ -11,6 +11,11 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 
 const VISUALISER_MAX_FPS = 60;
 const VISUALISER_FRAME_INTERVAL_MS = 1000 / VISUALISER_MAX_FPS;
+// rAF deltas jitter a few tenths of a millisecond either side of the nominal frame
+// time, so gating on the exact interval rejects roughly half the frames on a 60Hz
+// display and lands the visualiser at an uneven ~40fps. Admit a frame that arrives
+// marginally early; 120Hz panels still halve cleanly to 60.
+const VISUALISER_FRAME_GATE_MS = VISUALISER_FRAME_INTERVAL_MS * 0.9;
 const STATIC_WAVE_INTENSITY = 0.2;
 const ACTIVE_WAVE_INTENSITY = 1;
 const DUMMY_BUFFER_LENGTH = 96;
@@ -168,7 +173,7 @@ export function createPreloaderVisualizer(
         ? VISUALISER_FRAME_INTERVAL_MS
         : timestamp - lastVisualiserFrameTs;
 
-    if (lastVisualiserFrameTs !== 0 && frameDelta < VISUALISER_FRAME_INTERVAL_MS) {
+    if (lastVisualiserFrameTs !== 0 && frameDelta < VISUALISER_FRAME_GATE_MS) {
       return;
     }
 

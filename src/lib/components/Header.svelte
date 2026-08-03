@@ -26,9 +26,11 @@
 
 	let menuOpen = $state(false);
 	let menuClosing = $state(false);
+	let menuTrigger: HTMLButtonElement | null = null;
 	let isMobileMenuButtonRevealed = $derived(areButtonsRevealed && !menuOpen && !menuClosing);
 
-	function openMenu() {
+	function openMenu(event: MouseEvent) {
+		menuTrigger = event.currentTarget as HTMLButtonElement;
 		menuClosing = false;
 		menuOpen = true;
 	}
@@ -49,14 +51,21 @@
 	function handleMenuClose() {
 		menuClosing = true;
 		menuOpen = false;
+		menuTrigger?.focus();
 	}
 
 	function handleMenuClosed() {
 		menuClosing = false;
+		menuTrigger?.focus();
 	}
 
 	function handleConnectNowClick() {
 		onNavigateSection(7);
+	}
+
+	function handleLogoClick(event: MouseEvent) {
+		event.preventDefault();
+		onNavigateSection(0);
 	}
 
 	onMount(() => {
@@ -85,6 +94,9 @@
 			class="menu-btn {areButtonsRevealed ? 'menu-btn--revealed' : ''}"
 			data-cursor-text-label="Open"
 			onclick={openMenu}
+			aria-label="Open menu"
+			aria-controls="site-menu"
+			aria-expanded={menuOpen}
 			use:hoverSound
 			use:directionalFill
 			use:ctaResonance
@@ -143,8 +155,13 @@
 
 <!-- The logo sits outside the fixed header: the header's stacking context would
      isolate mix-blend-mode, so blending with the scene only works from here. -->
-<a href="/" class="logo {isLogoRevealed ? 'logo--revealed' : ''}">
-	<img src="/icons/logo.svg" alt="daoism systems logo" height="48" />
+<a
+	href="/"
+	class="logo {isLogoRevealed ? 'logo--revealed' : ''}"
+	aria-label="Return to the first section"
+	onclick={handleLogoClick}
+>
+	<img src="/icons/logo.svg" alt="Daoism Systems" width="136" height="48" />
 </a>
 
 <!-- Mobile menu trigger. Mirrors the logo: it lives outside the fixed header so
@@ -155,6 +172,8 @@
 		? ' menu-btn-mobile--no-delay'
 		: ''}"
 	aria-label="Open menu"
+	aria-controls="site-menu"
+	aria-expanded={menuOpen}
 	onclick={openMenu}
 	use:ctaResonance
 >

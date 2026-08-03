@@ -5,6 +5,7 @@ import {
 	type GraphicsOptions,
 	type GraphicsTier
 } from '../GraphicsConfig';
+import { detectHighEndMob } from '$lib/utils/isMobile';
 import { applySceneFeaturesToGraphicsOptions, type SceneFeatureFlags } from '../SceneFeatures';
 
 export interface PerformanceTierResult {
@@ -49,7 +50,7 @@ export async function applyPerformanceTier(opts: {
 			onBenchmarkComplete?.();
 		}
 	} else {
-		tier = isMobile ? 'medium' : 'high';
+		tier = isMobile && !detectHighEndMob() ? 'medium' : 'high';
 		options = createGraphicsOptionsForTier(tier, baseOptions);
 		options = applySceneFeaturesToGraphicsOptions(options, features);
 		onBenchmarkComplete?.();

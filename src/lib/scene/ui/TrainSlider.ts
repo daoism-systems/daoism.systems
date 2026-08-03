@@ -9,6 +9,7 @@ import type { VelocityNode } from '../particles/FluidMouseField';
 import {
 	DEFAULT_SLIDER_CONFIG,
 	PERFORMANCE_PRESETS,
+	TABLET_MAX_WIDTH,
 	getMobileCurveScale,
 	resolveSliderProps,
 	type ResolvedSliderProps,
@@ -21,47 +22,22 @@ import {
 	updateSlideTransforms as applySlideTransforms
 } from './trainSlider/layout';
 import { createSlideMaterial } from './trainSlider/materials';
+import { SliderDragController, type ScrollDriver } from './trainSlider/dragController';
 import type { Inspectable } from '../debug/Inspectable';
 import { SCENE_LAYERS } from '../sceneLayers';
 
-const DRAG_AXIS_LOCK_PX = 12;
-const DRAG_COMMIT_FRACTION = 0.35;
-const DRAG_VELOCITY_WINDOW_MS = 80;
-const INERTIA_TAU_SEC = 0.55;
-const INERTIA_MIN_DURATION_SEC = 0.35;
-const INERTIA_MAX_DURATION_SEC = 1.4;
-const EDGE_RUBBER_BAND_FRAC = 0.18;
-const VISIBLE_CARDS_DESKTOP = 2.5;
-const VISIBLE_CARDS_MOBILE = 1.3;
-const MOBILE_VIEWPORT_PX = 768;
-const SNAP_ON_RELEASE_DEFAULT = true;
+export type { ScrollDriver };
 
-type SliderTimingConfig = {
-	snapOnRelease: boolean;
-	dragCommitFraction: number;
-	inertiaProjectionSec: number;
-	inertiaMinDurationSec: number;
-	inertiaMaxDurationSec: number;
-	inertiaDurationScale: number;
-};
-
-const DEFAULT_TIMING_CONFIG: SliderTimingConfig = {
-	snapOnRelease: SNAP_ON_RELEASE_DEFAULT,
-	dragCommitFraction: DRAG_COMMIT_FRACTION,
-	inertiaProjectionSec: INERTIA_TAU_SEC,
-	inertiaMinDurationSec: INERTIA_MIN_DURATION_SEC,
-	inertiaMaxDurationSec: INERTIA_MAX_DURATION_SEC,
-	inertiaDurationScale: 1
-};
-
-export type ScrollDriver = {
-	getScroll: () => number;
-	setScrollImmediate: (px: number) => void;
-	setScrollAnimated: (px: number, durationSec: number) => void;
-	cancelAnimatedScroll: () => void;
-	getVenturesPixelRange: () => { startPx: number; endPx: number };
-	isDriverActive: () => boolean;
-};
+/**
+ * How long the first load attempt may hold up `whenReady()` (and therefore the
+ * loading gate) before the slide mounts with the fallback. The real texture is
+ * still awaited in the background and swapped in by `ensureSlideTexture`.
+ */
+const INITIAL_TEXTURE_BUDGET_MS = 4000;
+/** Extra attempts after the first rejection, with exponential backoff between them. */
+const TEXTURE_LOAD_RETRIES = 4;
+const TEXTURE_RETRY_BASE_DELAY_MS = 500;
+const TEXTURE_RETRY_MAX_DELAY_MS = 8000;
 
 type Props = {
 	renderer: WebGPURenderer;
@@ -110,14 +86,13 @@ class TrainSlider implements Inspectable {
 	private pointerIsDown = false;
 	private interactionEnabled = false;
 	private listenerCleanup: Array<() => void> = [];
+	private disposed = false;
+	private fallbackTexture: THREE.Texture | null = null;
 
-	private scrollDriver: ScrollDriver | null = null;
-	private dragSamples: Array<{ t: number; scrollPx: number }> = [];
-	private dragActive = false;
-	private dragAxisLocked: 'horizontal' | 'vertical' | null = null;
-	private dragStartScrollPx = 0;
 	private activePointerId: number | null = null;
-	private timing: SliderTimingConfig = { ...DEFAULT_TIMING_CONFIG };
+	/** Drag-to-scrub is desktop-only; touch pointers are never eligible. */
+	private dragPointerEligible = false;
+	private drag = new SliderDragController(() => this.props.slideCount);
 
 	private config: SliderConfig = { ...DEFAULT_SLIDER_CONFIG };
 
@@ -282,48 +257,101 @@ class TrainSlider implements Inspectable {
 		animate();
 	}
 
-	private async loadTexture(src: string): Promise<THREE.Texture> {
-		return new Promise((resolve) => {
-			let settled = false;
-			const finish = (texture: THREE.Texture) => {
-				if (settled) return;
-				settled = true;
-				resolve(texture);
-			};
-			const timeoutId =
-				typeof window !== 'undefined'
-					? window.setTimeout(() => finish(this.createFallbackTexture()), 4000)
-					: null;
+	/** One load attempt. Resolves the configured texture, or null if the load failed. */
+	private async attemptTextureLoad(src: string): Promise<THREE.Texture | null> {
+		try {
+			const texture = await TextureCache.load(src);
+			this.configureSlideTexture(texture);
+			return texture;
+		} catch {
+			return null;
+		}
+	}
 
-			TextureCache.load(src)
-				.then((texture) => {
-					this.configureSlideTexture(texture);
-					if (timeoutId !== null) window.clearTimeout(timeoutId);
-					finish(texture);
-				})
-				.catch(() => {
-					if (timeoutId !== null) window.clearTimeout(timeoutId);
-					finish(this.createFallbackTexture());
-				});
+	/**
+	 * First attempt, capped at `INITIAL_TEXTURE_BUDGET_MS` so one slow texture can't
+	 * stall the loading gate. Null means "not ready yet" — either the load failed or
+	 * it is still in flight; `ensureSlideTexture` picks it up from there.
+	 */
+	private loadTextureWithinBudget(src: string): Promise<THREE.Texture | null> {
+		const load = this.attemptTextureLoad(src);
+		if (typeof window === 'undefined') return load;
+
+		return new Promise((resolve) => {
+			const timeoutId = window.setTimeout(() => resolve(null), INITIAL_TEXTURE_BUDGET_MS);
+			void load.then((texture) => {
+				window.clearTimeout(timeoutId);
+				resolve(texture);
+			});
 		});
 	}
 
-	private createFallbackTexture(): THREE.Texture {
+	/**
+	 * Retry loop for a slide still showing the fallback. A load that merely missed
+	 * the initial budget resolves on the very next attempt — TextureCache dedupes to
+	 * the same in-flight promise — while a rejected load is re-issued with backoff.
+	 */
+	private async ensureSlideTexture(slideIndex: number): Promise<void> {
+		const src = this.slideData[slideIndex]?.imageSrc;
+		if (!src) return;
+
+		for (let attempt = 0; attempt <= TEXTURE_LOAD_RETRIES; attempt++) {
+			const texture = await this.attemptTextureLoad(src);
+			if (this.disposed) return;
+			if (texture) {
+				this.applySlideTexture(slideIndex, texture);
+				return;
+			}
+			if (attempt === TEXTURE_LOAD_RETRIES) break;
+			await this.delay(
+				Math.min(TEXTURE_RETRY_BASE_DELAY_MS * 2 ** attempt, TEXTURE_RETRY_MAX_DELAY_MS)
+			);
+			if (this.disposed) return;
+		}
+
+		console.warn(
+			`[TrainSlider] slide ${slideIndex} kept its fallback texture: "${src}" failed ${TEXTURE_LOAD_RETRIES + 1} attempts`
+		);
+	}
+
+	private delay(ms: number): Promise<void> {
+		return new Promise((resolve) => setTimeout(resolve, ms));
+	}
+
+	/** Rebuilds the slide material against the real texture (the TSL graph bakes it in). */
+	private applySlideTexture(slideIndex: number, texture: THREE.Texture): void {
+		const slide = this.slides[slideIndex];
+		if (!slide || slide.userData.mainTexture === texture) return;
+
+		slide.userData.mainTexture = texture;
+		const replacement = this.createSlideMaterial(
+			texture,
+			slideIndex,
+			slide.userData.titleTexture,
+			slide.userData.focusUniform
+		);
+		this.prepareSlideMaterial(replacement);
+		this.disposeSlideMaterial(slide);
+		slide.material = replacement;
+	}
+
+	/** Shared grey placeholder every not-yet-loaded slide mounts with. */
+	private getFallbackTexture(): THREE.Texture {
+		if (this.fallbackTexture) return this.fallbackTexture;
+
 		const canvas = document.createElement('canvas');
 		canvas.width = canvas.height = 512;
 		const ctx = canvas.getContext('2d');
-		if (!ctx) {
-			const texture = new THREE.Texture(canvas);
-			texture.needsUpdate = true;
-			return texture;
+		if (ctx) {
+			const gradient = ctx.createLinearGradient(0, 0, 512, 512);
+			gradient.addColorStop(0, '#4a5568');
+			gradient.addColorStop(1, '#2d3748');
+			ctx.fillStyle = gradient;
+			ctx.fillRect(0, 0, 512, 512);
 		}
-		const gradient = ctx.createLinearGradient(0, 0, 512, 512);
-		gradient.addColorStop(0, '#4a5568');
-		gradient.addColorStop(1, '#2d3748');
-		ctx.fillStyle = gradient;
-		ctx.fillRect(0, 0, 512, 512);
 		const texture = new THREE.Texture(canvas);
 		this.configureSlideTexture(texture);
+		this.fallbackTexture = texture;
 		return texture;
 	}
 
@@ -334,7 +362,7 @@ class TrainSlider implements Inspectable {
 	 */
 	private configureSlideTexture(texture: THREE.Texture): void {
 		texture.colorSpace = THREE.SRGBColorSpace;
-		texture.magFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
 		texture.anisotropy = this.renderer.getMaxAnisotropy();
 
 		const hasMipChain = (texture.mipmaps?.length ?? 0) > 1;
@@ -350,16 +378,27 @@ class TrainSlider implements Inspectable {
 		const geometry = this.createSharedSlideGeometry();
 
 		const textures = await Promise.all(
-			this.slideData.map((slide) => this.loadTexture(slide.imageSrc))
+			this.slideData.map((slide) => this.loadTextureWithinBudget(slide.imageSrc))
 		);
+		if (this.disposed) {
+			geometry.dispose();
+			return;
+		}
 
 		for (let i = 0; i < this.props.slideCount; i++) {
-			const mesh = this.createSlideMesh(i, textures[i], geometry);
+			const mesh = this.createSlideMesh(i, textures[i] ?? this.getFallbackTexture(), geometry);
 			this.slides.push(mesh);
 			this.group.add(mesh);
 		}
 
 		this.updateSlideTransforms(true);
+
+		// Slides that mounted on the fallback keep trying in the background and swap
+		// their real texture in as soon as it lands.
+		for (let i = 0; i < this.props.slideCount; i++) {
+			if (textures[i]) continue;
+			void this.ensureSlideTexture(i);
+		}
 	}
 
 	private createSharedSlideGeometry(): THREE.PlaneGeometry {
@@ -495,7 +534,7 @@ class TrainSlider implements Inspectable {
 	}
 
 	public handleResize(): void {
-		const shouldShowHint = window.innerWidth < 1024;
+		const shouldShowHint = window.innerWidth <= TABLET_MAX_WIDTH;
 		this.uniforms.mobileClickHint.value = shouldShowHint ? 1 : 0;
 		this.uniforms.mobileCurveScale.value = getMobileCurveScale(window.innerWidth);
 
@@ -583,23 +622,24 @@ class TrainSlider implements Inspectable {
 			focusUniform,
 			props: this.props,
 			uniforms: this.uniforms,
-			isMobileViewport: typeof window !== 'undefined' ? (window.innerWidth || 0) < 768 : false
+			isMobileViewport:
+				typeof window !== 'undefined' ? (window.innerWidth || 0) <= TABLET_MAX_WIDTH : false
 		});
 	}
 
 	enableFluidInteraction() {
 		const handleMouseMove = (event: MouseEvent) => {
 			if (this.isOverlayInteractionTarget(event.target)) {
-				if (!this.dragActive) {
+				if (!this.drag.isActive) {
 					this.dispatchCursorMode(null);
 					this.clearHoverOverOverlay();
 				}
 				return;
 			}
-			if (this.interactionEnabled && !this.dragActive) {
+			if (this.interactionEnabled && !this.drag.isActive) {
 				this.dispatchCursorMode('grab');
 			}
-			if (this.dragActive) return;
+			if (this.drag.isActive) return;
 			this.isMouseOver = true;
 			this.lastMouseMoveTime = performance.now();
 			if (!this.camera) return;
@@ -619,7 +659,7 @@ class TrainSlider implements Inspectable {
 			this.animateHarmonicaCenter(0, 500);
 			this.currentInteractionSlide = -1;
 			if (typeof window !== 'undefined') this._dispatchCursor(null, null);
-			if (!this.dragActive) this.dispatchCursorMode(null);
+			if (!this.drag.isActive) this.dispatchCursorMode(null);
 		};
 
 		window.addEventListener('mousemove', handleMouseMove);
@@ -631,21 +671,21 @@ class TrainSlider implements Inspectable {
 	}
 
 	public setScrollDriver(driver: ScrollDriver | null): void {
-		this.scrollDriver = driver;
+		this.drag.setDriver(driver);
 		if (!driver) {
-			this.resetDragLifecycleState();
+			this.resetPointerState();
 		}
 	}
 
 	public setSnapOnRelease(snap: boolean): void {
-		this.timing.snapOnRelease = snap;
+		this.drag.setSnapOnRelease(snap);
 	}
 
 	enablePointerInteraction() {
 		const onPointerDown = (event: PointerEvent) => {
 			if (event.button !== undefined && event.button !== 0) return;
 			if (this.activePointerId !== null) return;
-			if (!this.scrollDriver?.isDriverActive()) return;
+			if (!this.drag.canBegin()) return;
 			const target = event.target as Element | null;
 			if (target?.closest('a, button, input, textarea, select, [role="button"], [tabindex]')) {
 				return;
@@ -658,11 +698,12 @@ class TrainSlider implements Inspectable {
 			this.pointerDownTime = performance.now();
 			this.pointerDownClientX = event.clientX;
 			this.pointerDownClientY = event.clientY;
-			this.dragStartScrollPx = this.scrollDriver?.getScroll() ?? 0;
-			this.dragSamples = [{ t: this.pointerDownTime, scrollPx: this.dragStartScrollPx }];
-			this.dragActive = false;
-			this.dragAxisLocked = null;
 			this.updatePointerPosition(event.clientX, event.clientY);
+
+			// Touch pointers stay tap-only: the slider advances with native vertical
+			// scrolling there, so no horizontal drag layer competes with it.
+			this.dragPointerEligible = event.pointerType !== 'touch';
+			if (this.dragPointerEligible) this.drag.arm(event.clientX, event.clientY);
 
 			if (event.pointerType === 'touch') {
 				this.isTouchInteraction = true;
@@ -683,57 +724,42 @@ class TrainSlider implements Inspectable {
 			this.updatePointerPosition(event.clientX, event.clientY);
 
 			if (!this.pointerIsDown || event.pointerId !== this.activePointerId) return;
-			const driver = this.scrollDriver;
-			if (!driver || !driver.isDriverActive()) {
-				if (this.dragActive) {
-					this.releaseDragInertia(0);
-					this.resetDragLifecycleState();
-				}
-				return;
+			if (!this.dragPointerEligible) return;
+
+			switch (this.drag.handlePointerMove(event.clientX, event.clientY)) {
+				case 'idle':
+					return;
+				case 'ended':
+					this.resetPointerState();
+					return;
+				case 'started':
+					this._dispatchCursor(null, null);
+					this.dispatchCursorMode('grabbing');
+					break;
 			}
 
-			const dx = event.clientX - this.pointerDownClientX;
-			const dy = event.clientY - this.pointerDownClientY;
-
-			if (this.dragAxisLocked === null) {
-				if (Math.hypot(dx, dy) >= DRAG_AXIS_LOCK_PX) {
-					this.dragAxisLocked = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical';
-					if (this.dragAxisLocked === 'horizontal') {
-						this.dragActive = true;
-						driver.cancelAnimatedScroll();
-						this.dragStartScrollPx = driver.getScroll();
-						this.pointerDownClientX = event.clientX;
-						this.pointerDownClientY = event.clientY;
-						this.dragSamples = [{ t: performance.now(), scrollPx: this.dragStartScrollPx }];
-						this._dispatchCursor(null, null);
-						this.dispatchCursorMode('grabbing');
-					}
-				}
-			}
-
-			if (this.dragAxisLocked !== 'horizontal') return;
+			// Suppress the native text/image drag that would otherwise fight the scrub.
 			if (event.cancelable) event.preventDefault();
-			this.applyDragMove(dx);
 		};
 
 		const onPointerUp = (event: PointerEvent) => {
 			this.updatePointerPosition(event.clientX, event.clientY);
 			if (!this.pointerIsDown || event.pointerId !== this.activePointerId) return;
 
-			const wasDragActive = this.dragActive;
 			const elapsedMs = performance.now() - this.pointerDownTime;
-			const dx = event.clientX - this.pointerDownClientX;
-			const dy = event.clientY - this.pointerDownClientY;
-			const movedDistance = Math.hypot(dx, dy);
+			const movedDistance = Math.hypot(
+				event.clientX - this.pointerDownClientX,
+				event.clientY - this.pointerDownClientY
+			);
 
-			if (wasDragActive) {
-				this.releaseDragInertia();
-				this.resetDragLifecycleState();
+			if (this.drag.isActive) {
+				this.drag.release();
+				this.resetPointerState();
 				this.dispatchCursorMode(this.interactionEnabled && this.isMouseOver ? 'grab' : null);
 				return;
 			}
 
-			this.resetDragLifecycleState();
+			this.resetPointerState();
 			const isTap =
 				elapsedMs <= this.tapDurationThresholdMs && movedDistance <= this.tapMoveThresholdPx;
 			if (!isTap) return;
@@ -746,9 +772,8 @@ class TrainSlider implements Inspectable {
 
 		const onPointerCancel = (event: PointerEvent) => {
 			if (event.pointerId !== this.activePointerId) return;
-			const wasDragActive = this.dragActive;
-			if (wasDragActive) this.releaseDragInertia(0);
-			this.resetDragLifecycleState();
+			if (this.drag.isActive) this.drag.release(0);
+			this.resetPointerState();
 			this.dispatchCursorMode(this.interactionEnabled && this.isMouseOver ? 'grab' : null);
 		};
 
@@ -785,110 +810,11 @@ class TrainSlider implements Inspectable {
 		});
 	}
 
-	private applyDragMove(dx: number): void {
-		const driver = this.scrollDriver;
-		if (!driver) return;
-		const ventures = driver.getVenturesPixelRange();
-		const slideCount = this.props.slideCount;
-		const viewportWidth = typeof window !== 'undefined' ? window.innerWidth || 1 : 1;
-		const isMobile = viewportWidth < MOBILE_VIEWPORT_PX;
-		const visibleCards = isMobile ? VISIBLE_CARDS_MOBILE : VISIBLE_CARDS_DESKTOP;
-		const perSlideDragPx = Math.max(140, viewportWidth / visibleCards);
-		const sectionPx = Math.max(0, ventures.endPx - ventures.startPx);
-		const scrollPxPerSlide = sectionPx / Math.max(1, slideCount - 1);
-		const sensitivity = scrollPxPerSlide / Math.max(perSlideDragPx, 1);
-
-		const rawTarget = this.dragStartScrollPx - sensitivity * dx;
-		const rubber = Math.max(scrollPxPerSlide * EDGE_RUBBER_BAND_FRAC, 1);
-		let target = rawTarget;
-		if (target < ventures.startPx) {
-			const overshoot = ventures.startPx - target;
-			target = ventures.startPx - rubber * (1 - Math.exp(-overshoot / rubber));
-		} else if (target > ventures.endPx) {
-			const overshoot = target - ventures.endPx;
-			target = ventures.endPx + rubber * (1 - Math.exp(-overshoot / rubber));
-		}
-
-		driver.setScrollImmediate(target);
-
-		const now = performance.now();
-		this.dragSamples.push({ t: now, scrollPx: target });
-		const cutoff = now - DRAG_VELOCITY_WINDOW_MS;
-		while (this.dragSamples.length > 1 && this.dragSamples[0].t < cutoff) {
-			this.dragSamples.shift();
-		}
-	}
-
-	private releaseDragInertia(velocityOverride?: number): void {
-		const driver = this.scrollDriver;
-		if (!driver) return;
-		const ventures = driver.getVenturesPixelRange();
-		const slideCount = this.props.slideCount;
-		const sectionPx = Math.max(0, ventures.endPx - ventures.startPx);
-		const scrollPxPerSlide = sectionPx / Math.max(1, slideCount - 1);
-
-		const releaseTime = performance.now();
-		const cutoff = releaseTime - DRAG_VELOCITY_WINDOW_MS;
-		while (this.dragSamples.length > 1 && this.dragSamples[0].t < cutoff) {
-			this.dragSamples.shift();
-		}
-
-		let velocityPxPerSec = velocityOverride ?? 0;
-		if (velocityOverride === undefined && this.dragSamples.length >= 2) {
-			const first = this.dragSamples[0];
-			const last = this.dragSamples[this.dragSamples.length - 1];
-			const dt = (last.t - first.t) / 1000;
-			if (dt > 0.001) {
-				velocityPxPerSec = (last.scrollPx - first.scrollPx) / dt;
-			}
-		}
-
-		const reduceMotion =
-			typeof window !== 'undefined' &&
-			typeof window.matchMedia === 'function' &&
-			window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-		const tau = reduceMotion ? 0 : Math.max(0, this.timing.inertiaProjectionSec);
-
-		const currentScrollPx = driver.getScroll();
-		const projectedPx = currentScrollPx + velocityPxPerSec * tau;
-
-		let target: number;
-		if (this.timing.snapOnRelease && scrollPxPerSlide > 0) {
-			const startSlide = Math.round((this.dragStartScrollPx - ventures.startPx) / scrollPxPerSlide);
-			const intentSlides = (projectedPx - this.dragStartScrollPx) / scrollPxPerSlide;
-			const dragCommitFraction = THREE.MathUtils.clamp(this.timing.dragCommitFraction, 0, 1);
-			let targetSlide: number;
-			if (Math.abs(intentSlides) < dragCommitFraction) {
-				targetSlide = startSlide;
-			} else {
-				const direction = intentSlides > 0 ? 1 : -1;
-				const stride = Math.max(1, Math.round(Math.abs(intentSlides)));
-				targetSlide = startSlide + direction * stride;
-			}
-			const clampedSlide = Math.max(0, Math.min(slideCount - 1, targetSlide));
-			target = ventures.startPx + clampedSlide * scrollPxPerSlide;
-		} else {
-			target = projectedPx;
-		}
-
-		target = Math.max(ventures.startPx, Math.min(ventures.endPx, target));
-		const distance = Math.abs(target - currentScrollPx);
-		const speed = Math.max(Math.abs(velocityPxPerSec), 1);
-		const minDuration = Math.max(0, this.timing.inertiaMinDurationSec);
-		const maxDuration = Math.max(minDuration, this.timing.inertiaMaxDurationSec);
-		const durationScale = Math.max(0, this.timing.inertiaDurationScale);
-		let duration = THREE.MathUtils.clamp((distance / speed) * durationScale, minDuration, maxDuration);
-		if (reduceMotion) duration = minDuration;
-
-		driver.setScrollAnimated(target, duration);
-	}
-
-	private resetDragLifecycleState(): void {
+	private resetPointerState(): void {
 		this.pointerIsDown = false;
-		this.dragActive = false;
-		this.dragAxisLocked = null;
 		this.activePointerId = null;
-		this.dragSamples = [];
+		this.dragPointerEligible = false;
+		this.drag.reset();
 	}
 
 	private isOverlayInteractionTarget(target: EventTarget | null): boolean {
@@ -986,7 +912,7 @@ class TrainSlider implements Inspectable {
 			this.resetCursorState();
 			return;
 		}
-		if (this.dragActive) return;
+		if (this.drag.isActive) return;
 		if (!this.camera) return;
 
 		this.raycaster.setFromCamera(this.mouse, this.camera);
@@ -1050,7 +976,7 @@ class TrainSlider implements Inspectable {
 		if (typeof window === 'undefined') return;
 		// On mobile (≤1024) the pinned SlideFocusBadge replaces the per-slide tap
 		// tooltip, so the anchored bubble is never surfaced there.
-		if ((window.innerWidth || 0) <= 1024) {
+		if ((window.innerWidth || 0) <= TABLET_MAX_WIDTH) {
 			this.dispatchTapTooltip(false, 0, 0, null, null);
 			return;
 		}
@@ -1133,7 +1059,7 @@ class TrainSlider implements Inspectable {
 		// pinned SlideFocusBadge. Fires on every focus change during scroll (the same
 		// 0.7-hysteresis boundary the tooltip used), deduped so the badge only swaps
 		// when the centered slide actually changes.
-		const isMobileViewport = (window.innerWidth || 0) <= 1024;
+		const isMobileViewport = (window.innerWidth || 0) <= TABLET_MAX_WIDTH;
 		const visible = isMobileViewport && this.group.visible;
 		const index = visible ? this.getFocusedSlideIndex() : this.focusBadgeLast.index;
 		if (this.focusBadgeLast.visible === visible && this.focusBadgeLast.index === index) return;
@@ -1149,7 +1075,7 @@ class TrainSlider implements Inspectable {
 	private updateVisualProgress(dt: number): void {
 		const maxIndex = Math.max(0, this.props.slideCount - 1);
 		const visualTargetIndex = this.targetProgressValue * maxIndex;
-		if (this.dragActive) {
+		if (this.drag.isActive) {
 			this.currentVisualIndex = visualTargetIndex;
 		} else {
 			const snapAlpha = 1 - Math.exp(-dt * this.snapSettlingSpeed);
@@ -1228,7 +1154,7 @@ class TrainSlider implements Inspectable {
 		this.currentInteractionSlide = -1;
 		this.lastMouseMoveTime = 0;
 		this.lastHoverCheckTime = 0;
-		this.resetDragLifecycleState();
+		this.resetPointerState();
 		this.resetCursorState();
 		this.dispatchCursorMode(null);
 		this.resetTapTooltip();
@@ -1237,7 +1163,7 @@ class TrainSlider implements Inspectable {
 	getRefs(): any {
 		return {
 			config: this.config,
-			timing: this.timing,
+			timing: this.drag.timing,
 			uniforms: this.uniforms,
 			debugValues: this.debugValues,
 			setHarmonicaCenter: (v: number) => this.setHarmonicaCenter(v)
@@ -1275,7 +1201,7 @@ class TrainSlider implements Inspectable {
 				maxCurve: this.config.curveMaxCurve,
 				yInfluence: this.config.curveYInfluence
 			},
-			timing: { ...this.timing },
+			timing: this.drag.getTiming(),
 			exit: { ...this.config.exit }
 		};
 	}
@@ -1366,30 +1292,8 @@ class TrainSlider implements Inspectable {
 				this.uniforms.curveYInfluence.value = c.yInfluence;
 			}
 		}
-		const timing = config.timing;
-		if (timing) {
-			if (typeof timing.snapOnRelease === 'boolean') {
-				this.timing.snapOnRelease = timing.snapOnRelease;
-			}
-			if (typeof timing.dragCommitFraction === 'number') {
-				this.timing.dragCommitFraction = THREE.MathUtils.clamp(timing.dragCommitFraction, 0, 1);
-			}
-			if (typeof timing.inertiaProjectionSec === 'number') {
-				this.timing.inertiaProjectionSec = Math.max(0, timing.inertiaProjectionSec);
-			}
-			let minDuration = this.timing.inertiaMinDurationSec;
-			let maxDuration = this.timing.inertiaMaxDurationSec;
-			if (typeof timing.inertiaMinDurationSec === 'number') {
-				minDuration = Math.max(0, timing.inertiaMinDurationSec);
-			}
-			if (typeof timing.inertiaMaxDurationSec === 'number') {
-				maxDuration = Math.max(0, timing.inertiaMaxDurationSec);
-			}
-			this.timing.inertiaMinDurationSec = Math.min(minDuration, maxDuration);
-			this.timing.inertiaMaxDurationSec = Math.max(minDuration, maxDuration);
-			if (typeof timing.inertiaDurationScale === 'number') {
-				this.timing.inertiaDurationScale = Math.max(0, timing.inertiaDurationScale);
-			}
+		if (config.timing) {
+			this.drag.applyTimingPatch(config.timing);
 		}
 		const e = config.exit;
 		if (e) {
@@ -1538,6 +1442,11 @@ class TrainSlider implements Inspectable {
 		return this.props.slideCount;
 	}
 
+	/** Post-`resolveSliderProps` card width in world units (base width × viewport scale). */
+	getPlaneWidth(): number {
+		return this.props.planeWidth;
+	}
+
 	getRecommendedEndX(baseEndX = -150): number {
 		const extraSlides = Math.max(0, this.props.slideCount - BASE_SLIDE_COUNT);
 		const perSlideTravel = this.props.planeWidth + this.props.spacing;
@@ -1545,6 +1454,7 @@ class TrainSlider implements Inspectable {
 	}
 
 	dispose() {
+		this.disposed = true;
 		for (const cleanup of this.listenerCleanup) cleanup();
 		this.listenerCleanup = [];
 		this.resetTapTooltip();
@@ -1560,6 +1470,10 @@ class TrainSlider implements Inspectable {
 
 		this.slides = [];
 		this.group.clear();
+
+		// Slide `mainTexture`s belong to TextureCache; the fallback canvas is ours.
+		this.fallbackTexture?.dispose();
+		this.fallbackTexture = null;
 	}
 
 	private disposeSlideResources(slide: SlideMesh): void {

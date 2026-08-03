@@ -2,12 +2,15 @@ import { browser } from '$app/environment';
 import type Lenis from 'lenis';
 import { writable } from 'svelte/store';
 
+export type GraphicsTier = 'low' | 'medium' | 'high';
+export const graphicsTier = writable<GraphicsTier>('high');
+
 export let loadingProgress = writable(0);
 
-// Eased progress for the loading number (LoadingLabel). Driven by the background-pattern
+// Animated progress for the loading number (LoadingLabel). Driven by the background-pattern
 // render engine (worker or main-thread fallback) via BackgroundPattern, so the number shares
-// the bar's exact eased curve — including its render-thread trickle — instead of running a
-// second main-thread easer that froze (and diverged) whenever shader compile blocked the
+// the bar's exact curve — including its render-thread sweep — instead of running a
+// second main-thread animation that froze (and diverged) whenever shader compile blocked the
 // main thread. The engine eases the raw loadingProgress; this store is the readout sink.
 export const displayedLoadingProgress = writable(0);
 

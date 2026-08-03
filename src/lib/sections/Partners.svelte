@@ -3,56 +3,89 @@
   import Heading from '$lib/components/Heading.svelte';
   import IconPlus from '$lib/components/IconPlus.svelte';
   import { onMount } from 'svelte';
-  import { clamp01, getPhaseProgress, getUiProgress } from '$lib/utils/animations/uiProgress';
+  import { PARTNERS_UI_TIMING, SUPPORTING_UI_REVEAL_PROGRESS } from '$lib/config/revealTiming';
+  import { gsapSplitReveal } from '$lib/utils/animations/gsapSplitReveal';
+  import { clamp01, getBeatProgress, getUiProgress } from '$lib/utils/animations/uiProgress';
   import { textReveal } from '$lib/utils/animations/textReveal';
 
-  let { progress } = $props();
+  let { progress, isMobileTiming = false } = $props();
 
   const HIDDEN_EPSILON = 0.001;
-  const HEADING_HIDE_START = 0.86;
-  const HEADING_HIDE_END = 0.98;
+  const PARTNERS_GSAP_SPLIT_REVEAL_EXPERIMENT_ENABLED = true;
+  let timing = $derived(
+    isMobileTiming ? PARTNERS_UI_TIMING.mobile : PARTNERS_UI_TIMING.desktop
+  );
 
   let sectionProgress = $derived(clamp01(progress));
-  let uiProgress = $derived(getUiProgress(sectionProgress));
+  let uiProgress = $derived(getUiProgress(sectionProgress, timing.window));
   let headingUiProgress = $derived(
-    getUiProgress(sectionProgress, { hideStart: HEADING_HIDE_START, hideEnd: HEADING_HIDE_END })
+    getBeatProgress(uiProgress, timing.beats.heading)
   );
-  let paragraphUiProgress = $derived(getPhaseProgress(uiProgress, 0.08, 0.82));
-  let lineUiProgress = $derived(getPhaseProgress(uiProgress, 0.04, 0.86));
-  let isSectionHidden = $derived(uiProgress <= HIDDEN_EPSILON);
+  let paragraphUiProgress = $derived(
+    getBeatProgress(uiProgress, timing.beats.paragraph)
+  );
+  let lineUiProgress = $derived(getBeatProgress(uiProgress, timing.beats.divider));
+  let cardsRevealProgress = $derived(
+    getBeatProgress(sectionProgress, timing.beats.cardsReveal)
+  );
+  let cardsMoveProgress = $derived(
+    getBeatProgress(sectionProgress, timing.beats.cardsMove)
+  );
+  let isIconHidden = $derived(
+    isMobileTiming
+      ? paragraphUiProgress < SUPPORTING_UI_REVEAL_PROGRESS
+      : uiProgress <= HIDDEN_EPSILON
+  );
   let paragraphOffsetY = $derived((1 - paragraphUiProgress) * 24);
 
   const headingRevealConfig = $derived({
     progress: headingUiProgress,
-    duration: 0.58,
-    stagger: 0.01
+    ...timing.headingMotion
   });
 
   const paragraphRevealOptions = $derived({
     progress: paragraphUiProgress,
-    duration: 1.1,
+    duration: timing.copyDuration,
     scrubProgressPower: 1.25
+  });
+
+  const gsapParagraphRevealOptions = $derived({
+    enabled: PARTNERS_GSAP_SPLIT_REVEAL_EXPERIMENT_ENABLED,
+    progress: paragraphUiProgress,
+    progressPower: 1.25,
+    duration: timing.copyDuration,
+    split: 'chars' as const
   });
 
   // Cards Scroll Logic
   let cardsEl = $state<HTMLElement | null>(null);
   let isDesktop = $state(false);
+  let prefersReducedMotion = $state(false);
   let moveY = $state(0);
   let moveX = $state(0);
-  let smoothedSectionProgress = $state(0);
+  let smoothedCardsMoveProgress = $state(0);
   let cardsFrame = 0;
   let cardsFrameTime = 0;
-  const cardsSmoothingMs = 120;
   let cardsTransform = $derived.by(() => {
-    const clampedProgress = smoothedSectionProgress;
-    return isDesktop
-      ? `translate3d(0, -${moveY * clampedProgress}px, 0)`
-      : `translate3d(-${moveX * clampedProgress}px, 0, 0)`;
+    const revealProgress = prefersReducedMotion ? 1 : cardsRevealProgress;
+    const revealX = isDesktop ? (1 - revealProgress) * -32 : 0;
+    const revealY = (1 - revealProgress) * 28;
+    const translateX = revealX - moveX * smoothedCardsMoveProgress;
+    const translateY = revealY - moveY * smoothedCardsMoveProgress;
+    const scale = 0.975 + revealProgress * 0.025;
+
+    return `translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})`;
   });
+  let cardsOpacity = $derived(prefersReducedMotion ? 1 : cardsRevealProgress);
+  let cardsBlur = $derived(prefersReducedMotion ? 0 : (1 - cardsRevealProgress) * 10);
 
   onMount(() => {
     const cards = cardsEl;
     if (!cards) return;
+    const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const updateMotionPreference = () => {
+      prefersReducedMotion = reducedMotionQuery.matches;
+    };
 
     const updateMeasurements = () => {
       const containerHeight = window.innerHeight;
@@ -74,38 +107,44 @@
       if (!cardsFrameTime) cardsFrameTime = now;
       const frameDeltaMs = Math.min(Math.max(now - cardsFrameTime, 0), 64);
       cardsFrameTime = now;
-      const alpha = 1 - Math.exp(-frameDeltaMs / cardsSmoothingMs);
-      smoothedSectionProgress += (sectionProgress - smoothedSectionProgress) * alpha;
-      if (Math.abs(sectionProgress - smoothedSectionProgress) < 0.0005) {
-        smoothedSectionProgress = sectionProgress;
+      const alpha = prefersReducedMotion
+        ? 1
+        : 1 - Math.exp(-frameDeltaMs / timing.cardsSmoothingMs);
+      smoothedCardsMoveProgress +=
+        (cardsMoveProgress - smoothedCardsMoveProgress) * alpha;
+      if (Math.abs(cardsMoveProgress - smoothedCardsMoveProgress) < 0.0001) {
+        smoothedCardsMoveProgress = cardsMoveProgress;
       }
       cardsFrame = requestAnimationFrame(animateCards);
     };
 
+    updateMotionPreference();
     updateMeasurements();
-    smoothedSectionProgress = sectionProgress;
+    smoothedCardsMoveProgress = cardsMoveProgress;
     cardsFrame = requestAnimationFrame(animateCards);
 
     window.addEventListener('resize', updateMeasurements);
+    reducedMotionQuery.addEventListener('change', updateMotionPreference);
     return () => {
       window.removeEventListener('resize', updateMeasurements);
+      reducedMotionQuery.removeEventListener('change', updateMotionPreference);
       cancelAnimationFrame(cardsFrame);
     };
   });
 
   const Cards = [
-    { id: '01', title: 'Company Name', subtitle: 'DoinGud', type: 'Customer', icon: '/icons/iconPartner1.svg' },
-    { id: '02', title: 'Company Name', subtitle: 'PrimeDAO', type: 'Customer', icon: '/icons/iconPartner2.svg' },
-    { id: '03', title: 'Company Name', subtitle: 'Balancer', type: 'Customer', icon: '/icons/iconPartner3.svg' },
-    { id: '04', title: 'Company Name', subtitle: 'Ceramic Network', type: 'Customer', icon: '/icons/iconPartner4.png' },
-    { id: '05', title: 'Company Name', subtitle: 'Safe', type: 'Customer', icon: '/icons/iconPartnerSafe.svg', iconScale: 1.7 }
+    { id: '01', title: 'Company Name', subtitle: 'Safe', type: 'Customer', icon: '/icons/iconPartnerSafe.svg', iconScale: 1.7 },
+    { id: '02', title: 'Company Name', subtitle: 'Balancer', type: 'Customer', icon: '/icons/iconPartner3.svg' },
+    { id: '03', title: 'Company Name', subtitle: 'Ceramic Network', type: 'Customer', icon: '/icons/iconPartner4.png' },
+    { id: '04', title: 'Company Name', subtitle: 'DoinGud', type: 'Customer', icon: '/icons/iconPartner1.svg' },
+    { id: '05', title: 'Company Name', subtitle: 'PrimeDAO', type: 'Customer', icon: '/icons/iconPartner2.svg' },
   ];
 </script>
 
 <div class="partners">
   <Heading
     className="partners"
-    text={['Teams we', 'worked with']}
+    text={['The network', 'of trust']}
     sup="5"
     position="bottom"
     progress={sectionProgress}
@@ -113,24 +152,53 @@
   />
 
   <div class="partners__desc">
+    {#if PARTNERS_GSAP_SPLIT_REVEAL_EXPERIMENT_ENABLED}
+      <p
+        class="section-reveal-paragraph"
+        use:gsapSplitReveal={gsapParagraphRevealOptions}
+      >
+        "Daoism Systems supports emerging organizations with decentralized infrastructure, helping advance a borderless, permissionless global society"
+        <a href="https://paragraph.com/@0013700/daoism-systems-manifesto" target="_blank" rel="noopener noreferrer">- Daoism Systems Manifesto</a>
+      </p>
+    {:else}
+      <p
+        class="section-reveal-paragraph"
+        style:transform={`translate3d(0, ${paragraphOffsetY}px, 0)`}
+        use:textReveal={paragraphRevealOptions}
+      >
+        "Daoism Systems supports emerging organizations with decentralized infrastructure, helping advance a borderless, permissionless global society"
+        <a href="https://paragraph.com/@0013700/daoism-systems-manifesto" target="_blank" rel="noopener noreferrer">- Daoism Systems Manifesto</a>
+      </p>
+    {/if}
+
+    <!-- Phone gets the plain tagline instead: the manifesto quote and its
+         attribution link are hidden below 767px, and this states the same idea
+         in one line that fits the narrow measure. -->
     <p
-      class="section-reveal-paragraph"
+      class="partners__tagline section-reveal-paragraph"
       style:transform={`translate3d(0, ${paragraphOffsetY}px, 0)`}
       use:textReveal={paragraphRevealOptions}
     >
-        We empower emerging organizations with decentralized infrastructure for a borderless, permissionless society
+      We empower emerging organizations with decentralized infrastructure for a borderless, permissionless society
     </p>
+
     <div
       class="partners__divider"
       style:opacity={lineUiProgress}
       style:transform={`scale3d(${lineUiProgress}, 1, 1)`}
     ></div>
 
-    <IconPlus top={['1rem', '0.2rem']} left={['0']} hidden={isSectionHidden} />
+    <IconPlus top={['1rem', '0.2rem']} left={['0']} hidden={isIconHidden} />
   </div>
 </div>
 
-<div class="cards" style="transform: {cardsTransform}" bind:this={cardsEl}>
+<div
+  class="cards"
+  style:opacity={cardsOpacity}
+  style:filter={`blur(${cardsBlur}px)`}
+  style:transform={cardsTransform}
+  bind:this={cardsEl}
+>
   {#each Cards as card, index}
     <Card
       id={card.id}
@@ -140,6 +208,7 @@
       type={card.type}
       iconScale={card.iconScale ?? 1}
       index={index}
+      total={Cards.length}
     />
   {/each}
 </div>
@@ -152,6 +221,12 @@
     width: 100%;
     overflow: hidden;
     height: 100%;
+
+    :global(h2) {
+      @media (max-width: 700px) and (min-width: 550px) {
+        font-size: 62px;
+      }
+    }
 
     @include breakpoint(desktop) {
       padding-left: $offset-content;
@@ -200,13 +275,23 @@
         }
 
         @include breakpoint(phone) {
-          margin-left: 1.675rem;
+          display: none;
         }
 
         @media (min-width: 2245px) {
           max-width: 36ch;
           font-size: var(--text-2xl);
           line-height: var(--tw-leading, var(--text-2xl--line-height));
+        }
+      }
+
+      // Opts back out of the phone-wide `p { display: none }` above — the
+      // tagline is the one paragraph that exists only on phone.
+      .partners__tagline {
+        display: none;
+
+        @include breakpoint(phone) {
+          display: block;
         }
       }
     }
@@ -242,7 +327,8 @@
     left: 0;
     display: flex;
     gap: 1.25rem;
-    will-change: transform;
+    transform-origin: left center;
+    will-change: transform, opacity, filter;
     backface-visibility: hidden;
 
     @include breakpoint(desktop) {
@@ -261,7 +347,7 @@
     }
 
     @include breakpoint(phone) {
-      top: 29%;
+      top: 24%;
     }
 
     @include breakpoint(small-phone) {

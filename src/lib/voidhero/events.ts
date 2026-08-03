@@ -9,12 +9,16 @@ export interface ScreenPopup {
 
 export type SceneEvent =
 	| { kind: 'ready' }
+	| { kind: 'loading'; progress: number }
 	| { kind: 'runHud'; state: RunHudState }
 	| { kind: 'music'; state: MusicState }
 	| { kind: 'popup'; popup: ScreenPopup }
 	| { kind: 'padLabels'; labels: PadLabel[] }
 	| { kind: 'secretRequest' }
-	| { kind: 'gameOver' };
+	| { kind: 'gameOver' }
+	// Game prewarm (pipeline compile + warmup frames) in flight — the UI shows a
+	// spinner in place of the score on the pre-start screen while busy.
+	| { kind: 'prewarm'; busy: boolean };
 
 export type SceneEventHandler = (event: SceneEvent) => void;
 

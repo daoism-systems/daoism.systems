@@ -28,12 +28,19 @@ Required modifications baked in here (vs. a naive FBX export):
   3. Full-scene animation is reduced to the 12 group/camera clips to match the
      current DAO_full_scene.glb (which has exactly these 12).
 
+Pass `-- --mobile` to build DAO_mobile_scene.glb from the mobile FBX instead:
+identical node names and clip set, simpler source geometry. That path also
+asserts all clips share one frame range and strips the pyramid base meshes
+inline (no separate strip pass, so one Draco cycle instead of two).
+
 Usage:
   blender --background --python scripts/convert_fbx_to_glb.py
+  blender --background --python scripts/convert_fbx_to_glb.py -- --mobile
 """
 
 import bpy
 import os
+import sys
 
 # -- Configuration ----------------------------------------------------
 PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -41,6 +48,21 @@ MODELS_DIR = os.path.join(PROJECT_DIR, "static/models")
 FBX_INPUT = os.path.join(MODELS_DIR, "DAO_60fps_01.fbx")
 
 FULL_SCENE_OUTPUT = os.path.join(MODELS_DIR, "DAO_full_scene.glb")
+
+# `--mobile` (after Blender's `--` separator) converts the mobile FBX into the
+# mobile full-scene GLB — same 12 clips, same node names, simpler source. Two
+# extra steps run only on this path (see main): the uniform-clip-range assert
+# and an inline pyramid-base strip, so no separate strip pass is needed. Usage:
+#   blender --background --python scripts/convert_fbx_to_glb.py -- --mobile
+#   node scripts/optimize_mobile_scene.mjs
+#   blender --background --python scripts/bake_pyramid_vat.py -- --mobile
+_script_args = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
+MOBILE = "--mobile" in _script_args
+if MOBILE:
+    FBX_INPUT = os.path.join(MODELS_DIR, "DAO_60fps_mobile_07.fbx")
+    FULL_SCENE_OUTPUT = os.path.join(MODELS_DIR, "DAO_mobile_scene.glb")
+
+PYRAMID_ROOT_CANDIDATES = ("pyramids_1", "Pyramids")
 
 CAMERA_OLD_NAME = "Full_Camera_60FPS"
 CAMERA_NEW_NAME = "Full_Camera_01"
@@ -143,6 +165,53 @@ def extend_frame_range():
     )
 
 
+def assert_uniform_action_ranges():
+    """Every clip must span the same range — `setScrollProgress` normalizes each
+    action by its own duration, so a short clip would desync from the timeline."""
+    ranges = {
+        (round(a.frame_range[0]), round(a.frame_range[1])) for a in bpy.data.actions
+    }
+    if len(ranges) != 1:
+        raise ValueError(
+            f"Actions have {len(ranges)} distinct frame ranges {sorted(ranges)}; "
+            "all clips must span the same range for scroll-scrub timing to hold."
+        )
+    print(f"All {len(bpy.data.actions)} actions span {next(iter(ranges))}")
+
+
+def strip_pyramid_base_meshes():
+    """Delete the solid pyramid meshes (VAT renders them), keeping the
+    particle/_remesh subtrees — mirrors scripts/strip_pyramid_bases.{mjs,py}."""
+    root = None
+    for candidate in PYRAMID_ROOT_CANDIDATES:
+        root = bpy.data.objects.get(candidate)
+        if root is not None:
+            break
+    if root is None:
+        raise ValueError(f"Pyramid root not found (tried {PYRAMID_ROOT_CANDIDATES})")
+
+    to_remove = []
+
+    def collect(obj):
+        name_lower = obj.name.lower()
+        if "particle" in name_lower:
+            return
+        if obj.type == "MESH" and "_remesh" not in name_lower:
+            to_remove.append(obj)
+        for child in obj.children:
+            collect(child)
+
+    collect(root)
+
+    for obj in to_remove:
+        mesh_data = obj.data if obj.type == "MESH" else None
+        bpy.data.objects.remove(obj, do_unlink=True)
+        if mesh_data and mesh_data.users == 0:
+            bpy.data.meshes.remove(mesh_data)
+
+    print(f"Stripped {len(to_remove)} pyramid base meshes (VAT renders them)")
+
+
 def reduce_full_scene_animation():
     """Clear animation on every object outside the allowlist, then purge the
     now-orphaned actions, so the full-scene export contains only the 12
@@ -201,7 +270,7 @@ def export_full_scene():
 
 def main():
     print("=" * 60)
-    print("Convert DAO FBX -> DAO_full_scene.glb")
+    print(f"Convert DAO FBX -> {os.path.basename(FULL_SCENE_OUTPUT)}")
     print("=" * 60)
 
     clear_scene()
@@ -209,14 +278,23 @@ def main():
 
     rename_camera()
     extend_frame_range()
+    if MOBILE:
+        assert_uniform_action_ranges()
 
     # Reduce to the 12-clip set and export the full scene.
     reduce_full_scene_animation()
+    # Mobile strips the solids here instead of in a separate re-encode pass, so
+    # the meshes go through exactly one Draco cycle.
+    if MOBILE:
+        strip_pyramid_base_meshes()
     export_full_scene()
 
     print("\n" + "=" * 60)
     print("SUCCESS!")
-    print("  Next: run strip_pyramid_bases, then bake_pyramid_vat.py")
+    if MOBILE:
+        print("  Next: run optimize_mobile_scene.mjs, then bake_pyramid_vat.py -- --mobile")
+    else:
+        print("  Next: run strip_pyramid_bases, then bake_pyramid_vat.py")
     print("=" * 60)
 
 

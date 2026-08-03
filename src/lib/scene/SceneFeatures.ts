@@ -48,6 +48,11 @@ export const MOBILE_SCENE_FEATURES: Partial<SceneFeatureFlags> = {
 	// ?sceneEnable=globalFluid debug URL on mobile doesn't drag the octagon sim on.
 	octagonFluid: false,
 	globalFluid: false
+	// pyramidVat stays ON: mobile uses its own VAT bake (pyramids_mobile_*,
+	// from DAO_60fps_mobile_07.fbx) — one merged draw call instead of ~170
+	// mixer-driven solid meshes. `?sceneDisable=pyramidVat` still falls back to
+	// mixer-driven solids from the GLB (setupPyramidSolids), though the shipped
+	// mobile GLB has the bases stripped, so that path shows particles only.
 };
 
 export interface SceneFeatureConfig {

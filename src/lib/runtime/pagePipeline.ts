@@ -3,8 +3,8 @@ import { BASE_VIRTUAL_SCROLL_HEIGHT } from '$lib/store.svelte';
 import { SLIDES } from '$lib/scene/ui/slideData';
 import {
 	buildSectionTimelines,
+	getSectionRevealComplete,
 	SCROLL_INDICATOR_LABELS,
-	SECTION_REVEAL_COMPLETE,
 	type SectionTimeline
 } from '$lib/config/sectionTimeline';
 import {
@@ -62,6 +62,8 @@ export const CONTACT_SECTION_INDEX = SECTION_COMPONENTS.length - 1;
 
 export function createPagePipeline(
 	isMobileDevice: boolean,
+	isMobileTiming = isMobileDevice,
+	isContactStackedTiming = isMobileTiming,
 	slideCount = SLIDES.length
 ): PagePipeline {
 	const virtualScrollHeight = Math.round(
@@ -105,7 +107,10 @@ export function createPagePipeline(
 		trackerSectionLabels: sections.map((section) => section.label),
 		trackerSectionStarts: sections.map((section) => section.timelineStart),
 		scrollIndicatorLabels: SCROLL_INDICATOR_LABELS,
-		scrollIndicatorSectionRevealProgresses: [...SECTION_REVEAL_COMPLETE],
+		scrollIndicatorSectionRevealProgresses: getSectionRevealComplete(
+			isMobileTiming,
+			isContactStackedTiming
+		),
 		virtualScrollHeight,
 		calculateSectionProgress(globalProgress) {
 			const { sectionIndex, sectionProgress } = getRangeProgress(

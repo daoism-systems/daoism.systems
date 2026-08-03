@@ -2,45 +2,82 @@
 	import Button from '$lib/components/Button.svelte';
 	import Heading from '$lib/components/Heading.svelte';
 	import IconPlus from '$lib/components/IconPlus.svelte';
-	import { COLLABORATION_UI_WINDOW } from '$lib/config/revealTiming';
-	import { headingReveal } from '$lib/utils/animations/headingReveal';
-	import { clamp01, getPhaseProgress, getUiProgress } from '$lib/utils/animations/uiProgress';
+	import {
+		COLLABORATION_UI_TIMING,
+		SUPPORTING_UI_REVEAL_PROGRESS
+	} from '$lib/config/revealTiming';
+	import { textReveal } from '$lib/utils/animations/textReveal';
+	import { clamp01, getBeatProgress, getUiProgress } from '$lib/utils/animations/uiProgress';
 
 	type Props = {
 		progress: number;
+		shaderInProgress?: number;
 		onGetInTouch?: () => void | Promise<void>;
 	};
 
-	let { progress, onGetInTouch = () => {} }: Props = $props();
+	let {
+		progress,
+		shaderInProgress = 0,
+		isMobileTiming = false,
+		isPhoneTiming = false,
+		onGetInTouch = () => {}
+	}: Props & {
+		isMobileTiming?: boolean;
+		isPhoneTiming?: boolean;
+	} = $props();
 
 	const HIDDEN_EPSILON = 0.001;
+	let timing = $derived(
+		isPhoneTiming
+			? COLLABORATION_UI_TIMING.phone
+			: isMobileTiming
+				? COLLABORATION_UI_TIMING.mobile
+				: COLLABORATION_UI_TIMING.desktop
+	);
+	let usesMobileExitTiming = $derived(isMobileTiming || isPhoneTiming);
 
 	let sectionProgress = $derived(clamp01(progress));
-	let revealProgress = $derived(getUiProgress(sectionProgress, { hideStart: 1 }));
-	let uiProgress = $derived(getUiProgress(progress, COLLABORATION_UI_WINDOW));
-	// The readability scrim retires as soon as the section ends (progress 1 → 1.1),
-	// a touch ahead of the text hold-over, so it never bleeds a white panel through
-	// the incoming Ventures section during the cross-fade.
-	let scrimOpacity = $derived(revealProgress * (1 - getPhaseProgress(progress, 1, 0.1)));
-	let headingUiProgress = $derived(uiProgress);
-	let subtitleUiProgress = $derived(getPhaseProgress(uiProgress, 0.06, 0.74));
-	let buttonUiProgress = $derived(getPhaseProgress(uiProgress, 0.1, 0.78));
+	let revealProgress = $derived(
+		getUiProgress(Math.min(progress, timing.window.hideStart), timing.window)
+	);
+	let uiProgress = $derived(
+		usesMobileExitTiming
+			? getUiProgress(progress, timing.window)
+			: revealProgress * (1 - clamp01(shaderInProgress))
+	);
+	let scrimOpacity = $derived(
+		getBeatProgress(sectionProgress, timing.beats.scrimIn) *
+			(usesMobileExitTiming
+				? 1 - getBeatProgress(progress, timing.beats.scrimOut)
+				: 1 - clamp01(shaderInProgress))
+	);
+	let headingUiProgress = $derived(
+		getBeatProgress(uiProgress, timing.beats.heading)
+	);
+	let subtitleUiProgress = $derived(
+		getBeatProgress(uiProgress, timing.beats.subtitle)
+	);
+	let buttonUiProgress = $derived(
+		getBeatProgress(uiProgress, timing.beats.button)
+	);
 
-	let isSectionHidden = $derived(uiProgress <= HIDDEN_EPSILON);
+	let isIconHidden = $derived(
+		isMobileTiming
+			? headingUiProgress < SUPPORTING_UI_REVEAL_PROGRESS
+			: uiProgress <= HIDDEN_EPSILON
+	);
 
-	let subtitleOffsetY = $derived((1 - subtitleUiProgress) * 28);
 	let headingOffsetY = $derived((1 - headingUiProgress) * 20);
 
 	const headingRevealConfig = $derived({
 		progress: headingUiProgress,
-		duration: 0.58,
-		stagger: 0.01
+		...timing.headingMotion
 	});
 
 	const subtitleRevealOptions = $derived({
 		progress: subtitleUiProgress,
-		duration: 0.55,
-		stagger: 0.01
+		duration: timing.subtitleDuration,
+		scrubProgressPower: 1.12
 	});
 
 	const buttonClipPath = $derived(`inset(0 ${(1 - buttonUiProgress) * 100}% 0 0)`);
@@ -62,43 +99,39 @@
 			/>
 		</div>
 
-		<IconPlus top={['0', '4.75rem']} left={['0']} desktopHide={true} hidden={isSectionHidden} />
-		<div
-			class="collaboration__button"
-			style:clip-path={buttonClipPath}
-			style:opacity={buttonUiProgress}
-			style:transform={`scaleX(${buttonUiProgress})`}
-		>
-			<Button
-				label="Connect now"
-				type="button"
-				onclick={handleGetInTouch}
-				ontouchstart={handleGetInTouch}
-				data-cursor-text-label="Proceed"
-			/>
+		<IconPlus top={['0', '4.75rem']} left={['0']} desktopHide={true} hidden={isIconHidden} />
+		{@render cta()}
+	</div>
+
+	<div class="collaboration__footer">
+		<div class="collaboration__subtitle" use:textReveal={subtitleRevealOptions}>
+			<span class="text-line">
+				We build novel ventures and support established teams who share our goals. Reach out for <span class="highlight">collaboration</span>.
+			</span>
 		</div>
+		{@render cta()}
 	</div>
-
-	<div
-		class="collaboration__subtitle"
-		style:transform={`translate3d(0, ${subtitleOffsetY}px, 0)`}
-		use:headingReveal={subtitleRevealOptions}
-	>
-		<span class="text-line">
-		    We work through <span class="highlight">interdependence</span> — your goals become our requirements.
-		</span>
-	</div>
-
 </div>
+
+{#snippet cta()}
+	<div
+		class="collaboration__button"
+		style:clip-path={buttonClipPath}
+		style:opacity={buttonUiProgress}
+		style:transform={`scaleX(${buttonUiProgress})`}
+	>
+		<Button
+			label="Connect now"
+			type="button"
+			onclick={handleGetInTouch}
+			ontouchstart={handleGetInTouch}
+			data-cursor-text-label="Proceed"
+		/>
+	</div>
+{/snippet}
 
 <style lang="scss">
 	@use '$lib/styles/variables' as *;
-
-	// Phone CTA metrics. The button is out of flow at the section's bottom edge,
-	// so the subtitle has to reserve its band by hand: 3.2rem button (2 × 1rem
-	// padding + one 19px label line) + the offset below + ~1rem of breathing room.
-	$collab-cta-offset: 20px;
-	$collab-cta-band: 5.5rem;
 
 	.collaboration {
 		position: relative;
@@ -128,14 +161,26 @@
 			// collapses the box, so this doesn't capture stray clicks.
 			pointer-events: auto;
 
-			@include breakpoint(phone) {
-				position: absolute;
-				bottom: $collab-cta-offset;
-				left: 0;
-				width: 100%;
-				// Above the subtitle (z-index 1) so the scrim it carries, which
-				// reaches down past the CTA, cannot wash the button out.
-				z-index: 2;
+			// The CTA is rendered twice — once under the heading (in the wrap) and
+			// once in the bottom footer group — so it can sit beneath the heading on
+			// desktop/tablet yet share a flex container with the subtitle on phone.
+			// Only the copy that belongs to the current breakpoint is shown.
+			.collaboration__wrap & {
+				@include breakpoint(phone) {
+					display: none;
+				}
+			}
+
+			.collaboration__footer & {
+				@include breakpoint(not-phone) {
+					display: none;
+				}
+
+				@include breakpoint(phone) {
+					width: 100%;
+					position: relative; // keep the CTA above the readability scrim
+					z-index: 1;
+				}
 			}
 		}
 
@@ -172,10 +217,25 @@
 			}
 		}
 
+		&__footer {
+			flex: 1;
+			display: flex;
+			flex-direction: column;
+			min-height: 0;
+
+			@include breakpoint(phone) {
+				position: relative;
+				z-index: 1; // lift the group above the readability scrim
+				justify-content: flex-end;
+				gap: 1.5rem;
+			}
+		}
+
 		&__subtitle {
 			position: relative;
 			z-index: 1;
 			margin: auto 0 0 auto;
+			padding-bottom: 3.5rem;
 			// em, not ch: KH Interference isn't monospace, so em is the unit that
 			// keeps the measure proportional across the font-size steps below.
 			max-width: 22em;
@@ -191,7 +251,6 @@
 			filter:
 				drop-shadow(0 2px 4px rgba(4, 7, 13, 0.26))
 				drop-shadow(0 8px 20px rgba(4, 7, 13, 0.2));
-			will-change: transform; /* Added to prep GPU for transform scrub */
 
 			:global(.text-line) {
 				display: block;
@@ -266,6 +325,10 @@
 					// over the next section during the cross-fade.
 					opacity: var(--collab-scrim-opacity, 1);
 					background: linear-gradient(180deg, rgba(238, 237, 236, 0) 0, #eeedec 6rem);
+					// Own compositor layer: the opacity is scrubbed every frame during the
+					// section hand-off, and without it this near-viewport-sized gradient
+					// repaints on each of those frames.
+					will-change: opacity;
 				}
 
 				.highlight {
@@ -274,11 +337,9 @@
 				}
 			}
 
-			// The phone CTA is absolutely positioned at the section's bottom edge,
-			// which is exactly where `margin-top: auto` parks this copy — reserve the
-			// button's band so the two stop stacking on top of each other.
 			@include breakpoint(phone) {
-				margin-bottom: $collab-cta-band;
+				margin-top: 0;
+				padding-bottom: 0;
 			}
 		}
 	}

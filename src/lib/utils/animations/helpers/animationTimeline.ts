@@ -13,8 +13,11 @@
 export interface TimelineEntry {
 	animations: Animation[];
 	durations: number[]; // cached per-animation duration (avoids re-reading effect.getTiming() each frame)
+	appliedTimes: number[]; // last currentTime written per animation (-1 = never) — during a scrub most staggered targets are pinned at 0/duration, so skipping equal writes avoids a style invalidation per target per frame
 	startTime: number; // ms from timeline start
 	stagger?: number; // ms between animations in this entry
+	forwardEasing: string;
+	reverseEasing: string;
 }
 
 export interface CallbackEntry {
@@ -28,6 +31,15 @@ export interface AnimationTimelineOptions {
 	onComplete?: () => void;
 	onReverseComplete?: () => void;
 }
+
+// Longest elapsed time a single rAF tick may advance the playhead. Without this,
+// a main-thread stall (shader compile, asset decode, a browser energy-saver
+// throttle) hands the next tick a multi-hundred-millisecond delta and the
+// timeline teleports past its whole duration in one frame — targets snap to
+// their end state and every addCallback fires at once instead of animating.
+// Playback then runs slow-motion through a stall rather than skipping it, which
+// is the right trade for reveal animations: the motion is the point.
+const MAX_FRAME_DELTA_MS = 50;
 
 export class AnimationTimeline {
 	private entries: TimelineEntry[] = [];
@@ -78,18 +90,20 @@ export class AnimationTimeline {
 	add(
 		target: Element | Element[],
 		keyframes: Keyframe[],
-		options: { duration: number; easing?: string; fill?: FillMode },
+		options: { duration: number; easing?: string; reverseEasing?: string; fill?: FillMode },
 		startOffset = 0,
 		stagger = 0
 	): this {
 		const targets = Array.isArray(target) ? target : [target];
 		const animations: Animation[] = [];
 		const durations: number[] = [];
+		const forwardEasing = options.easing ?? 'linear';
+		const reverseEasing = options.reverseEasing ?? forwardEasing;
 
 		for (const el of targets) {
 			const anim = el.animate(keyframes, {
 				duration: options.duration,
-				easing: options.easing ?? 'linear',
+				easing: forwardEasing,
 				fill: options.fill ?? 'both'
 			});
 			anim.pause();
@@ -97,7 +111,15 @@ export class AnimationTimeline {
 			durations.push(options.duration);
 		}
 
-		this.entries.push({ animations, durations, startTime: startOffset, stagger });
+		this.entries.push({
+			animations,
+			durations,
+			appliedTimes: animations.map(() => -1),
+			startTime: startOffset,
+			stagger,
+			forwardEasing,
+			reverseEasing
+		});
 		const lastStart = startOffset + Math.max(0, targets.length - 1) * stagger;
 		this._recalcDuration(lastStart, options.duration);
 		return this;
@@ -116,6 +138,7 @@ export class AnimationTimeline {
 			this._resetCallbacks();
 		}
 		const wasPlayingForward = this._playing && !this._reversed;
+		if (fromStart || this._currentTime <= 0) this._setEasing(false);
 		this._reversed = false;
 		if (!this._playing) {
 			this._playing = true;
@@ -129,6 +152,7 @@ export class AnimationTimeline {
 	}
 
 	reverse(): void {
+		if (this._currentTime >= this._duration) this._setEasing(true);
 		this._reversed = true;
 		if (!this._playing) {
 			this._playing = true;
@@ -205,7 +229,11 @@ export class AnimationTimeline {
 				return;
 			}
 
-			const delta = (now - this._lastTimestamp) * this._playbackRate;
+			// rAF timestamps mark the start of the frame's rendering, which can predate
+			// the performance.now() captured in play()/reverse() — clamp the low end too
+			// so a negative first delta can't walk the playhead backwards.
+			const elapsed = Math.min(Math.max(now - this._lastTimestamp, 0), MAX_FRAME_DELTA_MS);
+			const delta = elapsed * this._playbackRate;
 			this._lastTimestamp = now;
 
 			if (this._reversed) {
@@ -248,11 +276,22 @@ export class AnimationTimeline {
 		for (const entry of this.entries) {
 			const stagger = entry.stagger ?? 0;
 			for (let i = 0; i < entry.animations.length; i++) {
-				const anim = entry.animations[i];
 				const animStart = entry.startTime + i * stagger;
 				const localTime = time - animStart;
 				const duration = entry.durations[i] ?? 0;
-				anim.currentTime = Math.max(0, Math.min(duration, localTime));
+				const clamped = Math.max(0, Math.min(duration, localTime));
+				if (entry.appliedTimes[i] === clamped) continue;
+				entry.appliedTimes[i] = clamped;
+				entry.animations[i].currentTime = clamped;
+			}
+		}
+	}
+
+	private _setEasing(reversed: boolean): void {
+		for (const entry of this.entries) {
+			const easing = reversed ? entry.reverseEasing : entry.forwardEasing;
+			for (const animation of entry.animations) {
+				animation.effect?.updateTiming({ easing });
 			}
 		}
 	}

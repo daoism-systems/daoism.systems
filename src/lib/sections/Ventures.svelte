@@ -2,39 +2,45 @@
   import Heading from '$lib/components/Heading.svelte';
   import IconPlus from '$lib/components/IconPlus.svelte';
   import SlideFocusBadge from '$lib/components/SlideFocusBadge.svelte';
-  import { VENTURES_UI_WINDOW } from '$lib/config/revealTiming';
-  import { clamp01, getPhaseProgress, getUiProgress } from '$lib/utils/animations/uiProgress';
+  import { SUPPORTING_UI_REVEAL_PROGRESS, VENTURES_UI_TIMING } from '$lib/config/revealTiming';
+  import { clamp01, getBeatProgress, getUiProgress } from '$lib/utils/animations/uiProgress';
   import { textReveal } from '$lib/utils/animations/textReveal';
 
-  let { progress } = $props();
+  let { progress, isMobileTiming = false } = $props();
 
   const HIDDEN_EPSILON = 0.001;
+  let timing = $derived(
+    isMobileTiming ? VENTURES_UI_TIMING.mobile : VENTURES_UI_TIMING.desktop
+  );
 
   let sectionProgress = $derived(clamp01(progress));
-  let uiProgress = $derived(getUiProgress(progress, VENTURES_UI_WINDOW));
+  let uiProgress = $derived(getUiProgress(progress, timing.window));
   let descOutProgress = $derived(
     getUiProgress(progress, {
-      ...VENTURES_UI_WINDOW,
-      hideStart: 0.78,
-      hideEnd: 1.04
+      ...timing.window,
+      hideStart: timing.descriptionHide.start,
+      hideEnd: timing.descriptionHide.end
     })
   );
   let headingUiProgress = $derived(uiProgress);
-  let contentRevealProgress = $derived(getPhaseProgress(sectionProgress, 0.25, 0.1));
+  let contentRevealProgress = $derived(getBeatProgress(sectionProgress, timing.content));
   let contentUiProgress = $derived(contentRevealProgress * descOutProgress);
-  let isSectionHidden = $derived(uiProgress <= HIDDEN_EPSILON);
+  let isIconHidden = $derived(
+    isMobileTiming
+      ? headingUiProgress < SUPPORTING_UI_REVEAL_PROGRESS
+      : uiProgress <= HIDDEN_EPSILON
+  );
   let contentOffsetY = $derived((1 - contentUiProgress) * 30);
 
   const headingRevealConfig = $derived({
     progress: headingUiProgress,
     from: 'start' as const,
-    duration: 0.68,
-    stagger: 0.012
+    ...timing.headingMotion
   });
 
   const paragraphRevealOptions = $derived({
     progress: contentUiProgress,
-    duration: 1.2,
+    duration: timing.copyDuration,
     scrubProgressPower: 1.18
   });
 
@@ -49,14 +55,14 @@
     className="mobile-padded"
   />
 
-  <IconPlus bottom="3.35rem" left={['0']} desktopHide={true} hidden={isSectionHidden} />
+  <IconPlus bottom="3.35rem" left={['0']} desktopHide={true} hidden={isIconHidden} />
 
   <div
     class="ventures__desc"
     style:transform={`translate3d(0, ${contentOffsetY}px, 0)`}
   >
     <p class="section-reveal-paragraph" use:textReveal={paragraphRevealOptions}>
-        A public record of our activity, case studies and patterns for resilient, permissionless coordination systems.
+        A public record of our activity, case studies and patterns for distributed futures of web3.
     </p>
 
     <!-- Mobile: red badge pinned above the slider, tracks the centered slide -->
@@ -75,6 +81,12 @@
     height: 100%;
     width: 100%;
     margin-left: 0;
+
+    :global(h2) {
+      @media (max-width: 612px) and (min-width: 550px) {
+        font-size: 64px;
+      }
+    }
 
     @include breakpoint(desktop) {
       margin-left: $offset-content;

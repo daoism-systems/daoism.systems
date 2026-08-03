@@ -1,8 +1,7 @@
 import { BASE_SLIDE_COUNT } from '$lib/scene/ui/slideData';
 import { DEFAULT_SCENE_TIMELINE, createSceneTimeline } from '$lib/scene/animation/sceneTimeline';
 import { PAGE_SECTION_SCENE_RANGES } from '$lib/scene/animation/sceneManifest';
-import { DEFAULT_UI_REVEAL_END } from '$lib/utils/animations/uiProgress';
-import { ABOUT_UI_WINDOW, VENTURES_UI_WINDOW } from '$lib/config/revealTiming';
+import { SECTION_REVEAL_COMPLETE as SECTION_UI_REVEAL_COMPLETE } from '$lib/config/revealTiming';
 
 export type SectionTimeline = {
 	label: string;
@@ -23,18 +22,6 @@ type SectionTemplate = {
 	 */
 	duration?: number;
 	stretchWithSlides?: boolean;
-	/**
-	 * Within-section scroll progress (0–1) at which this section's UI reveal
-	 * finishes. The scroll indicator slides its marker onto the section's tick over
-	 * the reveal window and ARRIVES at exactly this point — so the tick "selects" the
-	 * moment the section is fully revealed (and click-to-navigate lands here too).
-	 * Mirror each section component's reveal timing when it changes: Hero is
-	 * pre-revealed by the intro (0); About and Ventures use custom windows;
-	 * Services/Collaboration/Partners finish at the default `getUiProgress`
-	 * revealEnd; Team at `REVEAL_END` (0.22); Contact at its last footer slice
-	 * (clock 0.9 · `REVEAL_WINDOW` 0.3 = 0.27).
-	 */
-	revealCompleteAt: number;
 };
 
 // Must equal the maximum reachable scroll progress (1.0). Lenis clamps
@@ -63,39 +50,48 @@ const FRONT_SCROLL_FACTOR = 1.23;
 // pull-out + VAT morph at the handoff. The rest are hand-tuned content/slide
 // pacing; Ventures/Partners stretch with slide count.
 const SECTION_TEMPLATES: SectionTemplate[] = [
-	{ label: 'Scroll down', indicatorLabel: 'Start', revealCompleteAt: 0 },
-	{ label: 'About us', indicatorLabel: 'About us', revealCompleteAt: ABOUT_UI_WINDOW.revealEnd },
-	{ label: 'Services', indicatorLabel: 'Services', revealCompleteAt: DEFAULT_UI_REVEAL_END },
+	{ label: 'Scroll down', indicatorLabel: 'Start' },
+	{ label: 'About us', indicatorLabel: 'About us' },
+	{ label: 'Services', indicatorLabel: 'Services' },
 	{
 		label: 'Collaboration',
 		indicatorLabel: 'COLLABORATION',
-		duration: 0.106,
-		revealCompleteAt: DEFAULT_UI_REVEAL_END
+		duration: 0.106
 	},
 	{
 		label: 'Blog',
 		indicatorLabel: 'Blog',
 		duration: 0.52,
-		stretchWithSlides: true,
-		revealCompleteAt: VENTURES_UI_WINDOW.revealEnd
+		stretchWithSlides: true
 	},
 	{
 		label: 'Partners',
 		indicatorLabel: 'Partners',
 		duration: 0.18,
-		stretchWithSlides: true,
-		revealCompleteAt: DEFAULT_UI_REVEAL_END
+		stretchWithSlides: true
 	},
-	{ label: 'Process', indicatorLabel: 'Process', duration: 0.316, revealCompleteAt: 0.22 },
-	{ label: '', indicatorLabel: 'Contact', duration: 0.223, revealCompleteAt: 0.27 }
+	{ label: 'Process', indicatorLabel: 'Process', duration: 0.316 },
+	{ label: '', indicatorLabel: 'Contact', duration: 0.223 }
 ];
 
 export const SCROLL_INDICATOR_LABELS = SECTION_TEMPLATES.map((section) => section.indicatorLabel);
 
-// Per-section within-section progress (0–1) where the UI reveal completes — see
-// `SectionTemplate.revealCompleteAt`. Drives the scroll-indicator marker arrival
-// and click-to-navigate landing.
-export const SECTION_REVEAL_COMPLETE = SECTION_TEMPLATES.map((section) => section.revealCompleteAt);
+export function getSectionRevealComplete(isMobile: boolean, isContactStacked = isMobile): number[] {
+	const timing = isMobile ? SECTION_UI_REVEAL_COMPLETE.mobile : SECTION_UI_REVEAL_COMPLETE.desktop;
+	const contactTiming = isContactStacked
+		? SECTION_UI_REVEAL_COMPLETE.mobile.contact
+		: SECTION_UI_REVEAL_COMPLETE.desktop.contact;
+	return [
+		0,
+		timing.about,
+		timing.services,
+		timing.collaboration,
+		timing.ventures,
+		timing.partners,
+		timing.team,
+		contactTiming
+	];
+}
 
 function getSliderMultiplier(slideCount: number): number {
 	return Math.max(1, slideCount / BASE_SLIDE_COUNT);

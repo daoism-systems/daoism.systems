@@ -1,14 +1,77 @@
 <script lang="ts">
+	import { getBeatProgress, type ProgressBeat } from '$lib/utils/animations/uiProgress';
+
+	type ItemRevealTiming = Readonly<{
+		surface: ProgressBeat;
+		edge: ProgressBeat;
+		index: ProgressBeat;
+		title: ProgressBeat;
+		description: ProgressBeat;
+	}>;
+
 	export let index: number;
 	export let total: number;
 	export let title: string;
 	export let description: string;
+	export let itemRevealTiming: ItemRevealTiming;
+	export let revealProgress = 1;
+
+	const SETTLED_EPSILON = 0.001;
+
+	function getLayerProgress(progress: number, beat: ProgressBeat) {
+		return getBeatProgress(progress, beat);
+	}
+
+	$: surfaceProgress = getLayerProgress(revealProgress, itemRevealTiming.surface);
+	$: edgeProgress = getLayerProgress(revealProgress, itemRevealTiming.edge);
+	$: indexProgress = getLayerProgress(revealProgress, itemRevealTiming.index);
+	$: titleProgress = getLayerProgress(revealProgress, itemRevealTiming.title);
+	$: descriptionProgress = getLayerProgress(revealProgress, itemRevealTiming.description);
+	$: isSettled = surfaceProgress >= 1 - SETTLED_EPSILON;
+	$: surfaceTransform = isSettled
+		? 'none'
+		: `perspective(900px) translate3d(0, ${(1 - surfaceProgress) * 38}px, 0) rotateX(${(1 - surfaceProgress) * 6}deg) scale(${0.975 + surfaceProgress * 0.025})`;
 </script>
 
-<div class="forest-card" data-index={index} data-total={total}>
-	<div class="forest-card__index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</div>
-	<div class="forest-card__title">{title}</div>
-	<div class="forest-card__desc">{description}</div>
+<div
+	class="forest-card"
+	data-index={index}
+	data-total={total}
+	style:--forest-edge-progress={edgeProgress}
+	style:opacity={surfaceProgress}
+	style:transform={surfaceTransform}
+	style:will-change={!isSettled && surfaceProgress > SETTLED_EPSILON ? 'transform, opacity' : 'auto'}
+>
+	<div class="forest-card__header">
+		<div
+			class="forest-card__title"
+			style:opacity={titleProgress}
+			style:transform={titleProgress >= 1 - SETTLED_EPSILON
+				? 'none'
+				: `translate3d(0, ${(1 - titleProgress) * 14}px, 0)`}
+		>
+			{title}
+		</div>
+		<div
+			class="forest-card__index"
+			aria-hidden="true"
+			style:opacity={indexProgress}
+			style:transform={indexProgress >= 1 - SETTLED_EPSILON
+				? 'none'
+				: `translate3d(${(1 - indexProgress) * 12}px, 0, 0)`}
+		>
+			{String(index + 1).padStart(2, '0')}
+		</div>
+	</div>
+	<div
+		class="forest-card__desc"
+		style:opacity={descriptionProgress * 0.7}
+		style:transform={descriptionProgress >= 1 - SETTLED_EPSILON
+			? 'none'
+			: `translate3d(0, ${(1 - descriptionProgress) * 18}px, 0)`}
+	>
+		{description}
+	</div>
 </div>
 
 <style lang="scss">
@@ -18,62 +81,62 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
+		gap: 0.5rem; /* 8px */
 		width: 100%;
-		padding: 1rem;
-		padding-right: 3rem;
-		border-radius: 10px;
-		background: $color-grey-600;
-		border: 1px solid rgba(255, 255, 255, 0.06);
+		padding: 0.75rem 0.75rem 1.25rem; /* 12px 12px 20px */
+		border-radius: 0.75rem; /* 12px */
+		background: $color-grey-600; /* rgba(43, 44, 48, 0.60) */
 		font-family: $font-main;
-		color: #fff;
-		backdrop-filter: blur(20px);
-		-webkit-backdrop-filter: blur(20px);
-		will-change: transform, opacity;
+		color: $color-grey-500;
 
-		&__index {
-			position: absolute;
-			top: 0.875rem;
-			right: 1rem;
-			font-size: 0.75rem;
-			line-height: 1;
-			font-weight: 400;
-			color: $color-grey-300;
-			letter-spacing: 0.04em;
-			font-variant-numeric: tabular-nums;
-			pointer-events: none;
-			user-select: none;
+		contain: layout style paint;
+		transform-origin: center bottom;
+		backface-visibility: hidden;
+
+		&__header {
+			display: flex;
+			align-items: flex-start;
+			justify-content: space-between;
+			gap: 0.5rem;
+			font-size: 0.9375rem; /* 15px */
+			line-height: 1.2;
 		}
 
 		&__title {
-			font-size: 15px;
-			line-height: 1.25;
-			font-weight: 400;
+			min-width: 0;
 			color: #fff;
+			font-weight: 400;
 			word-spacing: $word-spacing;
+			backface-visibility: hidden;
+		}
+
+		&__index {
+			flex-shrink: 0;
+			color: #bfbfc0;
+			font-weight: 400;
+			font-variant-numeric: tabular-nums;
+			pointer-events: none;
+			user-select: none;
+			backface-visibility: hidden;
 		}
 
 		&__desc {
-			font-size: 13px;
-			line-height: 1.45;
-			font-weight: 400;
-			color: $color-grey-300;
+			color: $color-grey-500;
 			word-spacing: $word-spacing;
+			backface-visibility: hidden;
+
+			font-size: 0.75rem; /* 12px */
+			font-style: normal;
+			font-weight: 500;
+			line-height: 1.2;
 		}
 
 		@include breakpoint(desktop) {
 			padding: 1rem 1.25rem 1.5rem;
-			padding-right: 3.25rem;
 			gap: 1rem;
 			border: none;
 
-			&__index {
-				top: 1rem;
-				right: 1.25rem;
-				font-size: 0.875rem;
-			}
-
-			&__title {
+			&__header {
 				font-size: 1.125rem;
 			}
 
@@ -81,6 +144,29 @@
 				font-size: 1rem;
 				line-height: 1.3;
 			}
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.forest-card {
+			transform: none !important;
+			will-change: auto !important;
+		}
+
+		.forest-card__index,
+		.forest-card__title {
+			opacity: 1 !important;
+			transform: none !important;
+		}
+
+		.forest-card__desc {
+			opacity: 0.7 !important;
+			transform: none !important;
+		}
+
+		.forest-card::before {
+			opacity: 1 !important;
+			transform: none !important;
 		}
 	}
 </style>

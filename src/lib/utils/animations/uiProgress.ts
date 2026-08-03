@@ -11,8 +11,23 @@ export function smoothstep(value: number): number {
 	return x * x * (3 - 2 * x);
 }
 
+export type ProgressBeat = Readonly<{
+	start: number;
+	end: number;
+}>;
+
+export function getLinearBeatProgress(progressValue: number, beat: ProgressBeat): number {
+	const start = Number.isFinite(beat.start) ? beat.start : 0;
+	const end = Number.isFinite(beat.end) ? Math.max(start, beat.end) : start;
+	return clamp01((progressValue - start) / Math.max(end - start, Number.EPSILON));
+}
+
+export function getBeatProgress(progressValue: number, beat: ProgressBeat): number {
+	return smoothstep(getLinearBeatProgress(progressValue, beat));
+}
+
 export function getPhaseProgress(progressValue: number, start: number, span = 1 - start): number {
-	return smoothstep(clamp01((progressValue - start) / Math.max(span, Number.EPSILON)));
+	return getBeatProgress(progressValue, { start, end: start + span });
 }
 
 type UiProgressWindow = {

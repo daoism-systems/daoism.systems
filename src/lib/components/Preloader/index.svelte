@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { fade } from 'svelte/transition';
 	import { Howler } from 'howler';
 	import { EASINGS } from '$lib/utils/animations/constants/easings';
+	import { headingReveal } from '$lib/utils/animations/headingReveal';
 	import {
 		loadingProgress,
 		loadingFinish,
@@ -15,31 +15,72 @@
 	import LoadingLabel from './LoadingLabel.svelte';
 	import PreloaderCta from './PreloaderCta.svelte';
 
+	const waitingMessages = [
+		'Please stand by',
+		'Creating the scene',
+		'Ensuring the best experience'
+	] as const;
+	const lastWaitingMessageIndex = waitingMessages.length - 1;
+	const waitingMessageHoldDuration = 120;
+	type WaitingMessagePhase = 'revealing' | 'holding' | 'visible' | 'hiding';
+
 	let artSequenceComplete = $state(false);
 	let backgroundTransitionComplete = $state(false);
-	let shouldPlaySequence = $derived(backgroundTransitionComplete && $warmupComplete);
 	let isExiting = $state(false);
-
-	let waitingMessage = $derived.by(() => {
-		if ($loadingProgress < 25) return 'Please stand by';
-		if ($loadingProgress < 75) return 'Creating the scene';
-		return 'Ensuring the best experience';
-	});
+	let waitingMessageIndex = $state(0);
+	let waitingMessagePhase = $state<WaitingMessagePhase>('revealing');
+	let waitingMessageSequenceComplete = $state(false);
+	let waitingMessage = $derived(waitingMessages[waitingMessageIndex]);
+	let unlockedWaitingMessageIndex = $derived(getUnlockedWaitingMessageIndex($loadingProgress));
+	let shouldHideWaitingMessage = $derived(waitingMessagePhase === 'hiding');
+	let isPreloaderReady = $derived(
+		backgroundTransitionComplete && $warmupComplete && $loadingProgress >= 100
+	);
+	let shouldPlaySequence = $derived(isPreloaderReady && waitingMessageSequenceComplete);
 
 	const preloaderMotionEase = EASINGS.EASE_CUSTOM_REVEAL;
 	const preloaderExitEase = EASINGS.EASE_POWER1_INOUT;
+	const waitingMessageRevealOptions = $derived({
+		trigger: true,
+		reversed: shouldHideWaitingMessage,
+		duration: 0.42,
+		stagger: 0.006,
+		reverseSpeedMultiplier: 2,
+		onDone: handleWaitingMessageRevealDone,
+		onReverseDone: handleWaitingMessageOutDone
+	});
 
-	// $effect(() => {
-	// 	if (!shouldPlaySequence) {
-	// 		artSequenceComplete = false;
-	// 	}
-	// });
+	$effect(() => {
+		if (waitingMessagePhase !== 'holding') return;
 
-	// $effect(() => {
-	// 	if ($loadingProgress <= 0.1) {
-	// 		backgroundTransitionComplete = false;
-	// 	}
-	// });
+		const holdTimer = setTimeout(() => {
+			waitingMessagePhase = 'visible';
+		}, waitingMessageHoldDuration);
+
+		return () => clearTimeout(holdTimer);
+	});
+
+	$effect(() => {
+		if (!$showPreloader || waitingMessagePhase !== 'visible') return;
+
+		const hasUnlockedNextMessage = unlockedWaitingMessageIndex > waitingMessageIndex;
+		const canFinishSequence =
+			isPreloaderReady && waitingMessageIndex === lastWaitingMessageIndex;
+
+		if (hasUnlockedNextMessage || canFinishSequence) {
+			waitingMessagePhase = 'hiding';
+		}
+	});
+
+	$effect(() => {
+		if (!$showPreloader || $loadingProgress > 0.1) return;
+
+		artSequenceComplete = false;
+		isExiting = false;
+		waitingMessageIndex = 0;
+		waitingMessagePhase = 'revealing';
+		waitingMessageSequenceComplete = false;
+	});
 
 	onMount(() => {
 		Howler.mute(true);
@@ -51,6 +92,34 @@
 		isExiting = true;
 		$preloaderTransitioning = true;
 		$loadingFinish = true;
+	}
+
+	function handleWaitingMessageRevealDone() {
+		if (waitingMessagePhase !== 'revealing') return;
+		waitingMessagePhase = 'holding';
+	}
+
+	function handleWaitingMessageOutDone() {
+		if (waitingMessagePhase !== 'hiding') return;
+
+		if (waitingMessageIndex < unlockedWaitingMessageIndex) {
+			waitingMessageIndex += 1;
+			waitingMessagePhase = 'revealing';
+			return;
+		}
+
+		if (isPreloaderReady && waitingMessageIndex === lastWaitingMessageIndex) {
+			waitingMessageSequenceComplete = true;
+			return;
+		}
+
+		waitingMessagePhase = 'visible';
+	}
+
+	function getUnlockedWaitingMessageIndex(progress: number) {
+		if (progress < 25) return 0;
+		if (progress < 75) return 1;
+		return lastWaitingMessageIndex;
 	}
 
 	function handleStart(withSound: boolean) {
@@ -69,6 +138,9 @@
 	<div
 		class="preloader-shell fixed inset-0 z-100 overflow-hidden bg-black"
 		class:preloader-shell--exit={isExiting}
+		role="dialog"
+		aria-modal="true"
+		aria-label="Loading Daoism Systems"
 		style:--preloader-btn-ease={preloaderMotionEase}
 		style:--preloader-exit-ease={preloaderExitEase}
 		style:--preloader-with-sound-stagger="0.1s"
@@ -82,8 +154,8 @@
 
 		{#if !shouldPlaySequence}
 			{#key waitingMessage}
-				<p class="preloader-waiting-copy" in:fade={{ duration: 280 }} out:fade={{ duration: 220 }}>
-					{waitingMessage}
+				<p class="preloader-waiting-copy" use:headingReveal={waitingMessageRevealOptions}>
+					<span class="text-line">{waitingMessage}</span>
 				</p>
 			{/key}
 		{/if}
@@ -122,7 +194,7 @@
 	.preloader-shell.preloader-shell--exit {
 		pointer-events: none;
 		will-change: opacity, filter;
-		animation: preloader-shell-fade 0.7s var(--preloader-exit-ease) forwards;
+		animation: preloader-shell-fade 1.15s var(--preloader-exit-ease) forwards;
 	}
 
 	.preloader-shell.preloader-shell--exit :global(.preloader-status) {
@@ -145,12 +217,8 @@
 		color: rgba(168, 174, 188, 0.55);
 		text-shadow: 0 8px 24px rgba(0, 0, 0, 0.42);
 		pointer-events: none;
-		opacity: 0;
-		transform: translate(-50%, calc(-50% + 10px));
-		filter: blur(8px);
-		animation:
-			preloader-waiting-in 0.62s var(--preloader-btn-ease) forwards,
-			preloader-waiting-pulse 2.8s ease-in-out 0.62s infinite;
+		opacity: 1;
+		transform: translate(-50%, -50%);
 	}
 
 	@media (max-width: 1400px) {
@@ -197,7 +265,7 @@
 
 		.preloader-waiting-copy {
 			animation: none;
-			opacity: 0.82;
+			opacity: 1;
 			transform: translate(-50%, -50%);
 		}
 	}
@@ -236,29 +304,6 @@
 		to {
 			opacity: 0;
 			transform: translate3d(0, -10px, 0);
-		}
-	}
-
-	@keyframes preloader-waiting-in {
-		from {
-			opacity: 0;
-			transform: translate(-50%, calc(-50% + 10px));
-			filter: blur(8px);
-		}
-		to {
-			opacity: 0.8;
-			transform: translate(-50%, -50%);
-			filter: blur(0);
-		}
-	}
-
-	@keyframes preloader-waiting-pulse {
-		0%,
-		100% {
-			opacity: 0.45;
-		}
-		50% {
-			opacity: 0.95;
 		}
 	}
 

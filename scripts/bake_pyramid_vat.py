@@ -50,6 +50,18 @@ MESH_OUTPUT = os.path.join(OUTPUT_DIR, "pyramids_merged.glb")
 VAT_OUTPUT = os.path.join(OUTPUT_DIR, "pyramids_vat.bin")
 SOURCE_OUTPUT = os.path.join(OUTPUT_DIR, "pyramids_source.glb")
 PYRAMID_ROOT_CANDIDATES = ("pyramids_1", "Pyramids")
+
+# `--mobile` (after Blender's `--` separator) bakes the mobile variant from the
+# mobile FBX into pyramids_mobile_* — same format, fewer objects. Usage:
+#   blender --background --python scripts/bake_pyramid_vat.py -- --mobile
+#   node scripts/optimize_mobile_scene.mjs static/models/pyramids_mobile_source.glb
+_script_args = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
+if "--mobile" in _script_args:
+    SOURCE_INPUT = os.path.join(PROJECT_DIR, "static/models/DAO_60fps_mobile_07.fbx")
+    GLB_INPUT = SOURCE_INPUT
+    MESH_OUTPUT = os.path.join(OUTPUT_DIR, "pyramids_mobile_merged.glb")
+    VAT_OUTPUT = os.path.join(OUTPUT_DIR, "pyramids_mobile_vat.bin")
+    SOURCE_OUTPUT = os.path.join(OUTPUT_DIR, "pyramids_mobile_source.glb")
 # ───────────────────────────────────────────────────────────────────
 
 
@@ -60,6 +72,11 @@ def clear_scene():
     for block in bpy.data.meshes:
         if block.users == 0:
             bpy.data.meshes.remove(block)
+    # Purge orphaned actions too — a second import otherwise name-collides into
+    # `Action.001` suffixes and doubles bpy.data.actions.
+    for action in list(bpy.data.actions):
+        if action.users == 0:
+            bpy.data.actions.remove(action)
 
 
 def import_glb(filepath):
@@ -314,6 +331,110 @@ def export_merged_glb(merged_obj, output_path):
     print(f"Exported mesh: {output_path} ({size_kb:.1f} KB)")
 
 
+def bake_local_actions(objs, scene, rest_frame, root, frozen_root_world):
+    """Re-bake each object's EVALUATED local transform per frame into fresh
+    native keyframes.
+
+    Blender 5.2's glTF exporter mis-samples FBX-imported (slotted) actions in
+    ACTIONS mode: translation/rotation channels export fine but every SCALE
+    channel comes out all-zero — the runtime mixer then poses the particle
+    sources to scale 0 forever and the cloud never appears. The depsgraph
+    evaluation itself is correct, so capture the evaluated local TRS per frame,
+    write it as plain keyframes, and export those verbatim (force sampling off).
+
+    MUST run while the root's OWN animation is still active: the root gets
+    frozen static afterwards (pivot-safety), but in the mobile FBX it carries
+    real in-window motion (a slow spin + the scale gate) that the VAT bakes
+    into its absolute world transforms. To keep source and VAT frame-locked,
+    the root's true motion is FOLDED into its direct children — their locals
+    are captured as `frozenRootWorld⁻¹ × trueChildWorld(t)`, so under the
+    frozen root the chain recomposes to the exact FBX world at every frame:
+      frozenRoot × [frozenRoot⁻¹·W₁(t)] × [W₁(t)⁻¹·W₂(t)] × … = Wₙ(t).
+    """
+    deps = bpy.context.evaluated_depsgraph_get()
+    frames = list(range(scene.frame_start, scene.frame_end + 1))
+    frozen_root_inv = frozen_root_world.inverted_safe()
+
+    captured = {o.name: [] for o in objs}
+    for fi, f in enumerate(frames):
+        scene.frame_set(f)
+        deps.update()
+        for o in objs:
+            eo = o.evaluated_get(deps)
+            if o.parent is root:
+                # Fold the root's true motion relative to its frozen pose.
+                m = frozen_root_inv @ eo.matrix_world
+            elif o.parent:
+                # inverted_safe: ancestors can sit at exact scale-0 outside their
+                # display window; the fallback yields a ~zero local there, which
+                # poses the mesh at scale 0 — correctly unbindable at that frame.
+                m = o.parent.evaluated_get(deps).matrix_world.inverted_safe() @ eo.matrix_world
+            else:
+                m = eo.matrix_world.copy()
+            loc, rot, sc = m.decompose()
+            prev = captured[o.name][-1] if captured[o.name] else None
+            # Quaternion sign continuity: q and −q are the same rotation, but a
+            # LINEAR curve interpolating across a sign flip sweeps through junk.
+            if prev is not None and prev[1].dot(rot) < 0:
+                rot = -rot
+            captured[o.name].append((loc, rot, sc))
+        if fi % 500 == 0 or fi == len(frames) - 1:
+            print(f"  captured frame {fi + 1}/{len(frames)}")
+
+    # Base TRS the nodes are EXPORTED with (what three.js sees until the mixer
+    # first poses them). Must be the displayed pose at `rest_frame` (the root's
+    # freeze frame), NOT wherever the keyframing loop happened to end: the
+    # runtime builds the rotation pivot from a Box3 of this rest pose BEFORE any
+    # mixer tick, and the frame-2801 end pose (collapsed/flown out) put the
+    # pivot center far off the pyramids — the idle auto-spin orbited the whole
+    # group around that phantom center.
+    rest_index = frames.index(rest_frame) if rest_frame in frames else 0
+
+    # Write fcurves DIRECTLY via the slotted-action API — NOT keyframe_insert.
+    # Each keyframe_insert triggers an animation re-evaluation that overwrites
+    # the object's pending TRS from the partially-built action before the next
+    # property's insert reads it: location survived (inserted first), but
+    # rotation/scale keys silently recorded stale evaluated values — the
+    # display-window scale pops landed at garbled times and the cloud vanished.
+    def write_channel(cb, data, path, ncomp, get):
+        n = len(frames)
+        for idx in range(ncomp):
+            fc = cb.fcurves.new(path, index=idx)
+            fc.keyframe_points.add(n)
+            flat = [0.0] * (2 * n)
+            for i in range(n):
+                flat[2 * i] = frames[i]
+                flat[2 * i + 1] = get(data[i], idx)
+            fc.keyframe_points.foreach_set('co', flat)
+            for k in fc.keyframe_points:
+                k.interpolation = 'LINEAR'
+            fc.update()
+
+    for o in objs:
+        o.animation_data_clear()
+        o.rotation_mode = 'QUATERNION'
+        data = captured[o.name]
+
+        ad = o.animation_data_create()
+        action = bpy.data.actions.new(name=f"{o.name}|baked")
+        slot = action.slots.new(id_type='OBJECT', name=o.name)
+        layer = action.layers.new("baked")
+        strip = layer.strips.new(type='KEYFRAME')
+        cb = strip.channelbags.new(slot)
+        ad.action = action
+        ad.action_slot = slot
+
+        write_channel(cb, data, 'location', 3, lambda d, i: d[0][i])
+        write_channel(cb, data, 'rotation_quaternion', 4, lambda d, i: d[1][i])
+        write_channel(cb, data, 'scale', 3, lambda d, i: d[2][i])
+
+        loc, rot, sc = data[rest_index]
+        o.location = loc
+        o.rotation_quaternion = rot
+        o.scale = sc
+        print(f"  re-baked {len(frames)} keys on '{o.name}' (rest at frame {frames[rest_index]})")
+
+
 def export_pyramid_source_glb(input_path, output_path):
     """Export a pyramid-only animated source GLB from the fallback scene."""
     clear_scene()
@@ -321,6 +442,16 @@ def export_pyramid_source_glb(input_path, output_path):
     import_glb(input_path)
 
     scene = bpy.context.scene
+    # The FBX render range is stale (1..250); extend to the full action range so
+    # the local-TRS re-bake below covers the whole timeline.
+    max_frame = scene.frame_end
+    for action in bpy.data.actions:
+        action_end = int(action.frame_range[1])
+        if action_end > max_frame:
+            max_frame = action_end
+    scene.frame_start = 1
+    scene.frame_end = max_frame
+
     root = find_pyramid_root()
     print(f"Preparing pyramid source export from root: {root.name}")
 
@@ -329,17 +460,63 @@ def export_pyramid_source_glb(input_path, output_path):
     # preserve world position. If the root node is ALSO animated, the runtime
     # AnimationMixer overwrites that adjusted transform every frame, re-applying
     # the root's offset on top of the pivot — shifting every pyramid particle by
-    # the root offset (~18u in Z). The FBX keyframes the root with a constant
-    # value, so drop its animation entirely; only the children must animate.
-    scene.frame_set(scene.frame_start)
-    if root.animation_data:
-        root.animation_data_clear()
-        print(f"  Cleared animation on root '{root.name}' (pivot-safe static root)")
+    # the root offset (~18u in Z). So the root must be frozen static.
+    #
+    # Freeze it at its MAX-SCALE frame, NOT frame_start: in the mobile FBX the
+    # root's scale animation IS the global display gate (0 before the pyramids
+    # appear, 0.01 while shown) — freezing at frame 1 bakes scale 0 and zeroes
+    # the entire chain forever (the cloud never appears). The desktop root is
+    # constant, so the max-scale frame is equivalent to any other there. The
+    # root's real in-window motion is not lost: bake_local_actions folds it
+    # into the root's direct children, so the exported chain reproduces the
+    # exact FBX world transforms under a static root (frame-locked to the VAT).
+    deps = bpy.context.evaluated_depsgraph_get()
+    best_frame = scene.frame_start
+    best_scale = -1.0
+    for f in range(scene.frame_start, scene.frame_end + 1, 7):
+        scene.frame_set(f)
+        deps.update()
+        s = max(root.evaluated_get(deps).matrix_world.to_scale())
+        if s > best_scale:
+            best_scale = s
+            best_frame = f
+    scene.frame_set(best_frame)
+    deps.update()
+    frozen_root_world = root.evaluated_get(deps).matrix_world.copy()
+    print(f"  Root freeze target: frame {best_frame}, scale {best_scale:.4f}")
 
     removed_count = remove_pyramid_base_meshes(root)
     print(f"  Removed {removed_count} base meshes")
 
     subtree = collect_pyramid_subtree(root)
+
+    # Re-bake the evaluated local animation into fresh native keyframes for
+    # every animated node in the subtree except the (static, pivot-safe) root.
+    # This replaces the old `export_force_sampling=True` approach: Blender 5.2's
+    # sampler exports all-zero SCALE channels for FBX-imported slotted actions
+    # (see bake_local_actions), while pre-baked plain keyframes export verbatim.
+    # Per-frame keys also preserve the smooth LINEAR rotation curves the old
+    # force-sampling path existed for. Runs BEFORE the root freeze so the
+    # root's true motion can be folded into its direct children.
+    animated = [o for o in subtree if o is not root and o.animation_data and o.animation_data.action]
+    print(f"  Re-baking local animation on {len(animated)} nodes...")
+    bake_local_actions(animated, scene, best_frame, root, frozen_root_world)
+
+    # NOW freeze the root static at the same pose the fold was computed against.
+    scene.frame_set(best_frame)
+    deps.update()
+    if root.animation_data:
+        root.animation_data_clear()
+        print(f"  Cleared animation on root '{root.name}' (frozen at frame {best_frame})")
+
+    # Export at the display pose: for nodes WITH an action the exporter writes
+    # node TRS from the scene evaluated at the CURRENT frame (the base-TRS
+    # restore above only covers action-less nodes). The runtime builds the
+    # rotation pivot from a Box3 of these rest transforms before any mixer
+    # tick, so they must be the displayed pyramid pose, not the flown-out end
+    # pose the capture loop stopped on.
+    scene.frame_set(best_frame)
+    bpy.context.evaluated_depsgraph_get().update()
 
     bpy.ops.object.select_all(action='DESELECT')
     for obj in subtree:
@@ -352,16 +529,16 @@ def export_pyramid_source_glb(input_path, output_path):
         export_format='GLB',
         export_animations=True,
         export_animation_mode='ACTIONS',
-        # CRITICAL: force per-frame sampling of the EVALUATED animation. Without
-        # this the exporter wrote the FBX's sparse/STEP keyframes verbatim and 59
-        # of 68 rotation tracks came out as 2-key STEP — so particle objects held
-        # their REST rotation for the whole morph and snapped only at the end,
-        # while the VAT solid (baked from frame_set) rotated smoothly. The cloud
-        # looked un-rotated / desynced from the solid. force_sampling + optimize
-        # off makes every rotation track a smooth per-frame LINEAR curve that
-        # matches the VAT.
-        export_force_sampling=True,
+        # Keys are pre-baked per frame above — export them verbatim. Sampling
+        # (the old path) is what corrupted the scale channels under Blender 5.2.
+        export_force_sampling=False,
         export_optimize_animation_size=False,
+        # Node rest TRS = the scene's current frame (parked on the root-freeze /
+        # display frame above). Without this the exporter's own ACTIONS
+        # processing leaves nodes at an arbitrary frame — the flown-out end pose
+        # — and the runtime builds the rotation pivot from a Box3 of that
+        # garbage rest, orbiting the pyramids around a phantom center on idle.
+        export_current_frame=True,
         export_normals=True,
         export_materials='NONE',
         export_extras=True,

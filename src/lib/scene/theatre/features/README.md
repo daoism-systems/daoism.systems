@@ -21,6 +21,7 @@ no merging, no overlay; refresh to switch.
 
 - All animated tracks (PostProcessing, FluidSimulation, Lighting, GroundFog, particles, etc.) exist in **both** files. After tuning desktop, copy the same keyframe edits over to `mobile.json` if they should apply on mobile too — there is no automatic propagation.
 - The `Scroll` object holds Lenis lerp/multiplier values + virtual scroll height for that platform only. Each file's `Scroll.staticOverrides` carries its own values.
+- The `Annotations` object holds the forest-scene hide timings (`firstHideAt`, `endTrimDesktop`, `endTrimMobile`) as **static** props, in local scene progress. Annotations are desktop-only, so this object exists in `desktop.json` only — `endTrimMobile` is for a narrow _viewport_ on a desktop client. Like `Scene Boundaries` it is exempt from the static-override stripping filter, so edits persist across reload.
 
 ## Theatre objects
 
