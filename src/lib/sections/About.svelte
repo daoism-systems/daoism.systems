@@ -65,11 +65,11 @@
 
   <div class="about__desc section-reveal-paragraph">
     <p use:textReveal={primaryCopyRevealOptions}>
-        Coordination is the hardest problem on the internet. We design and build the systems that solve it for network economies.
+        The internet was meant to be decentralized. And it should stay this way.
     </p>
 
     <p use:textReveal={secondaryCopyRevealOptions}>
-        DeFi, DAOs, open-source AI tooling and protocols — engineered end to end.
+        That's why we shape governance and financial systems that empower network economies and protect users' agency.
     </p>
   </div>
 

@@ -106,7 +106,7 @@
 	<div class="collaboration__footer">
 		<div class="collaboration__subtitle" use:textReveal={subtitleRevealOptions}>
 			<span class="text-line">
-				We work through <span class="highlight">interdependence</span> — your goals become our requirements.
+				We build novel ventures and support established teams who share our goals. Reach out for <span class="highlight">collaboration</span>.
 			</span>
 		</div>
 		{@render cta()}
