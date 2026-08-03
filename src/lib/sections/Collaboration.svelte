@@ -145,40 +145,6 @@
 
 		@include breakpoint(not-desktop) {
 			padding: 4.5rem 0 0;
-
-			// Readability scrim behind the bottom text block (mobile only): the 3D
-			// model fades into a solid light panel so the grey copy stays legible.
-			&::before {
-				content: '';
-				position: absolute;
-				top: 70vh;
-				// Use stable viewport height when available so browser chrome changes do not move the scrim.
-				@supports (height: 100svh) {
-					top: 70svh;
-				}
-				// Real iOS Safari needs a higher scrim start than desktop/mobile emulation.
-				@supports (-webkit-touch-callout: none) {
-					@media (hover: none) and (pointer: coarse) {
-						top: 52svh;
-					}
-				}
-				// Full-bleed: span the viewport width and reach its bottom edge,
-				// escaping the section's 10px side / 5rem bottom padding.
-				left: 50%;
-				width: 100vw;
-				transform: translateX(-50%);
-				bottom: -$offset-y-phone;
-				z-index: 0;
-				pointer-events: none;
-				// Fade with the section's reveal so it never bleeds a white panel
-				// over the next section during the cross-fade.
-				opacity: var(--collab-scrim-opacity, 1);
-				background: linear-gradient(180deg, rgba(238, 237, 236, 0) 0%, #eeedec 19.166%);
-				// Own compositor layer: the opacity is scrubbed every frame during the
-				// section hand-off, and without it this near-viewport-sized gradient
-				// repaints on each of those frames.
-				will-change: opacity;
-			}
 		}
 
 		@include breakpoint(phone) {
@@ -333,6 +299,37 @@
 
 				margin: 0;
 				margin-top: auto;
+
+				// Readability scrim (mobile only): the 3D model fades into a solid
+				// light panel so the grey copy stays legible. It hangs off this text
+				// block rather than a viewport percentage — browser chrome, device
+				// height and svh quirks used to move a `top: 70vh` scrim below the
+				// copy on real devices, leaving the text on the model.
+				&::before {
+					content: '';
+					position: absolute;
+					// Full-bleed: span the viewport width, escaping the section's
+					// 10px side padding.
+					left: 50%;
+					width: 100vw;
+					transform: translateX(-50%);
+					// The fade ramps in above the copy and is solid 1rem before the
+					// first line; the bottom overshoots past the CTA and the section's
+					// 5rem bottom padding — .section's overflow:hidden clips it at the
+					// viewport edge, so there is no per-device bottom math.
+					top: -7rem;
+					bottom: -100vh;
+					z-index: -1;
+					pointer-events: none;
+					// Fade with the section's reveal so it never bleeds a white panel
+					// over the next section during the cross-fade.
+					opacity: var(--collab-scrim-opacity, 1);
+					background: linear-gradient(180deg, rgba(238, 237, 236, 0) 0, #eeedec 6rem);
+					// Own compositor layer: the opacity is scrubbed every frame during the
+					// section hand-off, and without it this near-viewport-sized gradient
+					// repaints on each of those frames.
+					will-change: opacity;
+				}
 
 				.highlight {
 					color: $color-grey-100;

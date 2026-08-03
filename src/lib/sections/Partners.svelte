@@ -170,6 +170,18 @@
         <a href="https://paragraph.com/@0013700/daoism-systems-manifesto" target="_blank" rel="noopener noreferrer">- Daoism Systems Manifesto</a>
       </p>
     {/if}
+
+    <!-- Phone gets the plain tagline instead: the manifesto quote and its
+         attribution link are hidden below 767px, and this states the same idea
+         in one line that fits the narrow measure. -->
+    <p
+      class="partners__tagline section-reveal-paragraph"
+      style:transform={`translate3d(0, ${paragraphOffsetY}px, 0)`}
+      use:textReveal={paragraphRevealOptions}
+    >
+      We empower emerging organizations with decentralized infrastructure for a borderless, permissionless society
+    </p>
+
     <div
       class="partners__divider"
       style:opacity={lineUiProgress}
@@ -270,6 +282,16 @@
           max-width: 36ch;
           font-size: var(--text-2xl);
           line-height: var(--tw-leading, var(--text-2xl--line-height));
+        }
+      }
+
+      // Opts back out of the phone-wide `p { display: none }` above — the
+      // tagline is the one paragraph that exists only on phone.
+      .partners__tagline {
+        display: none;
+
+        @include breakpoint(phone) {
+          display: block;
         }
       }
     }
