@@ -118,7 +118,7 @@
       style:transform={`translate3d(0, ${paragraphOffsetY}px, 0)`}
       use:textReveal={paragraphRevealOptions}
     >
-        Teams shaping decentralized web
+        We empower emerging organizations with decentralized infrastructure for a borderless, permissionless society
     </p>
     <div
       class="partners__divider"
