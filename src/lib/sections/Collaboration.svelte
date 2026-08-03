@@ -94,6 +94,11 @@
 <style lang="scss">
 	@use '$lib/styles/variables' as *;
 
+	// Phone CTA metrics. The button is out of flow at the section's bottom edge,
+	// so the subtitle has to reserve its band by hand: 3.2rem button (2 × 1rem
+	// padding + one 19px label line) + the offset below + ~1rem of breathing room.
+	$collab-cta-offset: 20px;
+	$collab-cta-band: 5.5rem;
 
 	.collaboration {
 		position: relative;
@@ -107,36 +112,6 @@
 
 		@include breakpoint(not-desktop) {
 			padding: 4.5rem 0 0;
-
-			// Readability scrim behind the bottom text block (mobile only): the 3D
-			// model fades into a solid light panel so the grey copy stays legible.
-			&::before {
-				content: '';
-				position: absolute;
-				top: 70vh;
-				// Use stable viewport height when available so browser chrome changes do not move the scrim.
-				@supports (height: 100svh) {
-					top: 70svh;
-				}
-				// Real iOS Safari needs a higher scrim start than desktop/mobile emulation.
-				@supports (-webkit-touch-callout: none) {
-					@media (hover: none) and (pointer: coarse) {
-						top: 52svh;
-					}
-				}
-				// Full-bleed: span the viewport width and reach its bottom edge,
-				// escaping the section's 10px side / 5rem bottom padding.
-				left: 50%;
-				width: 100vw;
-				transform: translateX(-50%);
-				bottom: -$offset-y-phone;
-				z-index: 0;
-				pointer-events: none;
-				// Fade with the section's reveal so it never bleeds a white panel
-				// over the next section during the cross-fade.
-				opacity: var(--collab-scrim-opacity, 1);
-				background: linear-gradient(180deg, rgba(238, 237, 236, 0) 0%, #eeedec 19.166%);
-			}
 		}
 
 		@include breakpoint(phone) {
@@ -155,10 +130,12 @@
 
 			@include breakpoint(phone) {
 				position: absolute;
-				bottom: 20px;
+				bottom: $collab-cta-offset;
 				left: 0;
 				width: 100%;
-				z-index: 1; // keep the CTA above the readability scrim
+				// Above the subtitle (z-index 1) so the scrim it carries, which
+				// reaches down past the CTA, cannot wash the button out.
+				z-index: 2;
 			}
 		}
 
@@ -264,10 +241,44 @@
 				margin: 0;
 				margin-top: auto;
 
+				// Readability scrim (mobile only): the 3D model fades into a solid
+				// light panel so the grey copy stays legible. It hangs off this text
+				// block rather than a viewport percentage — browser chrome, device
+				// height and svh quirks used to move a `top: 70vh` scrim below the
+				// copy on real devices, leaving the text on the model.
+				&::before {
+					content: '';
+					position: absolute;
+					// Full-bleed: span the viewport width, escaping the section's
+					// 10px side padding.
+					left: 50%;
+					width: 100vw;
+					transform: translateX(-50%);
+					// The fade ramps in above the copy and is solid 1rem before the
+					// first line; the bottom overshoots past the CTA and the section's
+					// 5rem bottom padding — .section's overflow:hidden clips it at the
+					// viewport edge, so there is no per-device bottom math.
+					top: -7rem;
+					bottom: -100vh;
+					z-index: -1;
+					pointer-events: none;
+					// Fade with the section's reveal so it never bleeds a white panel
+					// over the next section during the cross-fade.
+					opacity: var(--collab-scrim-opacity, 1);
+					background: linear-gradient(180deg, rgba(238, 237, 236, 0) 0, #eeedec 6rem);
+				}
+
 				.highlight {
 					color: $color-grey-100;
 					text-shadow: none;
 				}
+			}
+
+			// The phone CTA is absolutely positioned at the section's bottom edge,
+			// which is exactly where `margin-top: auto` parks this copy — reserve the
+			// button's band so the two stop stacking on top of each other.
+			@include breakpoint(phone) {
+				margin-bottom: $collab-cta-band;
 			}
 		}
 	}
