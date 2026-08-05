@@ -8,6 +8,11 @@ export const BASE_SLIDE_COUNT = 7;
 
 export const SLIDES: SlideData[] = [
 	{
+		title: 'DAOs at the Edge of Capitalism',
+		imageSrc: '/textures/slider/Ktx2/08.ktx2',
+		href: 'https://paragraph.com/@0013700/daos-at-the-edge-of-capitalism'
+	},
+	{
 		title: 'Daoism Systems Manifesto',
 		imageSrc: '/textures/slider/Ktx2/01.ktx2',
 		href: 'https://paragraph.com/@0013700/daoism-systems-manifesto'
